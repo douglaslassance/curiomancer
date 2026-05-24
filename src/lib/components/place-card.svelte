@@ -1,0 +1,32 @@
+<script lang="ts">
+	import * as Card from '$lib/components/ui/card';
+	import { Badge } from '$lib/components/ui/badge';
+	import { MapPin } from '@lucide/svelte';
+	import LikeButton from './like-button.svelte';
+	import type { Place } from '$lib/server/db/schema';
+
+	let { place }: { place: Place } = $props();
+</script>
+
+<Card.Root class="hover:border-foreground/30 transition-colors">
+	<Card.Header>
+		<div class="flex items-start justify-between gap-3">
+			<div>
+				<Card.Title>
+					<a href={`/places/${place.id}`} class="hover:underline">{place.name}</a>
+				</Card.Title>
+				<Card.Description class="mt-1 flex items-center gap-1 text-xs">
+					<MapPin class="size-3" />
+					{place.neighborhood ? `${place.neighborhood}, ` : ''}{place.city}
+				</Card.Description>
+			</div>
+			<Badge variant="secondary" class="capitalize">{place.category}</Badge>
+		</div>
+	</Card.Header>
+	<Card.Content>
+		<p class="text-muted-foreground text-sm">{place.description}</p>
+	</Card.Content>
+	<Card.Footer>
+		<LikeButton placeId={place.id} />
+	</Card.Footer>
+</Card.Root>
