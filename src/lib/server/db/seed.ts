@@ -1,4 +1,21 @@
+/**
+ * Demo seed: populates the local database with fictional users ("personas")
+ * who have liked real-world places sourced from Apple Maps. Used to
+ * demonstrate and stress-test the taste-matching algorithm without
+ * waiting for organic user signal.
+ *
+ * Never runs in production. The places themselves are real Apple Maps
+ * POIs; the personas and their like patterns are entirely fabricated.
+ *
+ * Run with: pnpm db:seed:demo
+ *
+ * Apple Maps lookups are cached in seed-cache.json (committed to git) so
+ * re-runs are deterministic and don't hit the network.
+ */
 import 'dotenv/config';
+import { readFile, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import {
@@ -11,6 +28,7 @@ import {
 	type NewUserLocation
 } from './schema.js';
 import { user } from './auth.schema.js';
+import { mapAppleCategory, searchAppleMaps, type AppleSearchResult } from '../maps-search.js';
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('DATABASE_URL is not set');
@@ -18,223 +36,229 @@ if (!url) throw new Error('DATABASE_URL is not set');
 const sql = postgres(url, { max: 1 });
 const db = drizzle(sql);
 
-// ─── Places ────────────────────────────────────────────────────────────────
+const CACHE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), 'seed-cache.json');
 
-const PLACES: NewPlace[] = [
-	// Los Angeles
+// ─── Places we want personas to know about ────────────────────────────────
+//
+// Each entry is a search hint we'll pass to Apple Maps. The result gets
+// cached so re-runs are offline.
+
+type PlaceHint = {
+	query: string;
+	city: 'Los Angeles' | 'Tokyo';
+	/** Override category if Apple's mapping disagrees with us. */
+	category?: 'restaurant' | 'bar' | 'shop';
+	neighborhood?: string;
+	description?: string;
+};
+
+const PLACE_HINTS: PlaceHint[] = [
+	// LA
 	{
-		name: 'Bestia',
-		category: 'restaurant',
+		query: 'Bestia Los Angeles',
 		city: 'Los Angeles',
 		neighborhood: 'Arts District',
-		description: 'Italian small plates with a wood-fired heart and a packed dining room.'
+		category: 'restaurant'
 	},
 	{
-		name: 'Apparatus Coffee',
-		category: 'shop',
-		city: 'Los Angeles',
-		neighborhood: 'Silver Lake',
-		description: 'Pour-overs and pastries in a quiet, tile-lined room.'
-	},
-	{
-		name: 'The Varnish',
-		category: 'bar',
-		city: 'Los Angeles',
-		neighborhood: 'Downtown',
-		description: "Hidden cocktail bar behind Cole's, classics done with care."
-	},
-	{
-		name: 'Sqirl',
-		category: 'restaurant',
+		query: 'Sqirl Los Angeles',
 		city: 'Los Angeles',
 		neighborhood: 'Virgil Village',
-		description: 'Jam toast, rice bowls, brunch lines worth the wait.'
+		category: 'restaurant'
 	},
 	{
-		name: 'Heritage Fine Wines',
-		category: 'shop',
-		city: 'Los Angeles',
-		neighborhood: 'Beverly Hills',
-		description: "Wine shop for natural and old-world bottles you can't find elsewhere."
-	},
-	{
-		name: 'Gjusta',
-		category: 'restaurant',
+		query: 'Gjusta Venice CA',
 		city: 'Los Angeles',
 		neighborhood: 'Venice',
-		description: 'All-day deli + bakery; pastrami, sourdough, smoked fish.'
+		category: 'restaurant'
 	},
 	{
-		name: 'Stories Books & Cafe',
-		category: 'shop',
-		city: 'Los Angeles',
-		neighborhood: 'Echo Park',
-		description: 'Used books + an excellent vegan-leaning cafe in the back.'
-	},
-	{
-		name: 'Found Oyster',
-		category: 'restaurant',
+		query: 'Found Oyster Los Angeles',
 		city: 'Los Angeles',
 		neighborhood: 'East Hollywood',
-		description: 'Tight room, raw bar, lobster rolls, list of muscadets.'
+		category: 'restaurant'
 	},
 	{
-		name: 'Bar Bandini',
-		category: 'bar',
-		city: 'Los Angeles',
-		neighborhood: 'Echo Park',
-		description: 'Natural wine bar in a converted bungalow with a back patio.'
-	},
-	{
-		name: 'Mohawk General Store',
-		category: 'shop',
-		city: 'Los Angeles',
-		neighborhood: 'Silver Lake',
-		description: 'Curated menswear/womenswear from Japanese and European labels.'
-	},
-	{
-		name: 'Tartine',
-		category: 'shop',
-		city: 'Los Angeles',
-		neighborhood: 'Downtown',
-		description: 'Bread, pastries, and a long counter people are happy to wait at.'
-	},
-	{
-		name: 'Tabula Rasa Bar',
-		category: 'bar',
-		city: 'Los Angeles',
-		neighborhood: 'Thai Town',
-		description: 'Natural wine list, candles, no menu pretension.'
-	},
-	{
-		name: 'Cobi',
-		category: 'restaurant',
+		query: 'Cobi Los Angeles',
 		city: 'Los Angeles',
 		neighborhood: 'Sawtelle',
-		description: 'Modern South Pacific tasting menu with a counter view of the kitchen.'
+		category: 'restaurant'
 	},
 	{
-		name: 'Skylight Books',
-		category: 'shop',
+		query: 'The Varnish Los Angeles',
 		city: 'Los Angeles',
-		neighborhood: 'Los Feliz',
-		description: 'Independent bookstore with a deep fiction and arts section.'
+		neighborhood: 'Downtown',
+		category: 'bar'
 	},
 	{
-		name: 'Thunderbolt',
-		category: 'bar',
+		query: 'Bar Bandini Echo Park',
+		city: 'Los Angeles',
+		neighborhood: 'Echo Park',
+		category: 'bar'
+	},
+	{
+		query: 'Tabula Rasa Bar Los Angeles',
+		city: 'Los Angeles',
+		neighborhood: 'Thai Town',
+		category: 'bar'
+	},
+	{
+		query: 'Thunderbolt Los Angeles',
 		city: 'Los Angeles',
 		neighborhood: 'Historic Filipinotown',
-		description: 'Frozen martinis and burgers in a moody room.'
+		category: 'bar'
+	},
+	{
+		query: 'Stories Books and Cafe Echo Park',
+		city: 'Los Angeles',
+		neighborhood: 'Echo Park',
+		category: 'shop'
+	},
+	{
+		query: 'Mohawk General Store Silver Lake',
+		city: 'Los Angeles',
+		neighborhood: 'Silver Lake',
+		category: 'shop'
+	},
+	{
+		query: 'Skylight Books Los Angeles',
+		city: 'Los Angeles',
+		neighborhood: 'Los Feliz',
+		category: 'shop'
+	},
+	{
+		query: 'Tartine bakery Downtown Los Angeles',
+		city: 'Los Angeles',
+		neighborhood: 'Downtown',
+		category: 'shop'
 	},
 
 	// Tokyo
+	{ query: 'Fuglen Tokyo Shibuya', city: 'Tokyo', neighborhood: 'Shibuya', category: 'shop' },
+	{ query: 'Bar Trench Ebisu Tokyo', city: 'Tokyo', neighborhood: 'Ebisu', category: 'bar' },
 	{
-		name: 'Fuglen Tokyo',
-		category: 'shop',
-		city: 'Tokyo',
-		neighborhood: 'Shibuya',
-		description: 'Norwegian-Japanese coffee shop by day, cocktail bar by night.'
-	},
-	{
-		name: 'Bar Trench',
-		category: 'bar',
-		city: 'Tokyo',
-		neighborhood: 'Ebisu',
-		description: 'Tiny absinthe-leaning bar with a thoughtful classic cocktail list.'
-	},
-	{
-		name: 'Tsuta',
-		category: 'restaurant',
+		query: 'Tsuta ramen Tokyo',
 		city: 'Tokyo',
 		neighborhood: 'Yoyogi-Uehara',
-		description: 'Truffle-shoyu ramen from the first ramen shop ever to get a Michelin star.'
+		category: 'restaurant'
 	},
 	{
-		name: 'Sushi Saito',
-		category: 'restaurant',
+		query: 'Sushi Saito Roppongi Tokyo',
 		city: 'Tokyo',
 		neighborhood: 'Roppongi',
-		description: 'Counter-only sushi widely regarded as the best in the city.'
+		category: 'restaurant'
 	},
 	{
-		name: 'Cow Books',
-		category: 'shop',
+		query: 'Cow Books Nakameguro Tokyo',
 		city: 'Tokyo',
 		neighborhood: 'Nakameguro',
-		description: 'Curated used bookstore on the Meguro river, heavy on art and counterculture.'
+		category: 'shop'
 	},
 	{
-		name: 'Beard',
-		category: 'restaurant',
+		query: 'Beard restaurant Meguro Tokyo',
 		city: 'Tokyo',
 		neighborhood: 'Meguro',
-		description: 'Ten-seat counter doing seasonal French with a Japanese hand.'
+		category: 'restaurant'
 	},
 	{
-		name: 'Gen Yamamoto',
-		category: 'bar',
+		query: 'Gen Yamamoto Azabu-Juban',
 		city: 'Tokyo',
 		neighborhood: 'Azabu-Juban',
-		description: 'Tasting-flight cocktails built around seasonal Japanese produce.'
+		category: 'bar'
 	},
 	{
-		name: 'Tomboy',
-		category: 'shop',
-		city: 'Tokyo',
-		neighborhood: 'Sangenjaya',
-		description: 'Carefully edited menswear with French and Italian deadstock.'
-	},
-	{
-		name: 'Coutume Aoyama',
-		category: 'shop',
+		query: 'Coutume Aoyama 5-50-7 Minato Tokyo',
 		city: 'Tokyo',
 		neighborhood: 'Aoyama',
-		description: 'Paris-born specialty coffee with a tight pastry case.'
+		category: 'shop'
 	},
 	{
-		name: 'Den',
-		category: 'restaurant',
+		query: 'Den restaurant Jingumae Shibuya Tokyo',
 		city: 'Tokyo',
 		neighborhood: 'Jingumae',
-		description: 'Playful, intensely seasonal kaiseki run by chef Zaiyu Hasegawa.'
+		category: 'restaurant'
 	},
 	{
-		name: 'Bear Pond Espresso',
-		category: 'shop',
+		query: 'Bear Pond Espresso Shimokitazawa',
 		city: 'Tokyo',
 		neighborhood: 'Shimokitazawa',
-		description: 'The shop that taught Tokyo to take espresso seriously.'
+		category: 'shop'
 	},
-	{
-		name: 'SG Club',
-		category: 'bar',
-		city: 'Tokyo',
-		neighborhood: 'Shibuya',
-		description: 'Three-floor bar from Shingo Gokan; ground floor is the most fun.'
-	},
-	{
-		name: 'Daikanyama T-Site',
-		category: 'shop',
-		city: 'Tokyo',
-		neighborhood: 'Daikanyama',
-		description: 'Tsutaya flagship — books, magazines, and a coffee bar that lingers all day.'
-	},
-	{
-		name: 'Narisawa',
-		category: 'restaurant',
-		city: 'Tokyo',
-		neighborhood: 'Aoyama',
-		description: 'Innovative satoyama cuisine; one of the most reviewed restaurants in the world.'
-	},
-	{
-		name: 'Track',
-		category: 'shop',
-		city: 'Tokyo',
-		neighborhood: 'Aoyama',
-		description: 'Specialty coffee in a minimal raw-concrete room run by a former barista champ.'
-	}
+	{ query: 'SG Club Shibuya Tokyo', city: 'Tokyo', neighborhood: 'Shibuya', category: 'bar' },
+	{ query: 'Daikanyama T-Site', city: 'Tokyo', neighborhood: 'Daikanyama', category: 'shop' }
 ];
+
+// ─── Cache plumbing ───────────────────────────────────────────────────────
+
+type CachedPlace = {
+	muid: string;
+	name: string;
+	city: string;
+	category: 'restaurant' | 'bar' | 'shop';
+	latitude: number;
+	longitude: number;
+	formattedAddress: string;
+};
+
+type Cache = Record<string, CachedPlace>;
+
+async function readCache(): Promise<Cache> {
+	try {
+		const raw = await readFile(CACHE_PATH, 'utf8');
+		return JSON.parse(raw) as Cache;
+	} catch {
+		return {};
+	}
+}
+
+async function writeCache(cache: Cache) {
+	await writeFile(CACHE_PATH, JSON.stringify(cache, null, '\t') + '\n');
+}
+
+function cacheKey(hint: PlaceHint): string {
+	return `${hint.query}|${hint.city}`;
+}
+
+function resultToCached(
+	r: AppleSearchResult,
+	city: string,
+	categoryOverride?: 'restaurant' | 'bar' | 'shop'
+): CachedPlace | null {
+	const category = categoryOverride ?? mapAppleCategory(r.poiCategory);
+	if (!category) return null;
+	return {
+		muid: r.muid,
+		name: r.name,
+		city,
+		category,
+		latitude: r.latitude,
+		longitude: r.longitude,
+		formattedAddress: r.formattedAddress
+	};
+}
+
+async function resolvePlace(hint: PlaceHint, cache: Cache): Promise<CachedPlace | null> {
+	const key = cacheKey(hint);
+	if (cache[key]) return cache[key];
+
+	console.log(`  → searching Apple Maps for "${hint.query}"…`);
+	const center =
+		hint.city === 'Tokyo'
+			? { latitude: 35.6762, longitude: 139.6503 }
+			: { latitude: 34.0522, longitude: -118.2437 };
+	const results = await searchAppleMaps(hint.query, { center });
+	if (results.length === 0) {
+		console.warn(`  ⚠ No Apple Maps result for "${hint.query}"`);
+		return null;
+	}
+	const cached = resultToCached(results[0], hint.city, hint.category);
+	if (!cached) {
+		console.warn(`  ⚠ Could not classify "${hint.query}" (poiCategory=${results[0].poiCategory})`);
+		return null;
+	}
+	cache[key] = cached;
+	return cached;
+}
 
 // ─── Events ────────────────────────────────────────────────────────────────
 
@@ -243,7 +267,6 @@ const day = 24 * 60 * 60 * 1000;
 const at = (d: number, h: number) => new Date(now + d * day + h * 60 * 60 * 1000);
 
 const EVENTS: NewEvent[] = [
-	// Los Angeles
 	{
 		name: 'Smorgasburg LA',
 		category: 'food',
@@ -295,8 +318,6 @@ const EVENTS: NewEvent[] = [
 		description: 'Hill seats, $6 Dodger dogs, the only sports rivalry that matters in California.',
 		startsAt: at(9, 19)
 	},
-
-	// Tokyo
 	{
 		name: 'teamLab Planets — final week',
 		category: 'art',
@@ -352,12 +373,11 @@ const EVENTS: NewEvent[] = [
 	}
 ];
 
-// ─── Synthetic users with locations and like patterns ─────────────────────
+// ─── Personas ─────────────────────────────────────────────────────────────
 //
-// These are demo personas: they exist in the `user` table so they can be
-// matched against, but have no auth rows — they can't sign in. Names are
-// fictional. Their like patterns are designed to give a real user some
-// non-trivial matches on day 1.
+// Each persona's `likes` is a list of `PlaceHint.query` strings — the
+// matching query, not the place name. This keeps everything indirectable
+// through the cache.
 
 type Persona = {
 	name: string;
@@ -366,7 +386,6 @@ type Persona = {
 	latitude: number;
 	longitude: number;
 	timezone: string;
-	/** Names of the places (across both cities) this persona has liked. */
 	likes: string[];
 };
 
@@ -386,7 +405,12 @@ const PERSONAS: Persona[] = [
 		latitude: TY.lat,
 		longitude: TY.lng,
 		timezone: TY.tz,
-		likes: ['Fuglen Tokyo', 'Bar Trench', 'Cow Books', 'Coutume Aoyama', 'Track']
+		likes: [
+			'Fuglen Tokyo Shibuya',
+			'Bar Trench Ebisu Tokyo',
+			'Cow Books Nakameguro Tokyo',
+			'Coutume Aoyama 5-50-7 Minato Tokyo'
+		]
 	},
 	{
 		name: 'Sam Okafor',
@@ -395,7 +419,14 @@ const PERSONAS: Persona[] = [
 		latitude: TY.lat,
 		longitude: TY.lng,
 		timezone: TY.tz,
-		likes: ['Tsuta', 'Sushi Saito', 'Beard', 'Den', 'Bar Trench', 'SG Club']
+		likes: [
+			'Tsuta ramen Tokyo',
+			'Sushi Saito Roppongi Tokyo',
+			'Beard restaurant Meguro Tokyo',
+			'Den restaurant Jingumae Shibuya Tokyo',
+			'Bar Trench Ebisu Tokyo',
+			'SG Club Shibuya Tokyo'
+		]
 	},
 	{
 		name: 'Léo Bernard',
@@ -404,7 +435,12 @@ const PERSONAS: Persona[] = [
 		latitude: TY.lat,
 		longitude: TY.lng,
 		timezone: TY.tz,
-		likes: ['Fuglen Tokyo', 'Coutume Aoyama', 'Tomboy', 'Daikanyama T-Site', 'Bestia']
+		likes: [
+			'Fuglen Tokyo Shibuya',
+			'Coutume Aoyama 5-50-7 Minato Tokyo',
+			'Daikanyama T-Site',
+			'Bestia Los Angeles'
+		]
 	},
 	{
 		name: 'Yuki Nakamura',
@@ -413,7 +449,13 @@ const PERSONAS: Persona[] = [
 		latitude: TY.lat,
 		longitude: TY.lng,
 		timezone: TY.tz,
-		likes: ['Narisawa', 'Den', 'Gen Yamamoto', 'Beard', 'Bestia', 'Sqirl']
+		likes: [
+			'Den restaurant Jingumae Shibuya Tokyo',
+			'Gen Yamamoto Azabu-Juban',
+			'Beard restaurant Meguro Tokyo',
+			'Bestia Los Angeles',
+			'Sqirl Los Angeles'
+		]
 	},
 	{
 		name: 'Hana Wright',
@@ -422,7 +464,11 @@ const PERSONAS: Persona[] = [
 		latitude: TY.lat,
 		longitude: TY.lng,
 		timezone: TY.tz,
-		likes: ['Bear Pond Espresso', 'Bar Trench', 'Cow Books', 'Apparatus Coffee']
+		likes: [
+			'Bear Pond Espresso Shimokitazawa',
+			'Bar Trench Ebisu Tokyo',
+			'Cow Books Nakameguro Tokyo'
+		]
 	},
 	{
 		name: 'Aiden Park',
@@ -431,7 +477,13 @@ const PERSONAS: Persona[] = [
 		latitude: LA.lat,
 		longitude: LA.lng,
 		timezone: LA.tz,
-		likes: ['Bestia', 'Gjusta', 'Bar Bandini', 'Mohawk General Store', 'Cow Books']
+		likes: [
+			'Bestia Los Angeles',
+			'Gjusta Venice CA',
+			'Bar Bandini Echo Park',
+			'Mohawk General Store Silver Lake',
+			'Cow Books Nakameguro Tokyo'
+		]
 	},
 	{
 		name: 'Camille Rivera',
@@ -441,12 +493,12 @@ const PERSONAS: Persona[] = [
 		longitude: LA.lng,
 		timezone: LA.tz,
 		likes: [
-			'Sqirl',
-			'Tartine',
-			'Stories Books & Cafe',
-			'Skylight Books',
+			'Sqirl Los Angeles',
+			'Tartine bakery Downtown Los Angeles',
+			'Stories Books and Cafe Echo Park',
+			'Skylight Books Los Angeles',
 			'Daikanyama T-Site',
-			'Bear Pond Espresso'
+			'Bear Pond Espresso Shimokitazawa'
 		]
 	},
 	{
@@ -456,7 +508,14 @@ const PERSONAS: Persona[] = [
 		latitude: LA.lat,
 		longitude: LA.lng,
 		timezone: LA.tz,
-		likes: ['Thunderbolt', 'Bar Bandini', 'The Varnish', 'Tabula Rasa Bar', 'SG Club', 'Bar Trench']
+		likes: [
+			'Thunderbolt Los Angeles',
+			'Bar Bandini Echo Park',
+			'The Varnish Los Angeles',
+			'Tabula Rasa Bar Los Angeles',
+			'SG Club Shibuya Tokyo',
+			'Bar Trench Ebisu Tokyo'
+		]
 	},
 	{
 		name: 'Priya Shah',
@@ -465,7 +524,7 @@ const PERSONAS: Persona[] = [
 		latitude: LA.lat,
 		longitude: LA.lng,
 		timezone: LA.tz,
-		likes: ['Found Oyster', 'Cobi', 'Apparatus Coffee', 'Heritage Fine Wines', 'Coutume Aoyama']
+		likes: ['Found Oyster Los Angeles', 'Cobi Los Angeles', 'Coutume Aoyama 5-50-7 Minato Tokyo']
 	},
 	{
 		name: 'Theo Lambert',
@@ -474,11 +533,21 @@ const PERSONAS: Persona[] = [
 		latitude: LA.lat,
 		longitude: LA.lng,
 		timezone: LA.tz,
-		likes: ['Mohawk General Store', 'Tomboy', 'Track', 'Apparatus Coffee', 'Bear Pond Espresso']
+		likes: ['Mohawk General Store Silver Lake', 'Bear Pond Espresso Shimokitazawa']
 	}
 ];
 
 // ─── Run ───────────────────────────────────────────────────────────────────
+
+console.log('Resolving places via Apple Maps (with cache)…');
+const cache = await readCache();
+const hintByQuery = new Map(PLACE_HINTS.map((h) => [h.query, h]));
+const resolved = new Map<string, CachedPlace>();
+for (const hint of PLACE_HINTS) {
+	const r = await resolvePlace(hint, cache);
+	if (r) resolved.set(hint.query, r);
+}
+await writeCache(cache);
 
 console.log('Clearing dependent rows…');
 await db.delete(like);
@@ -487,9 +556,27 @@ await db.delete(event);
 await db.delete(place);
 await sql`DELETE FROM "user" WHERE email LIKE '%@demo.bond'`;
 
-console.log(`Inserting ${PLACES.length} places…`);
-const insertedPlaces = await db.insert(place).values(PLACES).returning();
-const placeIdByName = new Map(insertedPlaces.map((p) => [p.name, p.id]));
+console.log(`Inserting ${resolved.size} places (source=apple)…`);
+const placeRows: NewPlace[] = [...resolved.entries()].map(([query, r]) => {
+	const hint = hintByQuery.get(query)!;
+	return {
+		name: r.name,
+		category: r.category,
+		city: r.city,
+		neighborhood: hint.neighborhood ?? null,
+		description: hint.description ?? `${r.name} — ${r.formattedAddress}`,
+		latitude: r.latitude,
+		longitude: r.longitude,
+		source: 'apple' as const,
+		externalId: r.muid
+	};
+});
+const insertedPlaces = await db.insert(place).values(placeRows).returning();
+const placeIdByQuery = new Map<string, string>();
+for (const [query, r] of resolved) {
+	const created = insertedPlaces.find((p) => p.externalId === r.muid);
+	if (created) placeIdByQuery.set(query, created.id);
+}
 
 console.log(`Inserting ${EVENTS.length} events…`);
 await db.insert(event).values(EVENTS);
@@ -502,7 +589,6 @@ const personaRows = PERSONAS.map((p) => ({
 	emailVerified: false
 }));
 await db.insert(user).values(personaRows);
-
 const userIdByEmail = new Map(personaRows.map((u) => [u.email, u.id]));
 
 const locationRows: NewUserLocation[] = PERSONAS.map((p) => ({
@@ -517,19 +603,19 @@ await db.insert(userLocation).values(locationRows);
 
 const likeRows = PERSONAS.flatMap((p) =>
 	p.likes
-		.map((placeName) => {
-			const placeId = placeIdByName.get(placeName);
+		.map((query) => {
+			const placeId = placeIdByQuery.get(query);
 			if (!placeId) {
-				console.warn(`  ⚠ Unknown place "${placeName}" for ${p.name}; skipping.`);
+				console.warn(`  ⚠ Persona ${p.name} likes "${query}" but it didn't resolve; skipping.`);
 				return null;
 			}
 			return { userId: userIdByEmail.get(p.email)!, placeId };
 		})
 		.filter((row): row is { userId: string; placeId: string } => row !== null)
 );
-await db.insert(like).values(likeRows);
+if (likeRows.length > 0) await db.insert(like).values(likeRows);
 
 console.log(
-	`Done — ${PLACES.length} places, ${EVENTS.length} events, ${PERSONAS.length} personas, ${likeRows.length} likes.`
+	`Done — ${resolved.size} places, ${EVENTS.length} events, ${PERSONAS.length} personas, ${likeRows.length} likes.`
 );
 await sql.end();

@@ -1,0 +1,227 @@
+{
+	"Bestia Los Angeles|Los Angeles": {
+		"muid": "IF6DDE19BD84E7C8A",
+		"name": "Bestia",
+		"city": "Los Angeles",
+		"category": "restaurant",
+		"latitude": 34.0336613,
+		"longitude": -118.2293084,
+		"formattedAddress": "2121 E 7th Pl, Los Angeles, CA 90021, United States"
+	},
+	"Sqirl Los Angeles|Los Angeles": {
+		"muid": "IF678E95BF894A3A7",
+		"name": "Sqirl",
+		"city": "Los Angeles",
+		"category": "restaurant",
+		"latitude": 34.0845007,
+		"longitude": -118.2866863,
+		"formattedAddress": "720 N Virgil Ave, Unit 4, Los Angeles, CA 90029, United States"
+	},
+	"Gjusta Venice CA|Los Angeles": {
+		"muid": "I7F3F4329F3A323FC",
+		"name": "Gjusta",
+		"city": "Los Angeles",
+		"category": "restaurant",
+		"latitude": 33.9952736,
+		"longitude": -118.4745515,
+		"formattedAddress": "320 Sunset Ave, Venice, CA 90291, United States"
+	},
+	"Found Oyster Los Angeles|Los Angeles": {
+		"muid": "IEF486BEF7D1F2889",
+		"name": "Found Oyster",
+		"city": "Los Angeles",
+		"category": "restaurant",
+		"latitude": 34.0953131,
+		"longitude": -118.2958773,
+		"formattedAddress": "4880 Fountain Ave, Los Angeles, CA  90029, United States"
+	},
+	"Cobi Los Angeles|Los Angeles": {
+		"muid": "I58ABA801AE5EFCEA",
+		"name": "Cobi's",
+		"city": "Los Angeles",
+		"category": "restaurant",
+		"latitude": 34.0061575,
+		"longitude": -118.4881725,
+		"formattedAddress": "2104 Main St, Santa Monica, CA  90405, United States"
+	},
+	"The Varnish Los Angeles|Los Angeles": {
+		"muid": "I3C247CFDAA205200",
+		"name": "The Varnish",
+		"city": "Los Angeles",
+		"category": "bar",
+		"latitude": 34.044871,
+		"longitude": -118.2496204,
+		"formattedAddress": "118 E 6th St, Los Angeles, CA  90014, United States"
+	},
+	"Bar Bandini Echo Park|Los Angeles": {
+		"muid": "I15736D7741463487",
+		"name": "Bar Bandini",
+		"city": "Los Angeles",
+		"category": "bar",
+		"latitude": 34.0772711,
+		"longitude": -118.2654759,
+		"formattedAddress": "2150 W Sunset Blvd, Los Angeles, CA  90026, United States"
+	},
+	"Tabula Rasa Bar Los Angeles|Los Angeles": {
+		"muid": "IE8E17C6928C27A02",
+		"name": "Tabula Rasa Bar",
+		"city": "Los Angeles",
+		"category": "bar",
+		"latitude": 34.1018778,
+		"longitude": -118.301511,
+		"formattedAddress": "5125 Hollywood Blvd, Los Angeles, CA  90027, United States"
+	},
+	"Thunderbolt Los Angeles|Los Angeles": {
+		"muid": "I75767C6439E957A9",
+		"name": "Thunderbolt",
+		"city": "Los Angeles",
+		"category": "bar",
+		"latitude": 34.0664364,
+		"longitude": -118.254084,
+		"formattedAddress": "1263 W Temple St, Los Angeles, CA  90026, United States"
+	},
+	"Stories Books and Cafe Echo Park|Los Angeles": {
+		"muid": "I4E11408C524E9FE5",
+		"name": "Stories Books & Cafe",
+		"city": "Los Angeles",
+		"category": "shop",
+		"latitude": 34.0772564,
+		"longitude": -118.2592767,
+		"formattedAddress": "1716 W Sunset Blvd, Los Angeles, CA 90026, United States"
+	},
+	"Mohawk General Store Silver Lake|Los Angeles": {
+		"muid": "I87666245C93A1FE1",
+		"name": "Mohawk",
+		"city": "Los Angeles",
+		"category": "shop",
+		"latitude": 34.0928375,
+		"longitude": -118.2804984,
+		"formattedAddress": "4011-4017 W Sunset Blvd, Los Angeles, CA 90029, United States"
+	},
+	"Skylight Books Los Angeles|Los Angeles": {
+		"muid": "ID359D0BA35910ACB",
+		"name": "Skylight Books",
+		"city": "Los Angeles",
+		"category": "shop",
+		"latitude": 34.104216,
+		"longitude": -118.2915866,
+		"formattedAddress": "1818 N Vermont Ave, Los Angeles, CA  90027, United States"
+	},
+	"Tartine bakery Downtown Los Angeles|Los Angeles": {
+		"muid": "IE74DEEB666A1A5F",
+		"name": "Tartine",
+		"city": "Los Angeles",
+		"category": "shop",
+		"latitude": 34.0923328,
+		"longitude": -118.2799625,
+		"formattedAddress": "3921 Sunset Blvd, Los Angeles, CA 90029, United States"
+	},
+	"Fuglen Tokyo Shibuya|Tokyo": {
+		"muid": "ICF4239E9A4E02248",
+		"name": "Fuglen Tokyo",
+		"city": "Tokyo",
+		"category": "shop",
+		"latitude": 35.6666505,
+		"longitude": 139.6924254,
+		"formattedAddress": "〒151-0063, 東京都渋谷区, 富ケ谷1-16-11"
+	},
+	"Bar Trench Ebisu Tokyo|Tokyo": {
+		"muid": "I1D3A65ECA8C98057",
+		"name": "Bar TRENCH",
+		"city": "Tokyo",
+		"category": "bar",
+		"latitude": 35.6483866,
+		"longitude": 139.7079018,
+		"formattedAddress": "〒150-0021, 東京都渋谷区, 恵比寿西1丁目5番8号 DISビル102"
+	},
+	"Tsuta ramen Tokyo|Tokyo": {
+		"muid": "I3D00BE80CA55F130",
+		"name": "Japanese Soba Noodles Tsuta",
+		"city": "Tokyo",
+		"category": "restaurant",
+		"latitude": 35.6704281,
+		"longitude": 139.6824275,
+		"formattedAddress": "〒151-0066, 東京都渋谷区, 西原3丁目2-4 B1F"
+	},
+	"Sushi Saito Roppongi Tokyo|Tokyo": {
+		"muid": "I522F4FC1CF3FD469",
+		"name": "Sushi Saito",
+		"city": "Tokyo",
+		"category": "restaurant",
+		"latitude": 35.6653913,
+		"longitude": 139.7395744,
+		"formattedAddress": "〒106-0032, 東京都港区, 六本木1丁目4番5号 アークヒルズサウスタワー1F"
+	},
+	"Cow Books Nakameguro Tokyo|Tokyo": {
+		"muid": "I797935B44837EA2E",
+		"name": "COW BOOKS",
+		"city": "Tokyo",
+		"category": "shop",
+		"latitude": 35.6477192,
+		"longitude": 139.6960073,
+		"formattedAddress": "〒153-0042, 東京都目黒区, 青葉台1丁目14-11 コーポ青葉台103"
+	},
+	"Beard restaurant Meguro Tokyo|Tokyo": {
+		"muid": "ID692215C4A6B2A15",
+		"name": "BEARD",
+		"city": "Tokyo",
+		"category": "restaurant",
+		"latitude": 35.6362392,
+		"longitude": 139.7095089,
+		"formattedAddress": "17-22, Meguro 1-Chōme, Meguro, Tokyo, Japan 153-0063"
+	},
+	"Gen Yamamoto Azabu-Juban|Tokyo": {
+		"muid": "I5F870246DDD5EB9E",
+		"name": "GenYamamoto",
+		"city": "Tokyo",
+		"category": "bar",
+		"latitude": 35.6564878,
+		"longitude": 139.7342623,
+		"formattedAddress": "〒106-0045\n東京都港区\n麻布十番1丁目6-4 アニバーサリービル1階"
+	},
+	"Bear Pond Espresso Shimokitazawa|Tokyo": {
+		"muid": "IB5FAF1EE522F1BFF",
+		"name": "Bear Pond Espresso",
+		"city": "Tokyo",
+		"category": "shop",
+		"latitude": 35.6639495,
+		"longitude": 139.667847,
+		"formattedAddress": "36-12, Kitazawa 2-Chōme, Setagaya-Ku, Tokyo, Japan 155-0031"
+	},
+	"SG Club Shibuya Tokyo|Tokyo": {
+		"muid": "IA7DA584502E3B2C1",
+		"name": "The SG Club",
+		"city": "Tokyo",
+		"category": "bar",
+		"latitude": 35.6642077,
+		"longitude": 139.6992409,
+		"formattedAddress": "7-8, Jinnan 1-Chōme, Shibuya-Ku, Tokyo, Japan 150-0041"
+	},
+	"Daikanyama T-Site|Tokyo": {
+		"muid": "IB454285F95E1DA9A",
+		"name": "Daikanyama T-Site",
+		"city": "Tokyo",
+		"category": "shop",
+		"latitude": 35.6495524,
+		"longitude": 139.7002043,
+		"formattedAddress": "16-15, Sarugakucho, Shibuya, Tokyo, Japan 150-0033"
+	},
+	"Coutume Aoyama 5-50-7 Minato Tokyo|Tokyo": {
+		"muid": "I6AB966FDFE274A21",
+		"name": "WALL Aoyama",
+		"city": "Tokyo",
+		"category": "shop",
+		"latitude": 35.6620198,
+		"longitude": 139.7140709,
+		"formattedAddress": "〒107-0062\n東京都港区\n南青山5丁目4番30号 emergence aoyama complex 1F"
+	},
+	"Den restaurant Jingumae Shibuya Tokyo|Tokyo": {
+		"muid": "I8E798DDE2F7CDF99",
+		"name": "Omotesando Wine Restaurant Den",
+		"city": "Tokyo",
+		"category": "restaurant",
+		"latitude": 35.6656471,
+		"longitude": 139.7125044,
+		"formattedAddress": "5-23, Kitaaoyama 3-Chōme, Minato-Ku, Tokyo, Japan 107-0061"
+	}
+}
