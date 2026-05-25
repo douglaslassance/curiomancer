@@ -33,10 +33,16 @@ class LikesStore {
 		if (browser) this.#ids = load();
 	}
 
-	/** Replace the in-memory set; used after a server-action returns the new state. */
-	hydrate(ids: Iterable<string>, serverBacked: boolean) {
+	/** Replace the in-memory set with the server's truth (signed-in mode). */
+	hydrateFromServer(ids: Iterable<string>) {
 		this.#ids = new Set(ids);
-		this.#serverBacked = serverBacked;
+		this.#serverBacked = true;
+	}
+
+	/** Reload from localStorage (anonymous mode, e.g. after sign-out). */
+	resetToAnonymous() {
+		this.#ids = load();
+		this.#serverBacked = false;
 	}
 
 	get ids(): ReadonlySet<string> {
@@ -59,7 +65,7 @@ class LikesStore {
 		return this.#ids.has(id);
 	}
 
-	/** Optimistically flip locally; server reconciles via hydrate(). */
+	/** Optimistically flip locally; server reconciles via hydrateFromServer(). */
 	toggle(id: string) {
 		const next = new Set(this.#ids);
 		if (next.has(id)) next.delete(id);

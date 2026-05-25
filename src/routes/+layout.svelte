@@ -9,17 +9,20 @@
 
 	let { data, children } = $props();
 
-	let lastUserId = $state<string | null>(null);
+	// Plain closure variable (NOT $state) — used only for memoization across
+	// effect runs. Making it reactive would cause the effect to re-trigger
+	// itself on every assignment, looping forever.
+	let lastUserId: string | null = null;
 
 	// Sync the client-side likes store with the server's view of likes.
 	// On a fresh sign-in, drain any anonymous localStorage likes into the DB.
 	$effect(() => {
 		const currentId = data.user?.id ?? null;
-		const isNewSignIn = currentId && currentId !== lastUserId;
+		const isNewSignIn = currentId !== null && currentId !== lastUserId;
 		lastUserId = currentId;
 
 		if (!data.user) {
-			likes.hydrate(likes.ids, false); // back to local mode
+			likes.resetToAnonymous();
 			return;
 		}
 
@@ -37,7 +40,7 @@
 			}
 		}
 
-		likes.hydrate(data.likedIds, true);
+		likes.hydrateFromServer(data.likedIds);
 	});
 </script>
 
