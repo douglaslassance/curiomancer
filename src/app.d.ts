@@ -14,6 +14,13 @@ declare global {
 		// interface PageState {}
 		// interface Platform {}
 	}
+
+	// Apple MapKit JS is loaded from a CDN at runtime; we use it untyped for now.
+	// If we lean harder on it, swap this for a proper d.ts.
+	interface Window {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		mapkit?: any;
+	}
 }
 
 export {};
