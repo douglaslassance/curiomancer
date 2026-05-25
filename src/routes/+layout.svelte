@@ -1,11 +1,11 @@
 <script lang="ts">
 	import './layout.css';
-	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import favicon from '$lib/assets/favicon.svg';
-	import { Heart, Compass, MapPin, LogOut } from '@lucide/svelte';
+	import { Heart, Compass, MapPin } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import ThemeToggle from '$lib/components/theme-toggle.svelte';
+	import UserMenu from '$lib/components/user-menu.svelte';
 	import { likes } from '$lib/likes.svelte';
 
 	let { data, children } = $props();
@@ -68,15 +68,7 @@
 				</Button>
 				<ThemeToggle />
 				{#if data.user}
-					<span class="text-muted-foreground hidden text-sm sm:inline">
-						Hi, {data.user.name.split(' ')[0]}
-					</span>
-					<form method="post" action="/sign-out" use:enhance class="contents">
-						<Button type="submit" variant="outline" size="sm">
-							<LogOut class="size-4" />
-							Sign out
-						</Button>
-					</form>
+					<UserMenu user={data.user} />
 				{:else}
 					<Button href="/sign-in" variant="outline" size="sm">Sign in</Button>
 				{/if}
