@@ -2,12 +2,15 @@
 	import { Button } from '$lib/components/ui/button';
 	import { invalidateAll } from '$app/navigation';
 	import { Compass, Loader2 } from '@lucide/svelte';
+	import { onMount } from 'svelte';
 
 	let status = $state<'idle' | 'asking' | 'resolving' | 'error'>('idle');
 	let errorMessage = $state<string | null>(null);
+	let errorHint = $state<string | null>(null);
 
 	async function requestLocation() {
 		errorMessage = null;
+		errorHint = null;
 
 		if (typeof navigator === 'undefined' || !navigator.geolocation) {
 			status = 'error';
@@ -19,8 +22,11 @@
 		try {
 			const position = await new Promise<GeolocationPosition>((resolve, reject) => {
 				navigator.geolocation.getCurrentPosition(resolve, reject, {
+					// false = let the browser use coarse wifi/IP positioning, which is
+					// faster and usually accurate enough at city granularity. Avoids
+					// long waits for GPS lock on desktop.
 					enableHighAccuracy: false,
-					timeout: 10_000,
+					timeout: 20_000,
 					maximumAge: 5 * 60_000
 				});
 			});
@@ -44,11 +50,26 @@
 		} catch (err) {
 			console.error('Geolocation failed:', err);
 			status = 'error';
+
 			if (err instanceof GeolocationPositionError) {
-				errorMessage =
-					err.code === err.PERMISSION_DENIED
-						? 'Location permission denied. Allow it in your browser settings to continue.'
-						: 'Could not get your current location.';
+				switch (err.code) {
+					case err.PERMISSION_DENIED:
+						errorMessage = 'Location permission was denied.';
+						errorHint =
+							'Allow location for this site in your browser, then try again.';
+						break;
+					case err.POSITION_UNAVAILABLE:
+						errorMessage = 'Your device could not determine its location.';
+						errorHint =
+							'On macOS, check System Settings → Privacy & Security → Location Services and make sure your browser is allowed.';
+						break;
+					case err.TIMEOUT:
+						errorMessage = 'Timed out waiting for your location.';
+						errorHint = 'Try again — sometimes the first attempt takes a moment.';
+						break;
+					default:
+						errorMessage = `Geolocation error (code ${err.code}).`;
+				}
 			} else if (err instanceof Error) {
 				errorMessage = err.message;
 			} else {
@@ -56,6 +77,13 @@
 			}
 		}
 	}
+
+	// Auto-prompt on mount: location is the whole point of the dashboard, so
+	// don't make the user click twice. The browser still shows its own
+	// permission dialog, and the in-page button stays available as a retry.
+	onMount(() => {
+		void requestLocation();
+	});
 </script>
 
 <div class="bg-card mx-auto max-w-md rounded-xl border p-8 text-center">
@@ -72,11 +100,16 @@
 		{#if status === 'asking' || status === 'resolving'}
 			<Loader2 class="size-4 animate-spin" />
 			{status === 'asking' ? 'Asking your browser…' : 'Resolving city…'}
+		{:else if status === 'error'}
+			Try again
 		{:else}
 			Use my location
 		{/if}
 	</Button>
 	{#if errorMessage}
 		<p class="text-destructive mt-4 text-sm">{errorMessage}</p>
+		{#if errorHint}
+			<p class="text-muted-foreground mt-1 text-xs">{errorHint}</p>
+		{/if}
 	{/if}
 </div>
