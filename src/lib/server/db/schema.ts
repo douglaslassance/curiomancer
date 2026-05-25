@@ -1,4 +1,5 @@
 import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { user } from './auth.schema';
 
 /**
  * A place is a shop, bar, or restaurant that users can like.
@@ -8,13 +9,17 @@ import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core
 export const place = sqliteTable(
 	'place',
 	{
-		id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
 		name: text('name').notNull(),
 		category: text('category', { enum: ['shop', 'bar', 'restaurant'] }).notNull(),
 		city: text('city').notNull(),
 		neighborhood: text('neighborhood'),
 		description: text('description').notNull(),
-		createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
+		createdAt: integer('created_at', { mode: 'timestamp' })
+			.notNull()
+			.$defaultFn(() => new Date())
 	},
 	(t) => [uniqueIndex('place_name_city_idx').on(t.name, t.city)]
 );
@@ -22,4 +27,29 @@ export const place = sqliteTable(
 export type Place = typeof place.$inferSelect;
 export type NewPlace = typeof place.$inferInsert;
 
-export *  from './auth.schema';
+/**
+ * A like joins a user to a place. Composite-unique on (userId, placeId)
+ * so a user can't double-like the same place.
+ */
+export const like = sqliteTable(
+	'like',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		placeId: text('place_id')
+			.notNull()
+			.references(() => place.id, { onDelete: 'cascade' }),
+		createdAt: integer('created_at', { mode: 'timestamp' })
+			.notNull()
+			.$defaultFn(() => new Date())
+	},
+	(t) => [uniqueIndex('like_user_place_idx').on(t.userId, t.placeId)]
+);
+
+export type Like = typeof like.$inferSelect;
+
+export * from './auth.schema';

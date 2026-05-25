@@ -1,6 +1,8 @@
 /**
- * Client-side like store backed by localStorage.
- * v0 only — server-side persistence comes with the auth wiring.
+ * Client-side like store for *anonymous* visitors only.
+ * Signed-in users go through server actions; the layout passes
+ * the server-known liked IDs in via `hydrate()` so reactive UI
+ * still works without extra fetches.
  */
 import { browser } from '$app/environment';
 
@@ -11,8 +13,7 @@ function load(): Set<string> {
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return new Set();
-		const arr = JSON.parse(raw) as string[];
-		return new Set(arr);
+		return new Set(JSON.parse(raw) as string[]);
 	} catch {
 		return new Set();
 	}
@@ -25,25 +26,46 @@ function persist(ids: Set<string>) {
 
 class LikesStore {
 	#ids = $state<Set<string>>(new Set());
+	/** When true, mutations no longer touch localStorage. */
+	#serverBacked = $state(false);
 
 	constructor() {
 		if (browser) this.#ids = load();
+	}
+
+	/** Replace the in-memory set; used after a server-action returns the new state. */
+	hydrate(ids: Iterable<string>, serverBacked: boolean) {
+		this.#ids = new Set(ids);
+		this.#serverBacked = serverBacked;
 	}
 
 	get ids(): ReadonlySet<string> {
 		return this.#ids;
 	}
 
+	get serverBacked(): boolean {
+		return this.#serverBacked;
+	}
+
+	/** Pop anonymous likes for a one-time merge after sign-in. */
+	takeAnonymous(): string[] {
+		if (!browser) return [];
+		const ids = [...load()];
+		if (ids.length > 0) localStorage.removeItem(STORAGE_KEY);
+		return ids;
+	}
+
 	has(id: string): boolean {
 		return this.#ids.has(id);
 	}
 
+	/** Optimistically flip locally; server reconciles via hydrate(). */
 	toggle(id: string) {
 		const next = new Set(this.#ids);
 		if (next.has(id)) next.delete(id);
 		else next.add(id);
 		this.#ids = next;
-		persist(next);
+		if (!this.#serverBacked) persist(next);
 	}
 }
 

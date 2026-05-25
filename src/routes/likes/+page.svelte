@@ -6,13 +6,21 @@
 
 	let { data } = $props();
 
-	const liked = $derived(data.places.filter((p) => likes.has(p.id)));
+	// Signed-in: server already filtered to liked places.
+	// Anonymous: filter all places by the client's localStorage store.
+	const liked = $derived(
+		data.scope === 'user' ? data.places : data.places.filter((p) => likes.has(p.id))
+	);
 </script>
 
 <header class="mb-8">
 	<h1 class="text-3xl font-semibold tracking-tight">Your likes</h1>
 	<p class="text-muted-foreground mt-1">
-		The places you've liked so far. Sign up to keep them across devices.
+		{#if data.scope === 'anonymous'}
+			Saved on this device. Sign up to keep them across devices.
+		{:else}
+			Synced to your account.
+		{/if}
 	</p>
 </header>
 

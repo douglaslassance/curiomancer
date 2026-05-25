@@ -1,8 +1,11 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import * as Card from '$lib/components/ui/card';
+
+	let { form } = $props();
 </script>
 
 <div class="mx-auto max-w-sm py-10">
@@ -12,25 +15,36 @@
 			<Card.Description>Start liking places to build your taste profile.</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			<form
-				class="space-y-4"
-				onsubmit={(e) => {
-					e.preventDefault();
-					alert('Auth not wired yet — coming in the next slice.');
-				}}
-			>
+			<form method="post" class="space-y-4" use:enhance>
 				<div class="space-y-2">
 					<Label for="name">Name</Label>
-					<Input id="name" type="text" placeholder="Jane Doe" required />
+					<Input
+						id="name"
+						name="name"
+						type="text"
+						placeholder="Jane Doe"
+						value={form?.name ?? ''}
+						required
+					/>
 				</div>
 				<div class="space-y-2">
 					<Label for="email">Email</Label>
-					<Input id="email" type="email" placeholder="you@example.com" required />
+					<Input
+						id="email"
+						name="email"
+						type="email"
+						placeholder="you@example.com"
+						value={form?.email ?? ''}
+						required
+					/>
 				</div>
 				<div class="space-y-2">
 					<Label for="password">Password</Label>
-					<Input id="password" type="password" required minlength={8} />
+					<Input id="password" name="password" type="password" required minlength={8} />
 				</div>
+				{#if form?.message}
+					<p class="text-destructive text-sm">{form.message}</p>
+				{/if}
 				<Button type="submit" class="w-full">Create account</Button>
 			</form>
 		</Card.Content>
