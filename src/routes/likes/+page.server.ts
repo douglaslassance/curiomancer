@@ -1,6 +1,6 @@
-import { asc, eq, inArray } from 'drizzle-orm';
+import { asc, eq, getTableColumns } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { like, place, type Place } from '$lib/server/db/schema';
+import { like, place } from '$lib/server/db/schema';
 import type { PageServerLoad } from './$types';
 
 /**
@@ -10,18 +10,8 @@ import type { PageServerLoad } from './$types';
  */
 export const load: PageServerLoad = async ({ locals }) => {
 	if (locals.user) {
-		const rows: Place[] = await db
-			.select({
-				id: place.id,
-				name: place.name,
-				category: place.category,
-				city: place.city,
-				neighborhood: place.neighborhood,
-				description: place.description,
-				latitude: place.latitude,
-				longitude: place.longitude,
-				createdAt: place.createdAt
-			})
+		const rows = await db
+			.select(getTableColumns(place))
 			.from(place)
 			.innerJoin(like, eq(like.placeId, place.id))
 			.where(eq(like.userId, locals.user.id))
@@ -32,6 +22,3 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const all = await db.select().from(place).orderBy(asc(place.city), asc(place.name));
 	return { places: all, scope: 'anonymous' as const };
 };
-
-// Silence unused-warning if inArray ever becomes useful here.
-void inArray;

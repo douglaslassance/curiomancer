@@ -1,10 +1,15 @@
+import { sql } from 'drizzle-orm';
 import { doublePrecision, index, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import { user } from './auth.schema';
 
 /**
- * A place is a shop, bar, or restaurant that users can like.
- * City is denormalized for cheap filtering in the v0; will later move
- * into its own table once we wire up the taste-matching graph.
+ * A place is a shop, bar, or restaurant a user has liked or wants to go to.
+ *
+ * Places are user-generated — the first user to like a spot creates the row,
+ * everyone after them likes the same row. We dedupe by external provider id
+ * (`source` + `external_id`) so two users adding "Bestia" from Apple Maps
+ * end up on the same row, but a manual entry without an external id stays
+ * distinct (two different actual businesses can share a name).
  */
 export const place = pgTable(
 	'place',
@@ -19,9 +24,21 @@ export const place = pgTable(
 		description: text('description').notNull(),
 		latitude: doublePrecision('latitude'),
 		longitude: doublePrecision('longitude'),
+		/** Where this place came from: 'apple' (MapKit), 'seed' (demo fixture), 'manual' (user-typed). */
+		source: text('source', { enum: ['apple', 'seed', 'manual'] })
+			.notNull()
+			.default('manual'),
+		/** The provider's stable id, e.g. Apple's muid. Nullable for manual entries. */
+		externalId: text('external_id'),
 		createdAt: timestamp('created_at').notNull().defaultNow()
 	},
-	(t) => [uniqueIndex('place_name_city_idx').on(t.name, t.city), index('place_city_idx').on(t.city)]
+	(t) => [
+		// Dedupe across users for provider-sourced places.
+		uniqueIndex('place_source_external_idx')
+			.on(t.source, t.externalId)
+			.where(sql`${t.externalId} IS NOT NULL`),
+		index('place_city_idx').on(t.city)
+	]
 );
 
 export type Place = typeof place.$inferSelect;
