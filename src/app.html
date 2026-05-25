@@ -4,6 +4,24 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
+		<!--
+		  Apply the theme synchronously before SvelteKit renders so we never
+		  flash the wrong scheme. Mirrors the logic in src/lib/theme.svelte.ts.
+		-->
+		<script>
+			(function () {
+				try {
+					var pref = localStorage.getItem('bond:theme');
+					if (pref !== 'light' && pref !== 'dark') pref = 'system';
+					var sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+					var effective = pref === 'system' ? (sysDark ? 'dark' : 'light') : pref;
+					if (effective === 'dark') document.documentElement.classList.add('dark');
+					document.documentElement.style.colorScheme = effective;
+				} catch (_) {
+					/* localStorage blocked — fall back to whatever the CSS resolves. */
+				}
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

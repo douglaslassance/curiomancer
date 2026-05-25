@@ -5,6 +5,7 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import { Heart, Compass, MapPin, LogOut } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
+	import ThemeToggle from '$lib/components/theme-toggle.svelte';
 	import { likes } from '$lib/likes.svelte';
 
 	let { data, children } = $props();
@@ -65,6 +66,7 @@
 					<Heart class="size-4" />
 					Likes
 				</Button>
+				<ThemeToggle />
 				{#if data.user}
 					<span class="text-muted-foreground hidden text-sm sm:inline">
 						Hi, {data.user.name.split(' ')[0]}
