@@ -1,13 +1,13 @@
 import 'dotenv/config';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 import { place, type NewPlace } from './schema.js';
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('DATABASE_URL is not set');
 
-const client = new Database(url);
-const db = drizzle(client);
+const sql = postgres(url, { max: 1 });
+const db = drizzle(sql);
 
 const seed: NewPlace[] = [
 	// Los Angeles
@@ -16,8 +16,7 @@ const seed: NewPlace[] = [
 		category: 'restaurant',
 		city: 'Los Angeles',
 		neighborhood: 'Arts District',
-		description:
-			'Italian small plates with a wood-fired heart and a constantly packed dining room.'
+		description: 'Italian small plates with a wood-fired heart and a constantly packed dining room.'
 	},
 	{
 		name: 'Apparatus Coffee',
@@ -75,21 +74,19 @@ const seed: NewPlace[] = [
 		category: 'restaurant',
 		city: 'Tokyo',
 		neighborhood: 'Roppongi',
-		description:
-			'Counter-only sushi widely regarded as the best in the city. Book months ahead.'
+		description: 'Counter-only sushi widely regarded as the best in the city. Book months ahead.'
 	},
 	{
 		name: 'Cow Books',
 		category: 'shop',
 		city: 'Tokyo',
 		neighborhood: 'Nakameguro',
-		description:
-			'Curated used bookstore along the Meguro river, heavy on art and counterculture.'
+		description: 'Curated used bookstore along the Meguro river, heavy on art and counterculture.'
 	}
 ];
 
 console.log(`Seeding ${seed.length} places…`);
-db.delete(place).run();
-db.insert(place).values(seed).run();
+await db.delete(place);
+await db.insert(place).values(seed);
 console.log('Done.');
-client.close();
+await sql.end();

@@ -1,0 +1,15 @@
+node_modules
+.svelte-kit
+build
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.vscode
+README.md
+local.db
+local.db-*
+drizzle/meta
