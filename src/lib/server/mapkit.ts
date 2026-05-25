@@ -9,8 +9,11 @@
  */
 import { readFile } from 'node:fs/promises';
 import { resolve as resolvePath } from 'node:path';
-import { env } from '$env/dynamic/private';
 import { SignJWT, importPKCS8 } from 'jose';
+
+// Read from process.env directly (rather than $env/dynamic/private) so this
+// module is callable from both the SvelteKit server and standalone CLI
+// scripts like the demo seed runner.
 
 const TOKEN_TTL_SECONDS = 60 * 60 * 24; // 24h — see "long-lived hardcoded vs short-lived" debate; this is the sane middle.
 
@@ -20,7 +23,7 @@ let cachedToken: { value: string; expiresAt: number; origin: string } | null = n
 async function loadPrivateKey(): Promise<CryptoKey> {
 	if (cachedKey) return cachedKey;
 
-	const path = env.MAPKIT_KEY_PATH;
+	const path = process.env.MAPKIT_KEY_PATH;
 	if (!path) throw new Error('MAPKIT_KEY_PATH is not set');
 
 	const pem = await readFile(resolvePath(path), 'utf8');
@@ -33,8 +36,8 @@ async function loadPrivateKey(): Promise<CryptoKey> {
  * into the token so the browser can only use it from the matching site.
  */
 export async function mintMapkitToken(origin: string): Promise<string> {
-	const teamId = env.APPLE_TEAM_ID;
-	const keyId = env.MAPKIT_KEY_ID;
+	const teamId = process.env.APPLE_TEAM_ID;
+	const keyId = process.env.MAPKIT_KEY_ID;
 	if (!teamId) throw new Error('APPLE_TEAM_ID is not set');
 	if (!keyId) throw new Error('MAPKIT_KEY_ID is not set');
 
