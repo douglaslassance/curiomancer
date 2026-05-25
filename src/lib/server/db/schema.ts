@@ -8,20 +8,18 @@ import { integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core
 export const place = sqliteTable(
 	'place',
 	{
-		id: text('id')
-			.primaryKey()
-			.$defaultFn(() => crypto.randomUUID()),
+		id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
 		name: text('name').notNull(),
 		category: text('category', { enum: ['shop', 'bar', 'restaurant'] }).notNull(),
 		city: text('city').notNull(),
 		neighborhood: text('neighborhood'),
 		description: text('description').notNull(),
-		createdAt: integer('created_at', { mode: 'timestamp' })
-			.notNull()
-			.$defaultFn(() => new Date())
+		createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date())
 	},
 	(t) => [uniqueIndex('place_name_city_idx').on(t.name, t.city)]
 );
 
 export type Place = typeof place.$inferSelect;
 export type NewPlace = typeof place.$inferInsert;
+
+export *  from './auth.schema';
