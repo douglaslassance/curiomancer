@@ -109,6 +109,8 @@ export async function getRecommendedPlaces(
 		city: string;
 		neighborhood: string | null;
 		description: string;
+		latitude: number | null;
+		longitude: number | null;
 		created_at: Date;
 		score: number;
 		twin_count: number;
@@ -143,6 +145,8 @@ export async function getRecommendedPlaces(
 			p.city,
 			p.neighborhood,
 			p.description,
+			p.latitude,
+			p.longitude,
 			p.created_at,
 			SUM(t.score)::float AS score,
 			COUNT(DISTINCT t.user_id)::int AS twin_count
@@ -164,6 +168,8 @@ export async function getRecommendedPlaces(
 		city: r.city,
 		neighborhood: r.neighborhood,
 		description: r.description,
+		latitude: r.latitude,
+		longitude: r.longitude,
 		createdAt: r.created_at,
 		score: Number(r.score) || 0,
 		twinCount: r.twin_count
@@ -186,6 +192,8 @@ export async function getPopularPlaces(
 		city: string;
 		neighborhood: string | null;
 		description: string;
+		latitude: number | null;
+		longitude: number | null;
 		created_at: Date;
 		like_count: number;
 	}>(sql`
@@ -196,6 +204,8 @@ export async function getPopularPlaces(
 			p.city,
 			p.neighborhood,
 			p.description,
+			p.latitude,
+			p.longitude,
 			p.created_at,
 			COUNT(l.id)::int AS like_count
 		FROM place p
@@ -213,6 +223,8 @@ export async function getPopularPlaces(
 		city: r.city,
 		neighborhood: r.neighborhood,
 		description: r.description,
+		latitude: r.latitude,
+		longitude: r.longitude,
 		createdAt: r.created_at,
 		score: 0,
 		twinCount: r.like_count

@@ -17,6 +17,8 @@ export const place = pgTable(
 		city: text('city').notNull(),
 		neighborhood: text('neighborhood'),
 		description: text('description').notNull(),
+		latitude: doublePrecision('latitude'),
+		longitude: doublePrecision('longitude'),
 		createdAt: timestamp('created_at').notNull().defaultNow()
 	},
 	(t) => [uniqueIndex('place_name_city_idx').on(t.name, t.city), index('place_city_idx').on(t.city)]

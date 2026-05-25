@@ -18,6 +18,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 				city: place.city,
 				neighborhood: place.neighborhood,
 				description: place.description,
+				latitude: place.latitude,
+				longitude: place.longitude,
 				createdAt: place.createdAt
 			})
 			.from(place)

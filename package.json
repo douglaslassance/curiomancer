@@ -14,6 +14,7 @@
 		"db:migrate": "node --env-file=.env migrate.mjs",
 		"db:studio": "drizzle-kit studio",
 		"db:seed": "tsx src/lib/server/db/seed.ts",
+		"db:backfill-coords": "tsx src/lib/server/db/backfill-coords.ts",
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"auth:schema": "better-auth generate --config src/lib/server/auth.ts --output src/lib/server/db/auth.schema.ts --yes"
@@ -56,6 +57,7 @@
 	},
 	"dependencies": {
 		"@sveltejs/adapter-node": "^5.5.4",
+		"jose": "^6.2.3",
 		"postgres": "^3.4.9"
 	}
 }
