@@ -1,14 +1,17 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { Place } from '$lib/server/db/schema';
+	import { categoryGlyphDataUri } from '$lib/map-glyphs';
 
 	let {
 		places,
 		center,
+		likedIds = [],
 		zoom = 12
 	}: {
 		places: Place[];
 		center: { latitude: number; longitude: number };
+		likedIds?: string[];
 		zoom?: number;
 	} = $props();
 
@@ -16,6 +19,8 @@
 	let status = $state<'loading' | 'ready' | 'error'>('loading');
 	let errorMessage = $state<string | null>(null);
 	let selectedPlace = $state<Place | null>(null);
+
+	const likedSet = $derived(new Set(likedIds));
 
 	/** Load the MapKit JS SDK by injecting a <script> tag. Idempotent. */
 	function loadMapKitScript(): Promise<void> {
@@ -47,15 +52,14 @@
 		return data.token;
 	}
 
-	function categoryColor(category: Place['category']): string {
-		switch (category) {
-			case 'restaurant':
-				return '#ef4444'; // red-500
-			case 'bar':
-				return '#a855f7'; // purple-500
-			case 'shop':
-				return '#3b82f6'; // blue-500
-		}
+	/**
+	 * Pin color encodes the user's *relationship* to the place, not the
+	 * category. Category is encoded by the glyph icon.
+	 *  - liked     → pink-500
+	 *  - otherwise → gray-400 ("recommended" / neutral)
+	 */
+	function pinColor(placeId: string): string {
+		return likedSet.has(placeId) ? '#ec4899' : '#9ca3af';
 	}
 
 	onMount(() => {
@@ -67,8 +71,6 @@
 				await loadMapKitScript();
 				if (cancelled) return;
 
-				// Initialize MapKit with a token-provider callback. MapKit will call
-				// this whenever it needs a fresh token (and immediately on init).
 				window.mapkit.init({
 					authorizationCallback: (done: (token: string) => void) => {
 						fetchToken()
@@ -98,18 +100,18 @@
 					.filter((p) => p.latitude !== null && p.longitude !== null)
 					.map((p) => {
 						const coord = new window.mapkit.Coordinate(p.latitude!, p.longitude!);
+						const glyph = categoryGlyphDataUri(p.category);
 						const ann = new window.mapkit.MarkerAnnotation(coord, {
 							title: p.name,
 							subtitle: p.neighborhood ?? p.city,
-							color: categoryColor(p.category),
-							glyphText: ''
+							color: pinColor(p.id),
+							glyphImage: { 1: glyph, 2: glyph, 3: glyph }
 						});
 						ann.data = p;
 						ann.addEventListener('select', () => {
 							selectedPlace = p;
 						});
 						ann.addEventListener('deselect', () => {
-							// Slight delay so a click on the popup card doesn't dismiss it.
 							setTimeout(() => {
 								if (selectedPlace?.id === p.id) selectedPlace = null;
 							}, 100);

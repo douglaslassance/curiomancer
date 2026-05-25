@@ -11,5 +11,5 @@
   on this route.
 -->
 <div class="fixed inset-x-0 bottom-0 top-14 z-0">
-	<MapView places={data.places} center={data.center} />
+	<MapView places={data.places} center={data.center} likedIds={data.likedIds} />
 </div>
