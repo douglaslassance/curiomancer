@@ -55,8 +55,7 @@
 				switch (err.code) {
 					case err.PERMISSION_DENIED:
 						errorMessage = 'Location permission was denied.';
-						errorHint =
-							'Allow location for this site in your browser, then try again.';
+						errorHint = 'Allow location for this site in your browser, then try again.';
 						break;
 					case err.POSITION_UNAVAILABLE:
 						errorMessage = 'Your device could not determine its location.';
