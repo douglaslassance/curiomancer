@@ -1,6 +1,6 @@
-import { and, asc, eq, gte } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { event, placeRelation, userLocation } from '$lib/server/db/schema';
+import { placeRelation, userLocation } from '$lib/server/db/schema';
 import { getCurrentWeather, type Weather } from '$lib/server/weather';
 import {
 	getMatchedPeopleInCity,
@@ -34,14 +34,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.where(eq(placeRelation.userId, userId))
 	).length;
 
-	// Pick the right ranking strategy per-category based on whether we have
-	// taste signal yet. Cold-start → popularity; warm → taste-matched.
 	const placesFor = (category: 'restaurant' | 'bar' | 'shop') =>
 		myLikeCount > 0
 			? getRecommendedPlaces(userId, loc.city, category)
 			: getPopularPlaces(loc.city, category);
 
-	const [weather, matchedPeople, restaurants, bars, shops, events] = await Promise.all([
+	const [weather, matchedPeople, restaurants, bars, shops] = await Promise.all([
 		getCurrentWeather(loc.latitude, loc.longitude).catch((err) => {
 			console.error('Weather lookup failed:', err);
 			return null as Weather | null;
@@ -51,13 +49,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			: Promise.resolve([] as MatchedPerson[]),
 		placesFor('restaurant'),
 		placesFor('bar'),
-		placesFor('shop'),
-		db
-			.select()
-			.from(event)
-			.where(and(eq(event.city, loc.city), gte(event.startsAt, new Date())))
-			.orderBy(asc(event.startsAt))
-			.limit(8)
+		placesFor('shop')
 	]);
 
 	return {
@@ -68,7 +60,6 @@ export const load: PageServerLoad = async ({ locals }) => {
 		restaurants: restaurants as RecommendedPlace[],
 		bars: bars as RecommendedPlace[],
 		shops: shops as RecommendedPlace[],
-		events,
 		myLikeCount
 	};
 };

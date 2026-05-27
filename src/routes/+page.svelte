@@ -5,7 +5,6 @@
 	import LocationPrompt from '$lib/components/location-prompt.svelte';
 	import MatchedPeopleRail from '$lib/components/matched-people-rail.svelte';
 	import CategoryRail from '$lib/components/category-rail.svelte';
-	import EventsRail from '$lib/components/events-rail.svelte';
 
 	let { data } = $props();
 </script>
@@ -77,12 +76,5 @@
 		places={data.shops}
 		empty={`No shops in ${data.location.city} yet.`}
 		showMatch={data.myLikeCount > 0}
-	/>
-
-	<EventsRail
-		title="Events"
-		events={data.events}
-		timezone={data.location.timezone}
-		empty={`No upcoming events in ${data.location.city}.`}
 	/>
 {/if}
