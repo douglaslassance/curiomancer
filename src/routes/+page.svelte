@@ -56,33 +56,31 @@
 	<!-- ─── Dashboard ─────────────────────────────────────────────────────── -->
 	<DashboardHeader location={data.location} weather={data.weather} />
 
-	<MatchedPeopleRail people={data.matchedPeople} city={data.location.city} />
+	<MatchedPeopleRail people={data.matchedPeople} />
 
 	<CategoryRail
-		title={data.myLikeCount > 0
-			? 'Restaurants you would love'
-			: `Popular restaurants in ${data.location.city}`}
+		title="Restaurants"
 		places={data.restaurants}
 		empty={`No restaurants in ${data.location.city} yet.`}
 		showMatch={data.myLikeCount > 0}
 	/>
 
 	<CategoryRail
-		title={data.myLikeCount > 0 ? 'Bars you would love' : `Popular bars in ${data.location.city}`}
+		title="Bars"
 		places={data.bars}
 		empty={`No bars in ${data.location.city} yet.`}
 		showMatch={data.myLikeCount > 0}
 	/>
 
 	<CategoryRail
-		title={data.myLikeCount > 0 ? 'Shops you would love' : `Popular shops in ${data.location.city}`}
+		title="Shops"
 		places={data.shops}
 		empty={`No shops in ${data.location.city} yet.`}
 		showMatch={data.myLikeCount > 0}
 	/>
 
 	<EventsRail
-		title="Happening soon"
+		title="Events"
 		events={data.events}
 		timezone={data.location.timezone}
 		empty={`No upcoming events in ${data.location.city}.`}

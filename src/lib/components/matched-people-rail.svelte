@@ -3,14 +3,12 @@
 	import MatchBadge from './match-badge.svelte';
 	import { Users } from '@lucide/svelte';
 
-	let { people, city }: { people: MatchedPerson[]; city: string } = $props();
+	let { people }: { people: MatchedPerson[] } = $props();
 </script>
 
 <section class="mb-10">
 	<header class="mb-3 flex items-baseline justify-between">
-		<h2 class="text-lg font-medium">
-			People in {city} who share your taste
-		</h2>
+		<h2 class="text-lg font-medium">People</h2>
 		<span class="text-muted-foreground text-xs"
 			>{people.length} match{people.length === 1 ? '' : 'es'}</span
 		>

@@ -53,7 +53,7 @@ export async function reverseGeocode(
 
 	const data = (await res.json()) as NominatimResponse;
 	const addr = data.address ?? {};
-	const city =
+	const rawCity =
 		addr.city ??
 		addr.town ??
 		addr.village ??
@@ -61,15 +61,80 @@ export async function reverseGeocode(
 		addr.county ??
 		addr.state ??
 		null;
-	if (!city) {
+	if (!rawCity) {
 		throw new Error('Could not determine city from coordinates');
 	}
 
 	return {
-		city,
+		city: normalizeToMetro(rawCity),
 		countryCode: addr.country_code ? addr.country_code.toUpperCase() : null,
 		timezone: guessTimezone(latitude, longitude, addr.country_code)
 	};
+}
+
+/**
+ * Many world cities have administrative subdivisions Nominatim returns as
+ * the "city" field, even though humans think of them as one metro. Map
+ * those to their parent city so our string-equality matching works.
+ *
+ * The list is hand-picked — we'll grow it as users surface mismatches.
+ * The long-term answer is distance-based matching (separate work item).
+ */
+const WARD_TO_METRO: Record<string, string> = {
+	// Tokyo 23 special wards (英語 names; Japanese versions are also returned
+	// by Nominatim depending on accept-language, but we ask for 'en')
+	Adachi: 'Tokyo',
+	Arakawa: 'Tokyo',
+	Bunkyo: 'Tokyo',
+	Chiyoda: 'Tokyo',
+	Chuo: 'Tokyo',
+	Edogawa: 'Tokyo',
+	Itabashi: 'Tokyo',
+	Katsushika: 'Tokyo',
+	Kita: 'Tokyo',
+	Koto: 'Tokyo',
+	Meguro: 'Tokyo',
+	Minato: 'Tokyo',
+	Nakano: 'Tokyo',
+	Nerima: 'Tokyo',
+	Ota: 'Tokyo',
+	Setagaya: 'Tokyo',
+	Shibuya: 'Tokyo',
+	Shinagawa: 'Tokyo',
+	Shinjuku: 'Tokyo',
+	Suginami: 'Tokyo',
+	Sumida: 'Tokyo',
+	Taito: 'Tokyo',
+	Toshima: 'Tokyo',
+
+	// NYC five boroughs
+	Manhattan: 'New York',
+	Brooklyn: 'New York',
+	Queens: 'New York',
+	'The Bronx': 'New York',
+	Bronx: 'New York',
+	'Staten Island': 'New York',
+
+	// Common Paris arrondissements get returned as "Paris" by Nominatim
+	// already, so no normalization needed there.
+
+	// Seoul districts (gu/구) — partial list of the most-touristy
+	'Gangnam-gu': 'Seoul',
+	'Mapo-gu': 'Seoul',
+	'Jongno-gu': 'Seoul',
+	'Yongsan-gu': 'Seoul',
+
+	// London boroughs are usually returned as "London"; the exceptions are
+	// places people might call by their borough name in conversation.
+	'City of Westminster': 'London',
+	'City of London': 'London',
+	Camden: 'London',
+	Hackney: 'London',
+	Islington: 'London'
+};
+
+export function normalizeToMetro(rawCity: string): string {
+	return WARD_TO_METRO[rawCity] ?? rawCity;
 }
 
 /**
@@ -77,16 +142,15 @@ export async function reverseGeocode(
  * doesn't provide one. Falls back to UTC.
  */
 function guessTimezone(_lat: number, _lng: number, countryCode?: string): string | null {
-	// Map of a handful of countries we expect to see early. We can refine when
-	// real users start showing up with weird timezones.
 	const map: Record<string, string> = {
-		us: 'America/Los_Angeles', // not always right, but a reasonable default for west-coast geo
+		us: 'America/Los_Angeles',
 		jp: 'Asia/Tokyo',
 		fr: 'Europe/Paris',
 		gb: 'Europe/London',
 		de: 'Europe/Berlin',
 		ca: 'America/Toronto',
-		au: 'Australia/Sydney'
+		au: 'Australia/Sydney',
+		kr: 'Asia/Seoul'
 	};
 	if (countryCode && map[countryCode.toLowerCase()]) return map[countryCode.toLowerCase()];
 	return null;
