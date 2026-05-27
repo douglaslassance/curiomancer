@@ -92,6 +92,76 @@ export async function getMatchedPeopleInCity(
 }
 
 /**
+ * Everyone who has liked `placeId`, ranked by their Jaccard similarity
+ * to `userId`. This is the "why was this recommended to me" view —
+ * shown on a place's detail page so users can see who's vouching for it.
+ *
+ * If `userId` is null/has no likes, everyone gets score 0 and we order
+ * by recency of their like so the list still has a sensible order.
+ */
+export async function getPeopleWhoLikedPlace(
+	userId: string | null,
+	placeId: string,
+	limit = 24
+): Promise<MatchedPerson[]> {
+	const rows = await db.execute<{
+		id: string;
+		name: string;
+		image: string | null;
+		shared_count: number;
+		score: number | null;
+	}>(sql`
+		WITH my_likes AS (
+			SELECT place_id FROM "like" WHERE user_id = ${userId ?? ''}
+		),
+		my_total AS (SELECT COUNT(*)::int AS n FROM my_likes),
+		likers AS (
+			SELECT l.user_id, l.created_at
+			FROM "like" l
+			WHERE l.place_id = ${placeId}
+			  AND (${userId}::text IS NULL OR l.user_id <> ${userId ?? ''})
+		),
+		shared AS (
+			SELECT lk.user_id, COUNT(*)::int AS shared_count
+			FROM "like" lk
+			JOIN my_likes ml ON lk.place_id = ml.place_id
+			WHERE lk.user_id IN (SELECT user_id FROM likers)
+			GROUP BY lk.user_id
+		),
+		totals AS (
+			SELECT user_id, COUNT(*)::int AS n
+			FROM "like"
+			WHERE user_id IN (SELECT user_id FROM likers)
+			GROUP BY user_id
+		)
+		SELECT
+			u.id,
+			u.name,
+			u.image,
+			COALESCE(s.shared_count, 0) AS shared_count,
+			CASE
+				WHEN (SELECT n FROM my_total) = 0 THEN NULL
+				ELSE COALESCE(s.shared_count, 0)::float
+					/ NULLIF((SELECT n FROM my_total) + t.n - COALESCE(s.shared_count, 0), 0)
+			END AS score
+		FROM likers lk
+		JOIN "user" u ON u.id = lk.user_id
+		JOIN totals t ON t.user_id = lk.user_id
+		LEFT JOIN shared s ON s.user_id = lk.user_id
+		ORDER BY score DESC NULLS LAST, lk.created_at DESC
+		LIMIT ${limit}
+	`);
+
+	return rows.map((r) => ({
+		id: r.id,
+		name: r.name,
+		image: r.image,
+		sharedCount: r.shared_count,
+		score: Number(r.score) || 0
+	}));
+}
+
+/**
  * Top N places in `city` of `category` that the user's top-K taste twins
  * liked, scored by sum of similarity weight, excluding places the user
  * has already liked.
