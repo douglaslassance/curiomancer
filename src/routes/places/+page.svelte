@@ -175,7 +175,7 @@
 		<p class="text-muted-foreground mb-3 text-xs">
 			{visible.length} place{visible.length === 1 ? '' : 's'}
 		</p>
-		<div class="grid gap-3 sm:grid-cols-2">
+		<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 			{#each visible as p (p.id)}
 				<article
 					class="bg-card hover:border-foreground/30 flex items-start justify-between gap-3 rounded-xl border p-4 transition-colors"

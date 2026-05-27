@@ -77,7 +77,7 @@
 			{data.people.length === 1 ? 'person' : 'people'} within
 			{data.radiusKm} km
 		</p>
-		<div class="grid gap-3 sm:grid-cols-2">
+		<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 			{#each data.people as person (person.id)}
 				<a
 					href={`/users/${person.id}`}
