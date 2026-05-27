@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { like, userLocation } from '$lib/server/db/schema';
+import { placeRelation, userLocation } from '$lib/server/db/schema';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.limit(1);
 
 	const likeCount = (
-		await db.select({ id: like.id }).from(like).where(eq(like.userId, locals.user.id))
+		await db.select({ id: placeRelation.id }).from(placeRelation).where(eq(placeRelation.userId, locals.user.id))
 	).length;
 
 	return {

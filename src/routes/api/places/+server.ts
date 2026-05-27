@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { error, json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { like, place } from '$lib/server/db/schema';
+import { placeRelation, place } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
 
 type AddPlaceBody = {
@@ -71,7 +71,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	// Like it (idempotent).
-	await db.insert(like).values({ userId: locals.user.id, placeId }).onConflictDoNothing();
+	await db.insert(placeRelation).values({ userId: locals.user.id, placeId }).onConflictDoNothing();
 
 	return json({ placeId });
 };

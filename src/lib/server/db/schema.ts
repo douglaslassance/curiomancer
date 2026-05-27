@@ -45,11 +45,17 @@ export type Place = typeof place.$inferSelect;
 export type NewPlace = typeof place.$inferInsert;
 
 /**
- * A like joins a user to a place. Composite-unique on (userId, placeId)
- * so a user can't double-like the same place.
+ * A user's stance on a place. Liked and disliked are the matching signals;
+ * want-to-go is a wishlist marker that doesn't influence taste matching.
+ * Composite-unique on (userId, placeId) — a user only has one stance per
+ * place at a time (changing your mind overwrites, doesn't accumulate).
+ *
+ * Historically this table was called `like`. Renamed when dislikes were
+ * added so the name matches the concept; old code paths and exports
+ * still use "likes" loosely to mean the positive-relation slice.
  */
-export const like = pgTable(
-	'like',
+export const placeRelation = pgTable(
+	'place_relation',
 	{
 		id: text('id')
 			.primaryKey()
@@ -60,12 +66,16 @@ export const like = pgTable(
 		placeId: text('place_id')
 			.notNull()
 			.references(() => place.id, { onDelete: 'cascade' }),
+		kind: text('kind', { enum: ['liked', 'disliked', 'want_to_go'] })
+			.notNull()
+			.default('liked'),
 		createdAt: timestamp('created_at').notNull().defaultNow()
 	},
-	(t) => [uniqueIndex('like_user_place_idx').on(t.userId, t.placeId)]
+	(t) => [uniqueIndex('place_relation_user_place_idx').on(t.userId, t.placeId)]
 );
 
-export type Like = typeof like.$inferSelect;
+export type PlaceRelation = typeof placeRelation.$inferSelect;
+export type PlaceRelationKind = PlaceRelation['kind'];
 
 /**
  * Time-bounded happenings (concerts, openings, screenings, markets).

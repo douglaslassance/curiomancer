@@ -1,6 +1,6 @@
 import { and, asc, eq, gte } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { event, like, userLocation } from '$lib/server/db/schema';
+import { event, placeRelation, userLocation } from '$lib/server/db/schema';
 import { getCurrentWeather, type Weather } from '$lib/server/weather';
 import {
 	getMatchedPeopleInCity,
@@ -27,7 +27,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	}
 
 	const userId = locals.user.id;
-	const myLikeCount = (await db.select({ id: like.id }).from(like).where(eq(like.userId, userId)))
+	const myLikeCount = (await db.select({ id: placeRelation.id }).from(placeRelation).where(eq(placeRelation.userId, userId)))
 		.length;
 
 	// Pick the right ranking strategy per-category based on whether we have

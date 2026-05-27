@@ -1,6 +1,6 @@
 import { asc, eq, getTableColumns } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { like, place } from '$lib/server/db/schema';
+import { placeRelation, place } from '$lib/server/db/schema';
 import type { PageServerLoad } from './$types';
 
 /**
@@ -13,8 +13,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		const rows = await db
 			.select(getTableColumns(place))
 			.from(place)
-			.innerJoin(like, eq(like.placeId, place.id))
-			.where(eq(like.userId, locals.user.id))
+			.innerJoin(placeRelation, eq(placeRelation.placeId, place.id))
+			.where(eq(placeRelation.userId, locals.user.id))
 			.orderBy(asc(place.city), asc(place.name));
 		return { places: rows, scope: 'user' as const };
 	}

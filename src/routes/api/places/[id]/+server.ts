@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { count, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { like, place } from '$lib/server/db/schema';
+import { placeRelation, place } from '$lib/server/db/schema';
 import { getPeopleWhoLikedPlace } from '$lib/server/matching';
 import type { RequestHandler } from './$types';
 
@@ -17,8 +17,8 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 
 	const [{ likeCount }] = await db
 		.select({ likeCount: count() })
-		.from(like)
-		.where(eq(like.placeId, params.id));
+		.from(placeRelation)
+		.where(eq(placeRelation.placeId, params.id));
 
 	const likers = await getPeopleWhoLikedPlace(locals.user?.id ?? null, params.id);
 

@@ -20,7 +20,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import {
 	event,
-	like,
+	placeRelation,
 	place,
 	userLocation,
 	type NewEvent,
@@ -550,7 +550,7 @@ for (const hint of PLACE_HINTS) {
 await writeCache(cache);
 
 console.log('Clearing dependent rows…');
-await db.delete(like);
+await db.delete(placeRelation);
 await db.delete(userLocation);
 await db.delete(event);
 await db.delete(place);
@@ -613,7 +613,7 @@ const likeRows = PERSONAS.flatMap((p) =>
 		})
 		.filter((row): row is { userId: string; placeId: string } => row !== null)
 );
-if (likeRows.length > 0) await db.insert(like).values(likeRows);
+if (likeRows.length > 0) await db.insert(placeRelation).values(likeRows);
 
 console.log(
 	`Done — ${resolved.size} places, ${EVENTS.length} events, ${PERSONAS.length} personas, ${likeRows.length} likes.`

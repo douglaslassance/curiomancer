@@ -1,17 +1,28 @@
 /**
- * Taste-matching using Jaccard similarity over the like graph.
+ * Taste-matching using signed similarity over the place_relation graph.
  *
- *     score(A, B) = |likes(A) ∩ likes(B)| / |likes(A) ∪ likes(B)|
+ * We treat each (user, place) row as a ±1 vote: 'liked' = +1, 'disliked' = -1,
+ * 'want_to_go' = ignored (it's a wishlist marker, not a taste signal).
+ * Similarity between two users is then:
  *
- * Range is 0..1, displayed as a 0..100 % match. The same notion drives
- * three derived feeds:
- *  - People in this city most similar to you.
- *  - Places in this city your top-K twins liked that you haven't.
- *  - (Future) Events in this city your top-K twins are interested in.
+ *     score(A, B) = agreements − disagreements
+ *                  -----------------------------
+ *                       |places A and B both have an opinion on|
+ *
+ * Agreement means both rows have the same kind on the same place (both
+ * liked OR both disliked); disagreement means opposite kinds. Range is
+ * −1..+1; we display Math.max(0, score) as a 0..100 % match badge.
+ *
+ * Why this shape:
+ *  - Pure Jaccard over likes only sees positive signal.
+ *  - Cosine on ±1 vectors does roughly the same thing but punishes sparse
+ *    overlap (both have an opinion on only 1 place but agree) less than
+ *    Jaccard does. The denominator above keeps the same dampening Jaccard
+ *    had — you need to overlap on multiple places to get a high score.
  *
  * Computed per-request via raw SQL. At our beta scale (hundreds of users,
- * thousands of likes) this is cheap. The migration path when it stops
- * being cheap is a nightly job that materializes a `recommendation` cache.
+ * thousands of relations) this is cheap. Migration path is a nightly job
+ * that materializes a `recommendation` cache.
  */
 
 import { sql } from 'drizzle-orm';
@@ -22,8 +33,9 @@ export type MatchedPerson = {
 	id: string;
 	name: string;
 	image: string | null;
+	/** How many places we overlap on (any kind agreement OR disagreement). */
 	sharedCount: number;
-	/** 0..1 — display as Math.round(score * 100). */
+	/** −1..+1. UI typically clamps to [0, 1] when displaying as a percentage. */
 	score: number;
 };
 
@@ -38,8 +50,24 @@ export type RecommendedPlace = Place & {
 const TWIN_LIMIT = 20;
 
 /**
- * Top N people in `city` with the highest Jaccard similarity to `userId`.
- * Excludes the user themselves; includes only users with ≥1 shared like.
+ * SQL fragment that, joined twice (alias `mine` for the viewer, `theirs`
+ * for the candidate), produces `agreement` (+1/-1) for each overlapping
+ * place. Encapsulated so we can drop dislikes into more queries later.
+ *
+ *   sum(agreement) = (agreements) − (disagreements)
+ *   count(*)       = (overlapping opinions)
+ */
+const AGREEMENT_EXPR = sql`
+	CASE
+		WHEN mine.kind = theirs.kind THEN 1
+		ELSE -1
+	END
+`;
+
+/**
+ * Top N people in `city` with the highest signed similarity to `userId`.
+ * Excludes the user themselves; only considers candidates we overlap with
+ * on ≥1 place (either kind).
  */
 export async function getMatchedPeopleInCity(
 	userId: string,
@@ -53,32 +81,33 @@ export async function getMatchedPeopleInCity(
 		shared_count: number;
 		score: number;
 	}>(sql`
-		WITH my_likes AS (
-			SELECT place_id FROM "like" WHERE user_id = ${userId}
+		WITH my_relations AS (
+			SELECT place_id, kind FROM "place_relation"
+			WHERE user_id = ${userId} AND kind IN ('liked', 'disliked')
 		),
-		my_total AS (SELECT COUNT(*)::int AS n FROM my_likes),
-		shared AS (
-			SELECT l.user_id, COUNT(*)::int AS shared_count
-			FROM "like" l
-			JOIN my_likes ml ON l.place_id = ml.place_id
-			WHERE l.user_id <> ${userId}
-			GROUP BY l.user_id
-		),
-		totals AS (
-			SELECT user_id, COUNT(*)::int AS n FROM "like" GROUP BY user_id
+		pair_stats AS (
+			SELECT
+				theirs.user_id,
+				COUNT(*)::int AS shared_count,
+				SUM(${AGREEMENT_EXPR})::float / COUNT(*)::float AS score
+			FROM "place_relation" theirs
+			JOIN my_relations mine
+				ON mine.place_id = theirs.place_id
+			WHERE theirs.user_id <> ${userId}
+			  AND theirs.kind IN ('liked', 'disliked')
+			GROUP BY theirs.user_id
 		)
 		SELECT
 			u.id,
 			u.name,
 			u.image,
-			s.shared_count,
-			s.shared_count::float / NULLIF((SELECT n FROM my_total) + t.n - s.shared_count, 0) AS score
-		FROM shared s
-		JOIN "user" u  ON u.id = s.user_id
-		JOIN totals t  ON t.user_id = s.user_id
-		JOIN user_location ul ON ul.user_id = s.user_id
+			ps.shared_count,
+			ps.score
+		FROM pair_stats ps
+		JOIN "user" u ON u.id = ps.user_id
+		JOIN user_location ul ON ul.user_id = ps.user_id
 		WHERE ul.city = ${city}
-		ORDER BY score DESC NULLS LAST, s.shared_count DESC
+		ORDER BY ps.score DESC, ps.shared_count DESC
 		LIMIT ${limit}
 	`);
 
@@ -92,12 +121,11 @@ export async function getMatchedPeopleInCity(
 }
 
 /**
- * Everyone who has liked `placeId`, ranked by their Jaccard similarity
- * to `userId`. This is the "why was this recommended to me" view —
- * shown on a place's detail page so users can see who's vouching for it.
- *
- * If `userId` is null/has no likes, everyone gets score 0 and we order
- * by recency of their like so the list still has a sensible order.
+ * Everyone who has liked `placeId`, ranked by their signed similarity to
+ * `userId`. This is the "why was this recommended to me" view — shown on
+ * a place's detail page so users can see who's vouching for it. Disliked
+ * rows on this place are deliberately excluded (we don't show "this place
+ * was disliked by people who share your taste" — that's its own surface).
  */
 export async function getPeopleWhoLikedPlace(
 	userId: string | null,
@@ -111,43 +139,40 @@ export async function getPeopleWhoLikedPlace(
 		shared_count: number;
 		score: number | null;
 	}>(sql`
-		WITH my_likes AS (
-			SELECT place_id FROM "like" WHERE user_id = ${userId ?? ''}
+		WITH my_relations AS (
+			SELECT place_id, kind FROM "place_relation"
+			WHERE user_id = ${userId ?? ''} AND kind IN ('liked', 'disliked')
 		),
-		my_total AS (SELECT COUNT(*)::int AS n FROM my_likes),
 		likers AS (
-			SELECT l.user_id, l.created_at
-			FROM "like" l
-			WHERE l.place_id = ${placeId}
-			  AND (${userId}::text IS NULL OR l.user_id <> ${userId ?? ''})
+			SELECT user_id, created_at
+			FROM "place_relation"
+			WHERE place_id = ${placeId}
+			  AND kind = 'liked'
+			  AND (${userId}::text IS NULL OR user_id <> ${userId ?? ''})
 		),
-		shared AS (
-			SELECT lk.user_id, COUNT(*)::int AS shared_count
-			FROM "like" lk
-			JOIN my_likes ml ON lk.place_id = ml.place_id
-			WHERE lk.user_id IN (SELECT user_id FROM likers)
-			GROUP BY lk.user_id
-		),
-		totals AS (
-			SELECT user_id, COUNT(*)::int AS n
-			FROM "like"
-			WHERE user_id IN (SELECT user_id FROM likers)
-			GROUP BY user_id
+		pair_stats AS (
+			SELECT
+				theirs.user_id,
+				COUNT(*)::int AS shared_count,
+				SUM(${AGREEMENT_EXPR})::float / NULLIF(COUNT(*), 0)::float AS score
+			FROM "place_relation" theirs
+			JOIN my_relations mine ON mine.place_id = theirs.place_id
+			WHERE theirs.user_id IN (SELECT user_id FROM likers)
+			  AND theirs.kind IN ('liked', 'disliked')
+			GROUP BY theirs.user_id
 		)
 		SELECT
 			u.id,
 			u.name,
 			u.image,
-			COALESCE(s.shared_count, 0) AS shared_count,
+			COALESCE(ps.shared_count, 0) AS shared_count,
 			CASE
-				WHEN (SELECT n FROM my_total) = 0 THEN NULL
-				ELSE COALESCE(s.shared_count, 0)::float
-					/ NULLIF((SELECT n FROM my_total) + t.n - COALESCE(s.shared_count, 0), 0)
+				WHEN (SELECT COUNT(*) FROM my_relations) = 0 THEN NULL
+				ELSE ps.score
 			END AS score
 		FROM likers lk
 		JOIN "user" u ON u.id = lk.user_id
-		JOIN totals t ON t.user_id = lk.user_id
-		LEFT JOIN shared s ON s.user_id = lk.user_id
+		LEFT JOIN pair_stats ps ON ps.user_id = lk.user_id
 		ORDER BY score DESC NULLS LAST, lk.created_at DESC
 		LIMIT ${limit}
 	`);
@@ -164,7 +189,12 @@ export async function getPeopleWhoLikedPlace(
 /**
  * Top N places in `city` of `category` that the user's top-K taste twins
  * liked, scored by sum of similarity weight, excluding places the user
- * has already liked.
+ * already has a relation with (liked, disliked, or want-to-go — we don't
+ * re-recommend places you've already taken a position on).
+ *
+ * A twin's negative score subtracts from recommendation weight, so a place
+ * loved by someone who agrees with you AND hated by someone else with the
+ * same taste profile lands lower than a place loved by both. Good.
  */
 export async function getRecommendedPlaces(
 	userId: string,
@@ -187,27 +217,28 @@ export async function getRecommendedPlaces(
 		score: number;
 		twin_count: number;
 	}>(sql`
-		WITH my_likes AS (
-			SELECT place_id FROM "like" WHERE user_id = ${userId}
+		WITH my_relations AS (
+			SELECT place_id, kind FROM "place_relation"
+			WHERE user_id = ${userId} AND kind IN ('liked', 'disliked')
 		),
-		my_total AS (SELECT COUNT(*)::int AS n FROM my_likes),
-		shared AS (
-			SELECT l.user_id, COUNT(*)::int AS shared_count
-			FROM "like" l
-			JOIN my_likes ml ON l.place_id = ml.place_id
-			WHERE l.user_id <> ${userId}
-			GROUP BY l.user_id
+		all_my_relations AS (
+			SELECT place_id FROM "place_relation" WHERE user_id = ${userId}
 		),
-		totals AS (
-			SELECT user_id, COUNT(*)::int AS n FROM "like" GROUP BY user_id
+		pair_stats AS (
+			SELECT
+				theirs.user_id,
+				SUM(${AGREEMENT_EXPR})::float / NULLIF(COUNT(*), 0)::float AS score
+			FROM "place_relation" theirs
+			JOIN my_relations mine ON mine.place_id = theirs.place_id
+			WHERE theirs.user_id <> ${userId}
+			  AND theirs.kind IN ('liked', 'disliked')
+			GROUP BY theirs.user_id
 		),
 		twins AS (
-			SELECT
-				s.user_id,
-				s.shared_count::float / NULLIF((SELECT n FROM my_total) + t.n - s.shared_count, 0) AS score
-			FROM shared s
-			JOIN totals t ON t.user_id = s.user_id
-			ORDER BY score DESC NULLS LAST
+			SELECT user_id, score
+			FROM pair_stats
+			WHERE score > 0
+			ORDER BY score DESC
 			LIMIT ${TWIN_LIMIT}
 		)
 		SELECT
@@ -224,12 +255,13 @@ export async function getRecommendedPlaces(
 			p.created_at,
 			SUM(t.score)::float AS score,
 			COUNT(DISTINCT t.user_id)::int AS twin_count
-		FROM "like" l
+		FROM "place_relation" l
 		JOIN twins t ON t.user_id = l.user_id
 		JOIN place p ON p.id = l.place_id
 		WHERE p.city = ${city}
 		  AND p.category = ${category}
-		  AND p.id NOT IN (SELECT place_id FROM my_likes)
+		  AND l.kind = 'liked'
+		  AND p.id NOT IN (SELECT place_id FROM all_my_relations)
 		GROUP BY p.id
 		ORDER BY score DESC, twin_count DESC
 		LIMIT ${limit}
@@ -253,8 +285,8 @@ export async function getRecommendedPlaces(
 }
 
 /**
- * Fallback when the user has no likes yet (cold start): top places in the
- * city by raw popularity (like count). Same shape so the UI doesn't branch.
+ * Fallback when the user has no signal yet (cold start): top places in
+ * the city by raw like count. Same shape so the UI doesn't branch.
  */
 export async function getPopularPlaces(
 	city: string,
@@ -287,9 +319,9 @@ export async function getPopularPlaces(
 			p.source,
 			p.external_id,
 			p.created_at,
-			COUNT(l.id)::int AS like_count
+			COUNT(l.id) FILTER (WHERE l.kind = 'liked')::int AS like_count
 		FROM place p
-		LEFT JOIN "like" l ON l.place_id = p.id
+		LEFT JOIN "place_relation" l ON l.place_id = p.id
 		WHERE p.city = ${city} AND p.category = ${category}
 		GROUP BY p.id
 		ORDER BY like_count DESC, p.name ASC

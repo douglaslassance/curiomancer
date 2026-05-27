@@ -1,38 +1,81 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from './db';
-import { like } from './db/schema';
+import { placeRelation, type PlaceRelationKind } from './db/schema';
 
-/** All place IDs the user has liked. Returns an empty set if no user. */
-export async function getLikedPlaceIds(userId: string | undefined): Promise<Set<string>> {
+/**
+ * Server helpers around the `place_relation` table (formerly `like`).
+ *
+ * The file is still called likes.ts because most callers care specifically
+ * about the positive "liked" slice. Functions either default to 'liked'
+ * or accept a `kind` argument to operate on dislikes / want-to-go.
+ */
+
+/** All place IDs the user has marked with the given relation. */
+export async function getPlaceIdsByKind(
+	userId: string | undefined,
+	kind: PlaceRelationKind = 'liked'
+): Promise<Set<string>> {
 	if (!userId) return new Set();
-	const rows = await db.select({ placeId: like.placeId }).from(like).where(eq(like.userId, userId));
+	const rows = await db
+		.select({ placeId: placeRelation.placeId })
+		.from(placeRelation)
+		.where(and(eq(placeRelation.userId, userId), eq(placeRelation.kind, kind)));
 	return new Set(rows.map((r) => r.placeId));
 }
 
-/** Toggle a like. Returns the new liked state. */
-export async function toggleLike(userId: string, placeId: string): Promise<boolean> {
-	const existing = await db
-		.select({ id: like.id })
-		.from(like)
-		.where(and(eq(like.userId, userId), eq(like.placeId, placeId)))
+/** Backwards-compatible alias for callers that only ever want liked IDs. */
+export const getLikedPlaceIds = (userId: string | undefined) => getPlaceIdsByKind(userId, 'liked');
+
+/**
+ * Set the user's relation to a place to `kind`, or clear it if the row
+ * already matches `kind` (toggle behavior). Returns the resulting state
+ * (`'liked' | 'disliked' | 'want_to_go' | null`).
+ */
+export async function setRelation(
+	userId: string,
+	placeId: string,
+	kind: PlaceRelationKind
+): Promise<PlaceRelationKind | null> {
+	const [existing] = await db
+		.select({ id: placeRelation.id, kind: placeRelation.kind })
+		.from(placeRelation)
+		.where(and(eq(placeRelation.userId, userId), eq(placeRelation.placeId, placeId)))
 		.limit(1);
 
-	if (existing.length > 0) {
-		await db.delete(like).where(eq(like.id, existing[0].id));
-		return false;
+	if (existing) {
+		// Clicking the same kind a second time clears it.
+		if (existing.kind === kind) {
+			await db.delete(placeRelation).where(eq(placeRelation.id, existing.id));
+			return null;
+		}
+		await db
+			.update(placeRelation)
+			.set({ kind })
+			.where(eq(placeRelation.id, existing.id));
+		return kind;
 	}
-	await db.insert(like).values({ userId, placeId }).onConflictDoNothing();
-	return true;
+
+	await db.insert(placeRelation).values({ userId, placeId, kind }).onConflictDoNothing();
+	return kind;
+}
+
+/**
+ * Legacy toggle: flips the place between "liked" and "no relation". Kept
+ * so older endpoints still compile during the dislike rollout.
+ */
+export async function toggleLike(userId: string, placeId: string): Promise<boolean> {
+	const result = await setRelation(userId, placeId, 'liked');
+	return result === 'liked';
 }
 
 /** Insert any place IDs not already liked. Used to merge anonymous likes on sign-in. */
 export async function mergeLikes(userId: string, placeIds: string[]): Promise<number> {
 	if (placeIds.length === 0) return 0;
-	const rows = placeIds.map((placeId) => ({ userId, placeId }));
+	const rows = placeIds.map((placeId) => ({ userId, placeId, kind: 'liked' as const }));
 	const result = await db
-		.insert(like)
+		.insert(placeRelation)
 		.values(rows)
 		.onConflictDoNothing()
-		.returning({ id: like.id });
+		.returning({ id: placeRelation.id });
 	return result.length;
 }

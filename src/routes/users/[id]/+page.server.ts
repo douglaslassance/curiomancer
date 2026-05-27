@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { asc, eq, getTableColumns, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { like, place, user, userLocation, type Place } from '$lib/server/db/schema';
+import { placeRelation, place, user, userLocation, type Place } from '$lib/server/db/schema';
 import type { PageServerLoad } from './$types';
 
 /**
@@ -38,8 +38,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	const likedPlaces = await db
 		.select(getTableColumns(place))
 		.from(place)
-		.innerJoin(like, eq(like.placeId, place.id))
-		.where(eq(like.userId, params.id))
+		.innerJoin(placeRelation, eq(placeRelation.placeId, place.id))
+		.where(eq(placeRelation.userId, params.id))
 		.orderBy(asc(place.city), asc(place.name));
 
 	// Compute similarity with the viewer (if signed in and not viewing self).
@@ -69,13 +69,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			}>(sql`
 				SELECT p.*
 				FROM place p
-				JOIN "like" mine ON mine.place_id = p.id AND mine.user_id = ${locals.user.id}
-				JOIN "like" theirs ON theirs.place_id = p.id AND theirs.user_id = ${params.id}
+				JOIN "place_relation" mine ON mine.place_id = p.id AND mine.user_id = ${locals.user.id}
+				JOIN "place_relation" theirs ON theirs.place_id = p.id AND theirs.user_id = ${params.id}
 				ORDER BY p.city, p.name
 			`);
 
 			const [{ myTotal }] = await db.execute<{ myTotal: number }>(
-				sql`SELECT COUNT(*)::int AS "myTotal" FROM "like" WHERE user_id = ${locals.user.id}`
+				sql`SELECT COUNT(*)::int AS "myTotal" FROM "place_relation" WHERE user_id = ${locals.user.id}`
 			);
 			const theirTotal = likedPlaces.length;
 			const sharedCount = shared.length;
