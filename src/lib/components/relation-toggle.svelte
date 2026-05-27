@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Eye, ThumbsDown, ThumbsUp } from '@lucide/svelte';
+	import { Bookmark, Eye, ThumbsDown, ThumbsUp } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { relations, type Kind } from '$lib/relations.svelte';
 	import { invalidateAll } from '$app/navigation';
@@ -25,8 +25,8 @@
 
 		if (!signedIn) {
 			// Anonymous mode: localStorage persists likes only. Roll back
-			// dislikes and seen markers since we don't persist them.
-			if (kind === 'disliked' || kind === 'seen') {
+			// other kinds since we don't persist them.
+			if (kind !== 'liked') {
 				relations.apply(placeId, kind);
 			}
 			return;
@@ -81,5 +81,16 @@
 		onclick={(e: Event) => press('disliked', e)}
 	>
 		<ThumbsDown class="size-4" fill={current === 'disliked' ? 'currentColor' : 'none'} />
+	</Button>
+	<Button
+		variant={current === 'want_to_go' ? 'default' : 'outline'}
+		{size}
+		aria-pressed={current === 'want_to_go'}
+		aria-label={current === 'want_to_go'
+			? 'Remove from wishlist'
+			: "Want to go — haven't been but interested"}
+		onclick={(e: Event) => press('want_to_go', e)}
+	>
+		<Bookmark class="size-4" fill={current === 'want_to_go' ? 'currentColor' : 'none'} />
 	</Button>
 </div>

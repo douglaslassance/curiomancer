@@ -14,7 +14,7 @@ import { browser } from '$app/environment';
 
 const STORAGE_KEY = 'bond:likes';
 
-export type Kind = 'liked' | 'disliked' | 'seen';
+export type Kind = 'liked' | 'disliked' | 'seen' | 'want_to_go';
 
 function loadAnonymousLikes(): Set<string> {
 	if (!browser) return new Set();
@@ -36,6 +36,7 @@ class RelationsStore {
 	#liked = $state<Set<string>>(new Set());
 	#disliked = $state<Set<string>>(new Set());
 	#seen = $state<Set<string>>(new Set());
+	#wantToGo = $state<Set<string>>(new Set());
 	#serverBacked = $state(false);
 
 	constructor() {
@@ -46,10 +47,12 @@ class RelationsStore {
 		liked: Iterable<string>;
 		disliked: Iterable<string>;
 		seen?: Iterable<string>;
+		wantToGo?: Iterable<string>;
 	}) {
 		this.#liked = new Set(snapshot.liked);
 		this.#disliked = new Set(snapshot.disliked);
 		this.#seen = new Set(snapshot.seen ?? []);
+		this.#wantToGo = new Set(snapshot.wantToGo ?? []);
 		this.#serverBacked = true;
 	}
 
@@ -57,6 +60,7 @@ class RelationsStore {
 		this.#liked = loadAnonymousLikes();
 		this.#disliked = new Set();
 		this.#seen = new Set();
+		this.#wantToGo = new Set();
 		this.#serverBacked = false;
 	}
 
@@ -77,6 +81,7 @@ class RelationsStore {
 		if (this.#liked.has(placeId)) return 'liked';
 		if (this.#disliked.has(placeId)) return 'disliked';
 		if (this.#seen.has(placeId)) return 'seen';
+		if (this.#wantToGo.has(placeId)) return 'want_to_go';
 		return null;
 	}
 
@@ -91,16 +96,20 @@ class RelationsStore {
 		const newLiked = new Set(this.#liked);
 		const newDisliked = new Set(this.#disliked);
 		const newSeen = new Set(this.#seen);
+		const newWantToGo = new Set(this.#wantToGo);
 		newLiked.delete(placeId);
 		newDisliked.delete(placeId);
 		newSeen.delete(placeId);
+		newWantToGo.delete(placeId);
 		if (next === 'liked') newLiked.add(placeId);
 		else if (next === 'disliked') newDisliked.add(placeId);
 		else if (next === 'seen') newSeen.add(placeId);
+		else if (next === 'want_to_go') newWantToGo.add(placeId);
 
 		this.#liked = newLiked;
 		this.#disliked = newDisliked;
 		this.#seen = newSeen;
+		this.#wantToGo = newWantToGo;
 		if (!this.#serverBacked) persistAnonymousLikes(newLiked);
 		return next;
 	}

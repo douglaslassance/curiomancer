@@ -8,18 +8,21 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 			user: null,
 			likedIds: [] as string[],
 			dislikedIds: [] as string[],
-			seenIds: [] as string[]
+			seenIds: [] as string[],
+			wantToGoIds: [] as string[]
 		};
 	}
-	const [liked, disliked, seen] = await Promise.all([
+	const [liked, disliked, seen, wantToGo] = await Promise.all([
 		getPlaceIdsByKind(user.id, 'liked'),
 		getPlaceIdsByKind(user.id, 'disliked'),
-		getPlaceIdsByKind(user.id, 'seen')
+		getPlaceIdsByKind(user.id, 'seen'),
+		getPlaceIdsByKind(user.id, 'want_to_go')
 	]);
 	return {
 		user,
 		likedIds: [...liked],
 		dislikedIds: [...disliked],
-		seenIds: [...seen]
+		seenIds: [...seen],
+		wantToGoIds: [...wantToGo]
 	};
 };
