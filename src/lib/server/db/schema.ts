@@ -45,14 +45,21 @@ export type Place = typeof place.$inferSelect;
 export type NewPlace = typeof place.$inferInsert;
 
 /**
- * A user's stance on a place. Liked and disliked are the matching signals;
- * want-to-go is a wishlist marker that doesn't influence taste matching.
+ * A user's stance on a place. Four mutually-exclusive kinds:
+ *
+ *   - liked: been, dig it. Strong positive signal for matching.
+ *   - disliked: been, don't dig it. Strong negative signal for matching.
+ *   - seen: been (or know of it) but no opinion. Zero matching signal —
+ *     just tells the recommender to skip this place since the user is
+ *     already aware of it.
+ *   - want_to_go: haven't been but interested. Wishlist marker; no
+ *     matching contribution (planned, not currently exposed in UI).
+ *
  * Composite-unique on (userId, placeId) — a user only has one stance per
- * place at a time (changing your mind overwrites, doesn't accumulate).
+ * place at a time. Changing your mind overwrites the prior row.
  *
  * Historically this table was called `like`. Renamed when dislikes were
- * added so the name matches the concept; old code paths and exports
- * still use "likes" loosely to mean the positive-relation slice.
+ * added so the name matches the concept.
  */
 export const placeRelation = pgTable(
 	'place_relation',
@@ -66,7 +73,7 @@ export const placeRelation = pgTable(
 		placeId: text('place_id')
 			.notNull()
 			.references(() => place.id, { onDelete: 'cascade' }),
-		kind: text('kind', { enum: ['liked', 'disliked', 'want_to_go'] })
+		kind: text('kind', { enum: ['liked', 'disliked', 'seen', 'want_to_go'] })
 			.notNull()
 			.default('liked'),
 		createdAt: timestamp('created_at').notNull().defaultNow()

@@ -6,10 +6,12 @@ import { getPlacesNearby, type NearbyPlace } from '$lib/server/nearby';
 import { getRecommendedPlaces } from '$lib/server/matching';
 import type { PageServerLoad } from './$types';
 
-type Filter = 'all' | 'liked' | 'disliked' | 'recommended';
+type Filter = 'all' | 'liked' | 'disliked' | 'seen' | 'recommended';
 
 function parseFilter(value: string | null): Filter {
-	return value === 'liked' || value === 'disliked' || value === 'recommended' ? value : 'all';
+	return value === 'liked' || value === 'disliked' || value === 'seen' || value === 'recommended'
+		? value
+		: 'all';
 }
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -21,6 +23,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			places: [] as NearbyPlace[],
 			likedIds: [] as string[],
 			dislikedIds: [] as string[],
+			seenIds: [] as string[],
 			recommendedScores: {} as Record<string, number>,
 			signedIn: false as const
 		};
@@ -44,6 +47,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			places: [] as NearbyPlace[],
 			likedIds: [] as string[],
 			dislikedIds: [] as string[],
+			seenIds: [] as string[],
 			recommendedScores: {} as Record<string, number>,
 			signedIn: true as const
 		};
@@ -52,10 +56,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const radiusKm = Math.max(1, Math.min(500, Number(url.searchParams.get('radius') ?? '') || 30));
 	const filter = parseFilter(url.searchParams.get('filter'));
 
-	const [allNearby, liked, disliked, recsByCategory] = await Promise.all([
+	const [allNearby, liked, disliked, seen, recsByCategory] = await Promise.all([
 		getPlacesNearby(loc.latitude, loc.longitude, radiusKm),
 		getPlaceIdsByKind(locals.user.id, 'liked'),
 		getPlaceIdsByKind(locals.user.id, 'disliked'),
+		getPlaceIdsByKind(locals.user.id, 'seen'),
 		// Recommendation scores are computed per-category by the existing
 		// matching layer. Flatten into a single map placeId → score.
 		Promise.all([
@@ -77,6 +82,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		places: allNearby,
 		likedIds: [...liked],
 		dislikedIds: [...disliked],
+		seenIds: [...seen],
 		recommendedScores,
 		signedIn: true as const
 	};

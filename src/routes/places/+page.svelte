@@ -10,11 +10,12 @@
 
 	let { data } = $props();
 
-	type Filter = 'all' | 'liked' | 'disliked' | 'recommended';
+	type Filter = 'all' | 'liked' | 'disliked' | 'seen' | 'recommended';
 	const FILTERS: { value: Filter; label: string }[] = [
 		{ value: 'all', label: 'All' },
 		{ value: 'liked', label: 'Liked' },
 		{ value: 'disliked', label: 'Disliked' },
+		{ value: 'seen', label: 'Seen' },
 		{ value: 'recommended', label: 'Recommended' }
 	];
 
@@ -48,20 +49,26 @@
 
 	const likedSet = $derived(new Set(data.likedIds));
 	const dislikedSet = $derived(new Set(data.dislikedIds));
+	const seenSet = $derived(new Set(data.seenIds));
 
 	// Filter pipeline: text + relation filter applied client-side over the
 	// server's radius-filtered list. For "Recommended" we further require
-	// the place to have a positive recommendation score (taste-twins liked it).
+	// the place to have a positive recommendation score AND no existing
+	// relation (you don't need a rec for something you've already engaged with).
 	const visible = $derived.by(() => {
 		const q = query.trim().toLowerCase();
 		let out = data.places;
 
 		if (data.filter === 'liked') out = out.filter((p) => likedSet.has(p.id));
 		else if (data.filter === 'disliked') out = out.filter((p) => dislikedSet.has(p.id));
+		else if (data.filter === 'seen') out = out.filter((p) => seenSet.has(p.id));
 		else if (data.filter === 'recommended') {
 			out = out.filter(
 				(p) =>
-					!likedSet.has(p.id) && !dislikedSet.has(p.id) && (data.recommendedScores[p.id] ?? 0) > 0
+					!likedSet.has(p.id) &&
+					!dislikedSet.has(p.id) &&
+					!seenSet.has(p.id) &&
+					(data.recommendedScores[p.id] ?? 0) > 0
 			);
 			// Sort by recommendation score descending.
 			out = [...out].sort(

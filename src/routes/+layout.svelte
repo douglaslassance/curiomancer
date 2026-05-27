@@ -43,7 +43,8 @@
 
 		relations.hydrateFromServer({
 			liked: data.likedIds,
-			disliked: data.dislikedIds ?? []
+			disliked: data.dislikedIds ?? [],
+			seen: data.seenIds ?? []
 		});
 	});
 </script>

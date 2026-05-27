@@ -1,11 +1,10 @@
 /**
- * Client-side store of the current user's place relations: liked + disliked.
- * (Want-to-go is omitted for now — it's a future feature that doesn't
- * affect matching.)
+ * Client-side store of the current user's place relations: liked + disliked + seen.
+ * (Want-to-go is omitted for now — defined in the schema but not surfaced in UI.)
  *
  * Anonymous users get localStorage persistence for *likes only* — we never
- * persist dislikes anonymously because dislike of a specific spot you
- * haven't been to is meaningless without an account context.
+ * persist dislikes or "seen" markers anonymously because they're noisy
+ * signals without an account context to learn from.
  *
  * For signed-in users the store is replaced from the server's truth via
  * `hydrateFromServer` on every page navigation; mutations are optimistic
@@ -15,7 +14,7 @@ import { browser } from '$app/environment';
 
 const STORAGE_KEY = 'bond:likes';
 
-export type Kind = 'liked' | 'disliked';
+export type Kind = 'liked' | 'disliked' | 'seen';
 
 function loadAnonymousLikes(): Set<string> {
 	if (!browser) return new Set();
@@ -36,21 +35,28 @@ function persistAnonymousLikes(ids: Set<string>) {
 class RelationsStore {
 	#liked = $state<Set<string>>(new Set());
 	#disliked = $state<Set<string>>(new Set());
+	#seen = $state<Set<string>>(new Set());
 	#serverBacked = $state(false);
 
 	constructor() {
 		if (browser) this.#liked = loadAnonymousLikes();
 	}
 
-	hydrateFromServer(snapshot: { liked: Iterable<string>; disliked: Iterable<string> }) {
+	hydrateFromServer(snapshot: {
+		liked: Iterable<string>;
+		disliked: Iterable<string>;
+		seen?: Iterable<string>;
+	}) {
 		this.#liked = new Set(snapshot.liked);
 		this.#disliked = new Set(snapshot.disliked);
+		this.#seen = new Set(snapshot.seen ?? []);
 		this.#serverBacked = true;
 	}
 
 	resetToAnonymous() {
 		this.#liked = loadAnonymousLikes();
 		this.#disliked = new Set();
+		this.#seen = new Set();
 		this.#serverBacked = false;
 	}
 
@@ -70,13 +76,13 @@ class RelationsStore {
 	kindOf(placeId: string): Kind | null {
 		if (this.#liked.has(placeId)) return 'liked';
 		if (this.#disliked.has(placeId)) return 'disliked';
+		if (this.#seen.has(placeId)) return 'seen';
 		return null;
 	}
 
 	/**
 	 * Apply a kind locally; signed-out users only get to like (matching the
-	 * existing behavior). Toggle semantics: applying the same kind clears
-	 * it.
+	 * existing behavior). Toggle semantics: applying the same kind clears it.
 	 */
 	apply(placeId: string, kind: Kind): Kind | null {
 		const current = this.kindOf(placeId);
@@ -84,13 +90,17 @@ class RelationsStore {
 
 		const newLiked = new Set(this.#liked);
 		const newDisliked = new Set(this.#disliked);
+		const newSeen = new Set(this.#seen);
 		newLiked.delete(placeId);
 		newDisliked.delete(placeId);
+		newSeen.delete(placeId);
 		if (next === 'liked') newLiked.add(placeId);
 		else if (next === 'disliked') newDisliked.add(placeId);
+		else if (next === 'seen') newSeen.add(placeId);
 
 		this.#liked = newLiked;
 		this.#disliked = newDisliked;
+		this.#seen = newSeen;
 		if (!this.#serverBacked) persistAnonymousLikes(newLiked);
 		return next;
 	}
