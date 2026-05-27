@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Heart, Loader2, MapPin, ThumbsDown, X } from '@lucide/svelte';
+	import { Loader2, MapPin, ThumbsDown, ThumbsUp, X } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Badge } from '$lib/components/ui/badge';
@@ -233,7 +233,7 @@
 						{#if savingKind === 'liked'}
 							<Loader2 class="size-4 animate-spin" />
 						{:else}
-							<Heart class="size-4" />
+							<ThumbsUp class="size-4" />
 						{/if}
 						Like
 					</Button>

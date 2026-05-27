@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Heart, ThumbsDown } from '@lucide/svelte';
+	import { ThumbsDown, ThumbsUp } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { relations, type Kind } from '$lib/relations.svelte';
 	import { invalidateAll } from '$app/navigation';
@@ -60,7 +60,7 @@
 		aria-label={current === 'liked' ? 'Unlike' : 'Like'}
 		onclick={(e: Event) => press('liked', e)}
 	>
-		<Heart class="size-4" fill={current === 'liked' ? 'currentColor' : 'none'} />
+		<ThumbsUp class="size-4" fill={current === 'liked' ? 'currentColor' : 'none'} />
 	</Button>
 	<Button
 		variant={current === 'disliked' ? 'default' : 'outline'}

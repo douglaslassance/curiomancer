@@ -2,7 +2,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import RelationToggle from './relation-toggle.svelte';
 	import MatchBadge from './match-badge.svelte';
-	import { Heart, Loader2, MapPin, Users } from '@lucide/svelte';
+	import { Loader2, MapPin, ThumbsUp, Users } from '@lucide/svelte';
 	import type { Place } from '$lib/server/db/schema';
 	import type { MatchedPerson } from '$lib/server/matching';
 	import { page } from '$app/state';
@@ -87,7 +87,7 @@
 		<div class="mt-3 flex items-center gap-3">
 			<RelationToggle placeId={context.place.id} />
 			<span class="text-muted-foreground flex items-center gap-1 text-xs">
-				<Heart class="size-3" />
+				<ThumbsUp class="size-3" />
 				{context.likeCount} like{context.likeCount === 1 ? '' : 's'}
 			</span>
 		</div>

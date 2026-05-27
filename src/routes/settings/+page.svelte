@@ -4,7 +4,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
-	import { Heart, LogOut, MapPin, Mail, User } from '@lucide/svelte';
+	import { LogOut, MapPin, Mail, ThumbsUp, User } from '@lucide/svelte';
 
 	let { data } = $props();
 
@@ -73,7 +73,7 @@
 			</div>
 
 			<div class="flex items-start gap-3">
-				<Heart class="text-muted-foreground mt-0.5 size-4" />
+				<ThumbsUp class="text-muted-foreground mt-0.5 size-4" />
 				<div class="min-w-0 flex-1">
 					<div class="text-sm font-medium">Likes</div>
 					<p class="text-muted-foreground text-sm">

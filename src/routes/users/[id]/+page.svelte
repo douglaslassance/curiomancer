@@ -4,7 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import RelationToggle from '$lib/components/relation-toggle.svelte';
 	import MatchBadge from '$lib/components/match-badge.svelte';
-	import { ArrowLeft, Heart, MapPin } from '@lucide/svelte';
+	import { ArrowLeft, MapPin, ThumbsUp } from '@lucide/svelte';
 	import type { Place } from '$lib/server/db/schema';
 
 	let { data } = $props();
@@ -66,7 +66,7 @@
 				</p>
 			{/if}
 			<p class="text-muted-foreground mt-1 flex items-center gap-1 text-sm">
-				<Heart class="size-4" />
+				<ThumbsUp class="size-4" />
 				{data.likedPlaces.length} liked place{data.likedPlaces.length === 1 ? '' : 's'}
 			</p>
 		</div>
