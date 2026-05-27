@@ -17,7 +17,7 @@
 		places={data.places}
 		center={data.center}
 		likedIds={data.likedIds}
-		dislikedIds={data.dislikedIds ?? []}
+		wantToGoIds={data.wantToGoIds ?? []}
 		{signedIn}
 	/>
 </div>

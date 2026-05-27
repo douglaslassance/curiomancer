@@ -9,14 +9,14 @@
 		places,
 		center,
 		likedIds = [],
-		dislikedIds = [],
+		wantToGoIds = [],
 		signedIn = false,
 		zoom = 12
 	}: {
 		places: Place[];
 		center: { latitude: number; longitude: number };
 		likedIds?: string[];
-		dislikedIds?: string[];
+		wantToGoIds?: string[];
 		signedIn?: boolean;
 		zoom?: number;
 	} = $props();
@@ -27,7 +27,7 @@
 	let selectedPlace = $state<Place | null>(null);
 
 	const likedSet = $derived(new Set(likedIds));
-	const dislikedSet = $derived(new Set(dislikedIds));
+	const wantToGoSet = $derived(new Set(wantToGoIds));
 
 	// Map handle held outside onMount so other functions can drive the camera.
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -70,12 +70,13 @@
 	}
 
 	/**
-	 * Pin color encodes the user's relationship: liked = pink, disliked =
-	 * orange-red, neutral = gray. Category is the glyph icon.
+	 * Pin color encodes the user's relationship: liked = pink, want-to-go =
+	 * emerald, neutral = gray. Category is the glyph icon. Disliked and
+	 * seen places never reach the map — the server load filters them out.
 	 */
 	function pinColor(placeId: string): string {
 		if (likedSet.has(placeId)) return '#ec4899'; // pink-500
-		if (dislikedSet.has(placeId)) return '#f97316'; // orange-500
+		if (wantToGoSet.has(placeId)) return '#10b981'; // emerald-500
 		return '#9ca3af'; // gray-400
 	}
 
