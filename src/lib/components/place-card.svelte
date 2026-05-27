@@ -2,7 +2,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { MapPin } from '@lucide/svelte';
-	import LikeButton from './like-button.svelte';
+	import RelationToggle from './relation-toggle.svelte';
 	import type { Place } from '$lib/server/db/schema';
 
 	let { place }: { place: Place } = $props();
@@ -27,6 +27,6 @@
 		<p class="text-muted-foreground text-sm">{place.description}</p>
 	</Card.Content>
 	<Card.Footer>
-		<LikeButton placeId={place.id} />
+		<RelationToggle placeId={place.id} />
 	</Card.Footer>
 </Card.Root>

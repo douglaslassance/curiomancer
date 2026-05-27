@@ -48,10 +48,7 @@ export async function setRelation(
 			await db.delete(placeRelation).where(eq(placeRelation.id, existing.id));
 			return null;
 		}
-		await db
-			.update(placeRelation)
-			.set({ kind })
-			.where(eq(placeRelation.id, existing.id));
+		await db.update(placeRelation).set({ kind }).where(eq(placeRelation.id, existing.id));
 		return kind;
 	}
 

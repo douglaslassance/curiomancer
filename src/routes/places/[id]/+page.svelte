@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import LikeButton from '$lib/components/like-button.svelte';
+	import RelationToggle from '$lib/components/relation-toggle.svelte';
 	import MatchBadge from '$lib/components/match-badge.svelte';
 	import { ArrowLeft, Heart, MapPin, Users } from '@lucide/svelte';
 	import { page } from '$app/state';
@@ -39,7 +39,7 @@
 	<p class="text-foreground/90 text-base leading-relaxed">{p.description}</p>
 
 	<div class="mt-6 flex items-center gap-3">
-		<LikeButton placeId={p.id} size="default" />
+		<RelationToggle placeId={p.id} size="default" />
 		<span class="text-muted-foreground flex items-center gap-1 text-sm">
 			<Heart class="size-4" />
 			{data.likeCount} like{data.likeCount === 1 ? '' : 's'} total

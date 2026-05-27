@@ -6,7 +6,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import ThemeToggle from '$lib/components/theme-toggle.svelte';
 	import UserMenu from '$lib/components/user-menu.svelte';
-	import { likes } from '$lib/likes.svelte';
+	import { relations } from '$lib/relations.svelte';
 
 	let { data, children } = $props();
 
@@ -15,7 +15,7 @@
 	// itself on every assignment, looping forever.
 	let lastUserId: string | null = null;
 
-	// Sync the client-side likes store with the server's view of likes.
+	// Sync the client-side relations store with the server's view.
 	// On a fresh sign-in, drain any anonymous localStorage likes into the DB.
 	$effect(() => {
 		const currentId = data.user?.id ?? null;
@@ -23,12 +23,12 @@
 		lastUserId = currentId;
 
 		if (!data.user) {
-			likes.resetToAnonymous();
+			relations.resetToAnonymous();
 			return;
 		}
 
 		if (isNewSignIn) {
-			const anon = likes.takeAnonymous();
+			const anon = relations.takeAnonymousLikes();
 			if (anon.length > 0) {
 				fetch('/api/likes/merge', {
 					method: 'POST',
@@ -41,7 +41,10 @@
 			}
 		}
 
-		likes.hydrateFromServer(data.likedIds);
+		relations.hydrateFromServer({
+			liked: data.likedIds,
+			disliked: data.dislikedIds ?? []
+		});
 	});
 </script>
 

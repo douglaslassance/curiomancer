@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Badge } from '$lib/components/ui/badge';
 	import { MapPin } from '@lucide/svelte';
-	import LikeButton from './like-button.svelte';
+	import RelationToggle from './relation-toggle.svelte';
 	import MatchBadge from './match-badge.svelte';
 	import type { RecommendedPlace } from '$lib/server/matching';
 
@@ -34,6 +34,6 @@
 		{:else}
 			<span></span>
 		{/if}
-		<LikeButton placeId={place.id} />
+		<RelationToggle placeId={place.id} />
 	</div>
 </article>

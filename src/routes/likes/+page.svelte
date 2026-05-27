@@ -1,7 +1,7 @@
 <script lang="ts">
 	import PlaceCard from '$lib/components/place-card.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { likes } from '$lib/likes.svelte';
+	import { relations } from '$lib/relations.svelte';
 	import { HeartCrack } from '@lucide/svelte';
 
 	let { data } = $props();
@@ -9,7 +9,9 @@
 	// Signed-in: server already filtered to liked places.
 	// Anonymous: filter all places by the client's localStorage store.
 	const liked = $derived(
-		data.scope === 'user' ? data.places : data.places.filter((p) => likes.has(p.id))
+		data.scope === 'user'
+			? data.places
+			: data.places.filter((p) => relations.kindOf(p.id) === 'liked')
 	);
 </script>
 

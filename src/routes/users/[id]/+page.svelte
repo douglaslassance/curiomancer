@@ -2,7 +2,7 @@
 	import * as Avatar from '$lib/components/ui/avatar';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import LikeButton from '$lib/components/like-button.svelte';
+	import RelationToggle from '$lib/components/relation-toggle.svelte';
 	import MatchBadge from '$lib/components/match-badge.svelte';
 	import { ArrowLeft, Heart, MapPin } from '@lucide/svelte';
 	import type { Place } from '$lib/server/db/schema';
@@ -38,7 +38,7 @@
 			</p>
 		</a>
 		<div class="shrink-0">
-			<LikeButton placeId={p.id} />
+			<RelationToggle placeId={p.id} />
 		</div>
 	</article>
 {/snippet}

@@ -14,7 +14,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 		.limit(1);
 
 	const likeCount = (
-		await db.select({ id: placeRelation.id }).from(placeRelation).where(eq(placeRelation.userId, locals.user.id))
+		await db
+			.select({ id: placeRelation.id })
+			.from(placeRelation)
+			.where(eq(placeRelation.userId, locals.user.id))
 	).length;
 
 	return {

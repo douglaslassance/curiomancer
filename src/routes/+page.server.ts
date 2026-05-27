@@ -27,8 +27,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 	}
 
 	const userId = locals.user.id;
-	const myLikeCount = (await db.select({ id: placeRelation.id }).from(placeRelation).where(eq(placeRelation.userId, userId)))
-		.length;
+	const myLikeCount = (
+		await db
+			.select({ id: placeRelation.id })
+			.from(placeRelation)
+			.where(eq(placeRelation.userId, userId))
+	).length;
 
 	// Pick the right ranking strategy per-category based on whether we have
 	// taste signal yet. Cold-start → popularity; warm → taste-matched.
