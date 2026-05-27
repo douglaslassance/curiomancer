@@ -1,7 +1,9 @@
 import { and, eq } from 'drizzle-orm';
 import { error, json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { placeRelation, place } from '$lib/server/db/schema';
+import { place } from '$lib/server/db/schema';
+import { setRelation } from '$lib/server/likes';
+import type { PlaceRelationKind } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
 
 type AddPlaceBody = {
@@ -14,12 +16,13 @@ type AddPlaceBody = {
 	description?: string;
 	latitude?: number;
 	longitude?: number;
+	/** Optional relation to set in the same transaction; defaults to 'liked'. */
+	kind?: PlaceRelationKind;
 };
 
 /**
- * Upsert a place by (source, external_id) and like it for the current user.
- * Returns the place id so the caller can navigate to the detail page or
- * refresh the map.
+ * Upsert a place by (source, external_id) and set the user's relation to it.
+ * Returns the place id so the caller can navigate or refresh the map.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) throw error(401, 'Sign in to add places.');
@@ -32,6 +35,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const city = body.city?.trim();
 	const source = body.source ?? 'apple';
 	const externalId = body.externalId?.trim();
+	const kind: PlaceRelationKind = body.kind ?? 'liked';
 
 	if (!name) throw error(400, 'name is required');
 	if (!category) throw error(400, 'category is required');
@@ -39,19 +43,21 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (source === 'apple' && !externalId) {
 		throw error(400, 'externalId is required for source=apple');
 	}
+	if (kind !== 'liked' && kind !== 'disliked' && kind !== 'want_to_go') {
+		throw error(400, "kind must be 'liked', 'disliked', or 'want_to_go'.");
+	}
 
 	// Dedupe: if this Apple place already exists, reuse it.
-	let existingId: string | null = null;
+	let placeId: string | null = null;
 	if (externalId) {
 		const [existing] = await db
 			.select({ id: place.id })
 			.from(place)
 			.where(and(eq(place.source, source), eq(place.externalId, externalId)))
 			.limit(1);
-		existingId = existing?.id ?? null;
+		placeId = existing?.id ?? null;
 	}
 
-	let placeId = existingId;
 	if (!placeId) {
 		const [created] = await db
 			.insert(place)
@@ -70,8 +76,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		placeId = created.id;
 	}
 
-	// Like it (idempotent).
-	await db.insert(placeRelation).values({ userId: locals.user.id, placeId }).onConflictDoNothing();
+	await setRelation(locals.user.id, placeId, kind);
 
-	return json({ placeId });
+	return json({ placeId, kind });
 };

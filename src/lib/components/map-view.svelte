@@ -3,16 +3,21 @@
 	import type { Place } from '$lib/server/db/schema';
 	import { categoryGlyphDataUri } from '$lib/map-glyphs';
 	import PlacePopup from './place-popup.svelte';
+	import MapSearch from './map-search.svelte';
 
 	let {
 		places,
 		center,
 		likedIds = [],
+		dislikedIds = [],
+		signedIn = false,
 		zoom = 12
 	}: {
 		places: Place[];
 		center: { latitude: number; longitude: number };
 		likedIds?: string[];
+		dislikedIds?: string[];
+		signedIn?: boolean;
 		zoom?: number;
 	} = $props();
 
@@ -22,8 +27,14 @@
 	let selectedPlace = $state<Place | null>(null);
 
 	const likedSet = $derived(new Set(likedIds));
+	const dislikedSet = $derived(new Set(dislikedIds));
 
-	/** Load the MapKit JS SDK by injecting a <script> tag. Idempotent. */
+	// Map handle held outside onMount so other functions can drive the camera.
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let mapRef: any = null;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let previewMarker: any = null;
+
 	function loadMapKitScript(): Promise<void> {
 		if (typeof window === 'undefined') return Promise.resolve();
 		if (window.mapkit) return Promise.resolve();
@@ -54,17 +65,51 @@
 	}
 
 	/**
-	 * Pin color encodes the user's *relationship* to the place, not the
-	 * category. Category is encoded by the glyph icon.
-	 *  - liked     → pink-500
-	 *  - otherwise → gray-400 ("recommended" / neutral)
+	 * Pin color encodes the user's relationship: liked = pink, disliked =
+	 * orange-red, neutral = gray. Category is the glyph icon.
 	 */
 	function pinColor(placeId: string): string {
-		return likedSet.has(placeId) ? '#ec4899' : '#9ca3af';
+		if (likedSet.has(placeId)) return '#ec4899'; // pink-500
+		if (dislikedSet.has(placeId)) return '#f97316'; // orange-500
+		return '#9ca3af'; // gray-400
+	}
+
+	function previewSelected(hit: {
+		muid: string;
+		name: string;
+		latitude: number;
+		longitude: number;
+		category: 'restaurant' | 'bar' | 'shop' | null;
+	}) {
+		if (!mapRef || !window.mapkit) return;
+		clearPreviewMarker();
+
+		const coord = new window.mapkit.Coordinate(hit.latitude, hit.longitude);
+		// Fly the camera to the result with a roomy zoom.
+		mapRef.region = new window.mapkit.CoordinateRegion(
+			coord,
+			new window.mapkit.CoordinateSpan(0.01, 0.01)
+		);
+
+		const glyph = hit.category ? categoryGlyphDataUri(hit.category) : undefined;
+		previewMarker = new window.mapkit.MarkerAnnotation(coord, {
+			title: hit.name,
+			color: '#facc15', // amber-400 — temporary, distinct from saved pins
+			animates: true,
+			selected: true,
+			...(glyph ? { glyphImage: { 1: glyph, 2: glyph, 3: glyph } } : {})
+		});
+		mapRef.addAnnotation(previewMarker);
+	}
+
+	function clearPreviewMarker() {
+		if (mapRef && previewMarker) {
+			mapRef.removeAnnotation(previewMarker);
+			previewMarker = null;
+		}
 	}
 
 	onMount(() => {
-		let map: any = null; // eslint-disable-line @typescript-eslint/no-explicit-any
 		let cancelled = false;
 
 		(async () => {
@@ -85,7 +130,7 @@
 					language: navigator.language
 				});
 
-				map = new window.mapkit.Map(mapElement, {
+				mapRef = new window.mapkit.Map(mapElement, {
 					center: new window.mapkit.Coordinate(center.latitude, center.longitude),
 					cameraDistance: 50_000 / Math.pow(2, zoom - 12),
 					showsCompass: window.mapkit.FeatureVisibility.Hidden,
@@ -96,7 +141,6 @@
 						: window.mapkit.Map.ColorSchemes.Light
 				});
 
-				// Drop a marker for each place with coords.
 				const annotations = places
 					.filter((p) => p.latitude !== null && p.longitude !== null)
 					.map((p) => {
@@ -119,7 +163,7 @@
 						});
 						return ann;
 					});
-				map.addAnnotations(annotations);
+				mapRef.addAnnotations(annotations);
 
 				if (!cancelled) status = 'ready';
 			} catch (err) {
@@ -133,9 +177,9 @@
 
 		return () => {
 			cancelled = true;
-			if (map) {
+			if (mapRef) {
 				try {
-					map.destroy();
+					mapRef.destroy();
 				} catch {
 					/* MapKit doesn't always have destroy() — best effort. */
 				}
@@ -146,6 +190,15 @@
 
 <div class="relative h-full w-full">
 	<div bind:this={mapElement} class="absolute inset-0 bg-muted"></div>
+
+	{#if status === 'ready'}
+		<MapSearch
+			{center}
+			{signedIn}
+			onPreview={previewSelected}
+			onClearPreview={clearPreviewMarker}
+		/>
+	{/if}
 
 	{#if status === 'loading'}
 		<div

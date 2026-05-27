@@ -1,7 +1,7 @@
 import { and, asc, eq, isNotNull } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { place, userLocation } from '$lib/server/db/schema';
-import { getLikedPlaceIds } from '$lib/server/likes';
+import { getPlaceIdsByKind } from '$lib/server/likes';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -16,6 +16,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// Otherwise default to Los Angeles.
 	let center = { latitude: 34.0522, longitude: -118.2437 };
 	let likedIds: string[] = [];
+	let dislikedIds: string[] = [];
 	if (locals.user) {
 		const [loc] = await db
 			.select({ latitude: userLocation.latitude, longitude: userLocation.longitude })
@@ -23,8 +24,13 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.where(eq(userLocation.userId, locals.user.id))
 			.limit(1);
 		if (loc) center = { latitude: loc.latitude, longitude: loc.longitude };
-		likedIds = [...(await getLikedPlaceIds(locals.user.id))];
+		const [liked, disliked] = await Promise.all([
+			getPlaceIdsByKind(locals.user.id, 'liked'),
+			getPlaceIdsByKind(locals.user.id, 'disliked')
+		]);
+		likedIds = [...liked];
+		dislikedIds = [...disliked];
 	}
 
-	return { places, center, likedIds };
+	return { places, center, likedIds, dislikedIds };
 };
