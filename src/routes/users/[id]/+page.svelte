@@ -2,8 +2,10 @@
 	import * as Avatar from '$lib/components/ui/avatar';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import LikeButton from '$lib/components/like-button.svelte';
 	import MatchBadge from '$lib/components/match-badge.svelte';
 	import { ArrowLeft, Heart, MapPin } from '@lucide/svelte';
+	import type { Place } from '$lib/server/db/schema';
 
 	let { data } = $props();
 	const profile = $derived(data.profile);
@@ -16,6 +18,30 @@
 			.join('') || '?'
 	);
 </script>
+
+<!--
+  Card snippet — used for both "You both like" and "Everything they like".
+  Avoids nesting <button> inside <a> (invalid HTML) by keeping the link
+  scoped to the title row and the like button as a sibling.
+-->
+{#snippet placeCard(p: Place)}
+	<article
+		class="bg-card hover:border-foreground/30 flex items-start justify-between gap-3 rounded-xl border p-4 transition-colors"
+	>
+		<a href={`/places/${p.id}`} class="min-w-0 flex-1">
+			<div class="flex items-start justify-between gap-2">
+				<span class="text-sm font-medium hover:underline">{p.name}</span>
+				<Badge variant="secondary" class="capitalize">{p.category}</Badge>
+			</div>
+			<p class="text-muted-foreground mt-1 text-xs">
+				{p.neighborhood ? `${p.neighborhood}, ` : ''}{p.city}
+			</p>
+		</a>
+		<div class="shrink-0">
+			<LikeButton placeId={p.id} />
+		</div>
+	</article>
+{/snippet}
 
 <div class="mx-auto max-w-2xl">
 	<Button href="/" variant="ghost" size="sm" class="mb-4">
@@ -55,18 +81,7 @@
 			<h2 class="mb-3 text-lg font-medium">You both like</h2>
 			<div class="grid gap-3 sm:grid-cols-2">
 				{#each data.viewer.sharedPlaces as p (p.id)}
-					<a
-						href={`/places/${p.id}`}
-						class="bg-card hover:border-foreground/30 flex flex-col gap-1 rounded-xl border p-4 transition-colors"
-					>
-						<div class="flex items-start justify-between gap-2">
-							<span class="text-sm font-medium">{p.name}</span>
-							<Badge variant="secondary" class="capitalize">{p.category}</Badge>
-						</div>
-						<span class="text-muted-foreground text-xs">
-							{p.neighborhood ? `${p.neighborhood}, ` : ''}{p.city}
-						</span>
-					</a>
+					{@render placeCard(p)}
 				{/each}
 			</div>
 		</section>
@@ -86,18 +101,7 @@
 		{:else}
 			<div class="grid gap-3 sm:grid-cols-2">
 				{#each data.likedPlaces as p (p.id)}
-					<a
-						href={`/places/${p.id}`}
-						class="bg-card hover:border-foreground/30 flex flex-col gap-1 rounded-xl border p-4 transition-colors"
-					>
-						<div class="flex items-start justify-between gap-2">
-							<span class="text-sm font-medium">{p.name}</span>
-							<Badge variant="secondary" class="capitalize">{p.category}</Badge>
-						</div>
-						<span class="text-muted-foreground text-xs">
-							{p.neighborhood ? `${p.neighborhood}, ` : ''}{p.city}
-						</span>
-					</a>
+					{@render placeCard(p)}
 				{/each}
 			</div>
 		{/if}
