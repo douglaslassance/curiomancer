@@ -34,6 +34,11 @@
 	let mapRef: any = null;
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let previewMarker: any = null;
+	// Annotations currently on the map for the `places` set, keyed by place id.
+	// Held outside the reactive system so $effect can diff in-place rather
+	// than tearing everything down on every render.
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const placeAnnotations = new Map<string, any>();
 
 	function loadMapKitScript(): Promise<void> {
 		if (typeof window === 'undefined') return Promise.resolve();
@@ -141,31 +146,9 @@
 						: window.mapkit.Map.ColorSchemes.Light
 				});
 
-				const annotations = places
-					.filter((p) => p.latitude !== null && p.longitude !== null)
-					.map((p) => {
-						const coord = new window.mapkit.Coordinate(p.latitude!, p.longitude!);
-						const glyph = categoryGlyphDataUri(p.category);
-						const ann = new window.mapkit.MarkerAnnotation(coord, {
-							title: p.name,
-							subtitle: p.neighborhood ?? p.city,
-							color: pinColor(p.id),
-							glyphImage: { 1: glyph, 2: glyph, 3: glyph }
-						});
-						ann.data = p;
-						ann.addEventListener('select', () => {
-							selectedPlace = p;
-						});
-						ann.addEventListener('deselect', () => {
-							setTimeout(() => {
-								if (selectedPlace?.id === p.id) selectedPlace = null;
-							}, 100);
-						});
-						return ann;
-					});
-				mapRef.addAnnotations(annotations);
-
 				if (!cancelled) status = 'ready';
+				// Annotation sync below runs in a separate $effect so changes to
+				// places/likedIds/dislikedIds also trigger a re-render.
 			} catch (err) {
 				console.error('MapKit init failed:', err);
 				if (!cancelled) {
@@ -185,6 +168,68 @@
 				}
 			}
 		};
+	});
+
+	/**
+	 * Sync map annotations to the current `places` set. Runs whenever the
+	 * input array changes (e.g. server load returned a smaller set after
+	 * a dislike) or pin colors should change (likedIds/dislikedIds shift).
+	 *
+	 * Diffs in-place so we don't pay a full rebuild every time:
+	 *  - add annotations for places we haven't seen
+	 *  - update color on existing ones if the relationship changed
+	 *  - remove annotations for places no longer in the input
+	 */
+	$effect(() => {
+		if (status !== 'ready' || !mapRef || !window.mapkit) return;
+
+		const incoming = new Set<string>();
+		const toAdd: unknown[] = [];
+
+		for (const p of places) {
+			if (p.latitude === null || p.longitude === null) continue;
+			incoming.add(p.id);
+			const desiredColor = pinColor(p.id);
+
+			const existing = placeAnnotations.get(p.id);
+			if (existing) {
+				if (existing.color !== desiredColor) existing.color = desiredColor;
+				continue;
+			}
+
+			const coord = new window.mapkit.Coordinate(p.latitude, p.longitude);
+			const glyph = categoryGlyphDataUri(p.category);
+			const ann = new window.mapkit.MarkerAnnotation(coord, {
+				title: p.name,
+				subtitle: p.neighborhood ?? p.city,
+				color: desiredColor,
+				glyphImage: { 1: glyph, 2: glyph, 3: glyph }
+			});
+			ann.data = p;
+			ann.addEventListener('select', () => {
+				selectedPlace = p;
+			});
+			ann.addEventListener('deselect', () => {
+				setTimeout(() => {
+					if (selectedPlace?.id === p.id) selectedPlace = null;
+				}, 100);
+			});
+			placeAnnotations.set(p.id, ann);
+			toAdd.push(ann);
+		}
+
+		if (toAdd.length > 0) mapRef.addAnnotations(toAdd);
+
+		// Remove annotations for places no longer in the set.
+		const toRemove: unknown[] = [];
+		for (const [id, ann] of placeAnnotations) {
+			if (!incoming.has(id)) {
+				toRemove.push(ann);
+				placeAnnotations.delete(id);
+				if (selectedPlace?.id === id) selectedPlace = null;
+			}
+		}
+		if (toRemove.length > 0) mapRef.removeAnnotations(toRemove);
 	});
 </script>
 
