@@ -4,7 +4,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import * as Card from '$lib/components/ui/card';
-	import { Sparkles } from '@lucide/svelte';
+	import { Shield, Sparkles } from '@lucide/svelte';
 
 	let { data, form } = $props();
 </script>
@@ -12,9 +12,16 @@
 <div class="mx-auto max-w-sm py-10">
 	<Card.Root>
 		<Card.Header>
-			<Card.Title>Create your account</Card.Title>
+			<Card.Title>
+				{data.bootstrapMode ? 'Set up Bond' : 'Create your account'}
+			</Card.Title>
 			<Card.Description>
-				{#if data.inviteState === 'valid' && data.inviter}
+				{#if data.bootstrapMode}
+					<span class="flex items-center gap-1.5">
+						<Shield class="text-primary size-4" />
+						First time here. The account you create will be the admin.
+					</span>
+				{:else if data.inviteState === 'valid' && data.inviter}
 					<span class="flex items-center gap-1.5">
 						<Sparkles class="text-primary size-4" />
 						{data.inviter.name} is inviting you to Bond.
@@ -29,7 +36,7 @@
 		<Card.Content>
 			<form method="post" class="space-y-4" use:enhance>
 				<input type="hidden" name="invite" value={data.code ?? ''} />
-				{#if data.inviteState !== 'valid'}
+				{#if !data.bootstrapMode && data.inviteState !== 'valid'}
 					<div class="space-y-2">
 						<Label for="invite-input">Invite code</Label>
 						<Input
@@ -72,7 +79,9 @@
 				{#if form?.message}
 					<p class="text-destructive text-sm">{form.message}</p>
 				{/if}
-				<Button type="submit" class="w-full">Create account</Button>
+				<Button type="submit" class="w-full">
+					{data.bootstrapMode ? 'Set up account' : 'Create account'}
+				</Button>
 			</form>
 		</Card.Content>
 		<Card.Footer class="justify-center text-sm">

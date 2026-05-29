@@ -2,20 +2,23 @@ import { fail, redirect } from '@sveltejs/kit';
 import { APIError } from 'better-auth/api';
 import { eq } from 'drizzle-orm';
 import { auth } from '$lib/server/auth';
-import { isAdminEmail } from '$lib/server/admin';
+import { canBootstrapAs, hasAnyAdmin, isAdminEmail } from '$lib/server/admin';
 import { db } from '$lib/server/db';
 import { user } from '$lib/server/db/schema';
 import { findRedeemableInvite, redeemInvite } from '$lib/server/invites';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
- * Sign-up is invite-gated. A valid `?invite=<code>` is required unless the
- * signing-up email is on ADMIN_EMAILS — admins bootstrap the system and
- * skip the gate.
+ * Sign-up is invite-gated, with two escape hatches:
  *
- * The load handler resolves the invite (if present) so the form can show
- * the inviter's name as social proof; that doesn't redeem the code, only
- * a successful signup does.
+ *  - Email is on ADMIN_EMAILS → skip the gate, get role='admin' at create.
+ *  - The database has no admin yet → first-run bootstrap. Anybody (or any
+ *    email on ADMIN_EMAILS if that's set) can sign up without an invite
+ *    and is promoted to admin afterward. The bootstrap auto-disables once
+ *    an admin exists.
+ *
+ * The load handler resolves the invite if one is present, and announces
+ * bootstrap mode to the page so the UI can speak the right language.
  */
 export const load: PageServerLoad = async (event) => {
 	if (event.locals.user) throw redirect(302, '/');
@@ -43,7 +46,9 @@ export const load: PageServerLoad = async (event) => {
 		}
 	}
 
-	return { code, inviter, inviteState };
+	const bootstrapMode = !(await hasAnyAdmin());
+
+	return { code, inviter, inviteState, bootstrapMode };
 };
 
 export const actions: Actions = {
@@ -65,12 +70,24 @@ export const actions: Actions = {
 			});
 		}
 
-		const adminBypass = isAdminEmail(email);
+		// Re-check bootstrap mode at action time — the world might've changed
+		// between the load and the submit.
+		const bootstrapMode = !(await hasAnyAdmin());
+		const allowedToBootstrap = bootstrapMode && canBootstrapAs(email);
+		const adminBypass = allowedToBootstrap || isAdminEmail(email);
 
-		// Admins bootstrap without an invite. Everyone else must present a
-		// valid, unredeemed code up-front (we re-check post-create for the
-		// redemption to be race-safe).
+		// Anyone not bypassing must present a valid, unredeemed code up-front.
+		// The redemption itself happens post-create for race safety.
 		if (!adminBypass) {
+			if (bootstrapMode) {
+				// Bootstrap mode is on but this email isn't on the allow-list —
+				// gently steer them toward asking the operator.
+				return fail(403, {
+					name,
+					email,
+					message: 'Bond is being set up. Only configured admin emails can sign up right now.'
+				});
+			}
 			if (!code) {
 				return fail(400, {
 					name,
@@ -107,9 +124,14 @@ export const actions: Actions = {
 			});
 		}
 
-		// Redeem the code atomically. If somebody else grabbed it between the
-		// pre-check and now, we roll the user back so the email is free for
-		// another attempt.
+		// Bootstrap: promote the just-created user to admin. (For ADMIN_EMAILS
+		// matches the auth hook already did this; for first-run we have to.)
+		if (allowedToBootstrap && newUserId) {
+			await db.update(user).set({ role: 'admin' }).where(eq(user.id, newUserId));
+		}
+
+		// Redeem the invite atomically; if somebody beat us to it, roll back
+		// so the email is free for another attempt.
 		if (!adminBypass && code && newUserId) {
 			const redeemed = await redeemInvite(code, newUserId);
 			if (!redeemed) {
