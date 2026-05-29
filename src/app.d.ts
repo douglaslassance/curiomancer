@@ -1,11 +1,19 @@
 import type { User, Session } from 'better-auth/minimal';
 
+// Extend the better-auth User type with our additionalFields. Keeping this
+// in app.d.ts (rather than a re-exported type) means every consumer of
+// locals.user / data.user automatically sees role + instagram.
+type BondUser = User & {
+	role?: 'user' | 'admin';
+	instagram?: string | null;
+};
+
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {
 	namespace App {
 		interface Locals {
-			user?: User;
+			user?: BondUser;
 			session?: Session;
 		}
 

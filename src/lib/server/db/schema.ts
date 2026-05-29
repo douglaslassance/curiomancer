@@ -135,4 +135,26 @@ export const userLocation = pgTable('user_location', {
 export type UserLocation = typeof userLocation.$inferSelect;
 export type NewUserLocation = typeof userLocation.$inferInsert;
 
+/**
+ * Invite-only signup tokens. Each user is created with a small number of
+ * these (currently 3); the code itself is the primary key so URLs like
+ * /sign-up?invite=ABCD-EFGH-IJKL go straight to a row lookup.
+ *
+ * Redemption is atomic via UPDATE … WHERE redeemed_by_user_id IS NULL —
+ * race-safe even if the same link is clicked simultaneously.
+ */
+export const invite = pgTable('invite', {
+	id: text('id').primaryKey(),
+	createdByUserId: text('created_by_user_id')
+		.notNull()
+		.references(() => user.id, { onDelete: 'cascade' }),
+	redeemedByUserId: text('redeemed_by_user_id').references(() => user.id, {
+		onDelete: 'set null'
+	}),
+	createdAt: timestamp('created_at').notNull().defaultNow(),
+	redeemedAt: timestamp('redeemed_at')
+});
+
+export type Invite = typeof invite.$inferSelect;
+
 export * from './auth.schema';

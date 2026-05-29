@@ -3,13 +3,15 @@
 	import { goto } from '$app/navigation';
 	import * as Avatar from '$lib/components/ui/avatar';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import { LogOut, Settings, User } from '@lucide/svelte';
+	import { LogOut, Settings, Shield, User } from '@lucide/svelte';
 
 	let {
 		user
 	}: {
-		user: { name: string; email: string; image?: string | null };
+		user: { name: string; email: string; image?: string | null; role?: string };
 	} = $props();
+
+	const isAdmin = $derived(user.role === 'admin');
 
 	const initials = $derived(
 		user.name
@@ -53,6 +55,12 @@
 			<Settings class="size-4" />
 			Settings
 		</DropdownMenu.Item>
+		{#if isAdmin}
+			<DropdownMenu.Item onclick={() => goto('/admin')}>
+				<Shield class="size-4" />
+				Admin
+			</DropdownMenu.Item>
+		{/if}
 		<DropdownMenu.Item variant="destructive" onclick={() => signOutForm?.requestSubmit()}>
 			<LogOut class="size-4" />
 			Sign out
