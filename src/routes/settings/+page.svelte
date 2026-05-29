@@ -6,9 +6,21 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
 	import InviteCard from '$lib/components/invite-card.svelte';
-	import { LogOut, Mail, MapPin, Sparkles, ThumbsUp, User } from '@lucide/svelte';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { AtSign, LogOut, Mail, MapPin, Sparkles, ThumbsUp, User } from '@lucide/svelte';
 
-	let { data } = $props();
+	let { data, form } = $props();
+
+	// Local editable copy so the input stays controlled across submits.
+	// Server returns the canonical handle (lowercased, no @) so reflecting
+	// data.profile.instagram is correct, but on validation failure we keep
+	// the user's raw input from form.instagram.
+	// svelte-ignore state_referenced_locally
+	let instagramInput = $state(data.profile.instagram ?? '');
+	$effect(() => {
+		if (form?.instagramOk) instagramInput = form.instagram ?? '';
+	});
 
 	const initials = $derived(
 		data.profile.name
@@ -94,6 +106,39 @@
 
 			<Separator />
 
+			<!-- Instagram handle -->
+			<form method="post" action="?/updateInstagram" use:enhance class="flex items-start gap-3">
+				<AtSign class="text-muted-foreground mt-0.5 size-4" />
+				<div class="min-w-0 flex-1 space-y-2">
+					<Label for="instagram" class="text-sm font-medium">Instagram</Label>
+					<div class="flex items-center gap-2">
+						<span class="text-muted-foreground text-sm">@</span>
+						<Input
+							id="instagram"
+							name="instagram"
+							placeholder="yourhandle"
+							autocomplete="off"
+							bind:value={instagramInput}
+							class="max-w-xs"
+						/>
+						<Button type="submit" size="sm" variant="outline">Save</Button>
+					</div>
+					{#if form?.instagramError}
+						<p class="text-destructive text-xs">{form.instagramError}</p>
+					{:else if form?.instagramOk}
+						<p class="text-muted-foreground text-xs">
+							{form.instagram ? `Saved as @${form.instagram}.` : 'Cleared.'}
+						</p>
+					{:else}
+						<p class="text-muted-foreground text-xs">
+							Optional. Shown on your profile so taste-twins can find you.
+						</p>
+					{/if}
+				</div>
+			</form>
+
+			<Separator />
+
 			<!-- Invites -->
 			<div class="flex items-start gap-3">
 				<Sparkles class="text-muted-foreground mt-0.5 size-4" />
@@ -124,8 +169,7 @@
 				<div class="min-w-0 flex-1">
 					<div class="text-sm font-medium">Coming soon</div>
 					<p class="text-muted-foreground text-sm">
-						Editing your name, avatar upload, Instagram handle, change-password, and account
-						deletion all live here.
+						Editing your name, avatar upload, change-password, and account deletion all live here.
 					</p>
 				</div>
 			</div>

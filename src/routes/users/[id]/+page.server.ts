@@ -18,6 +18,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			id: user.id,
 			name: user.name,
 			image: user.image,
+			instagram: user.instagram,
 			createdAt: user.createdAt
 		})
 		.from(user)

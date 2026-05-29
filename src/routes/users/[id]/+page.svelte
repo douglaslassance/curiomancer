@@ -4,7 +4,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import RelationToggle from '$lib/components/relation-toggle.svelte';
 	import MatchBadge from '$lib/components/match-badge.svelte';
-	import { ArrowLeft, MapPin, ThumbsUp } from '@lucide/svelte';
+	import { ArrowLeft, AtSign, MapPin, ThumbsUp } from '@lucide/svelte';
+	import { instagramUrl } from '$lib/instagram';
 	import type { Place } from '$lib/server/db/schema';
 
 	let { data } = $props();
@@ -69,6 +70,17 @@
 				<ThumbsUp class="size-4" />
 				{data.likedPlaces.length} liked place{data.likedPlaces.length === 1 ? '' : 's'}
 			</p>
+			{#if profile.instagram && instagramUrl(profile.instagram)}
+				<a
+					href={instagramUrl(profile.instagram)}
+					target="_blank"
+					rel="noopener noreferrer"
+					class="text-muted-foreground hover:text-foreground mt-1 inline-flex items-center gap-1 text-sm underline"
+				>
+					<AtSign class="size-4" />
+					{profile.instagram} on Instagram
+				</a>
+			{/if}
 		</div>
 		{#if data.viewer && !data.viewer.isSelf && data.viewer.sharedCount > 0}
 			<MatchBadge score={data.viewer.score} />
