@@ -2,26 +2,26 @@ import { fail, redirect } from '@sveltejs/kit';
 import { APIError } from 'better-auth/api';
 import { eq } from 'drizzle-orm';
 import { auth } from '$lib/server/auth';
-import { canBootstrapAs, hasAnyAdmin, isAdminEmail } from '$lib/server/admin';
 import { db } from '$lib/server/db';
 import { user } from '$lib/server/db/schema';
 import { findRedeemableInvite, redeemInvite } from '$lib/server/invites';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
- * Sign-up is invite-gated, with two escape hatches:
+ * Sign-up is strictly invite-gated. The very first admin comes in
+ * through /setup (only available when the DB has zero users); after
+ * that the only way in is a valid, unredeemed invite code.
  *
- *  - Email is on ADMIN_EMAILS → skip the gate, get role='admin' at create.
- *  - The database has no admin yet → first-run bootstrap. Anybody (or any
- *    email on ADMIN_EMAILS if that's set) can sign up without an invite
- *    and is promoted to admin afterward. The bootstrap auto-disables once
- *    an admin exists.
- *
- * The load handler resolves the invite if one is present, and announces
- * bootstrap mode to the page so the UI can speak the right language.
+ * `ADMIN_EMAILS` still promotes specific emails to admin role at create-
+ * time (via the auth hook) — it doesn't bypass the invite check though.
  */
 export const load: PageServerLoad = async (event) => {
 	if (event.locals.user) throw redirect(302, '/');
+
+	// If no users exist yet, send them to /setup instead. Avoids confusing
+	// "invite required" copy when there are literally no inviters.
+	const [firstUser] = await db.select({ id: user.id }).from(user).limit(1);
+	if (!firstUser) throw redirect(302, '/setup');
 
 	const code = event.url.searchParams.get('invite')?.trim() ?? null;
 	let inviter: { name: string } | null = null;
@@ -46,9 +46,7 @@ export const load: PageServerLoad = async (event) => {
 		}
 	}
 
-	const bootstrapMode = !(await hasAnyAdmin());
-
-	return { code, inviter, inviteState, bootstrapMode };
+	return { code, inviter, inviteState };
 };
 
 export const actions: Actions = {
@@ -70,39 +68,20 @@ export const actions: Actions = {
 			});
 		}
 
-		// Re-check bootstrap mode at action time — the world might've changed
-		// between the load and the submit.
-		const bootstrapMode = !(await hasAnyAdmin());
-		const allowedToBootstrap = bootstrapMode && canBootstrapAs(email);
-		const adminBypass = allowedToBootstrap || isAdminEmail(email);
-
-		// Anyone not bypassing must present a valid, unredeemed code up-front.
-		// The redemption itself happens post-create for race safety.
-		if (!adminBypass) {
-			if (bootstrapMode) {
-				// Bootstrap mode is on but this email isn't on the allow-list —
-				// gently steer them toward asking the operator.
-				return fail(403, {
-					name,
-					email,
-					message: 'Bond is being set up. Only configured admin emails can sign up right now.'
-				});
-			}
-			if (!code) {
-				return fail(400, {
-					name,
-					email,
-					message: 'Bond is invite-only. You need a code from a friend on Bond.'
-				});
-			}
-			const existing = await findRedeemableInvite(code);
-			if (!existing) {
-				return fail(400, {
-					name,
-					email,
-					message: 'That invite code is invalid or already used.'
-				});
-			}
+		if (!code) {
+			return fail(400, {
+				name,
+				email,
+				message: 'Bond is invite-only. You need a code from a friend on Bond.'
+			});
+		}
+		const existing = await findRedeemableInvite(code);
+		if (!existing) {
+			return fail(400, {
+				name,
+				email,
+				message: 'That invite code is invalid or already used.'
+			});
 		}
 
 		let newUserId: string | null;
@@ -124,15 +103,9 @@ export const actions: Actions = {
 			});
 		}
 
-		// Bootstrap: promote the just-created user to admin. (For ADMIN_EMAILS
-		// matches the auth hook already did this; for first-run we have to.)
-		if (allowedToBootstrap && newUserId) {
-			await db.update(user).set({ role: 'admin' }).where(eq(user.id, newUserId));
-		}
-
 		// Redeem the invite atomically; if somebody beat us to it, roll back
 		// so the email is free for another attempt.
-		if (!adminBypass && code && newUserId) {
+		if (code && newUserId) {
 			const redeemed = await redeemInvite(code, newUserId);
 			if (!redeemed) {
 				await db.delete(user).where(eq(user.id, newUserId));
