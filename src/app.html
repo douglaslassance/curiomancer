@@ -11,10 +11,13 @@
 		<script>
 			(function () {
 				try {
-					var pref = localStorage.getItem('bond:theme');
-					if (pref !== 'light' && pref !== 'dark') pref = 'system';
-					var sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-					var effective = pref === 'system' ? (sysDark ? 'dark' : 'light') : pref;
+					var stored = localStorage.getItem('bond:theme');
+					var effective =
+						stored === 'light' || stored === 'dark'
+							? stored
+							: window.matchMedia('(prefers-color-scheme: dark)').matches
+								? 'dark'
+								: 'light';
 					if (effective === 'dark') document.documentElement.classList.add('dark');
 					document.documentElement.style.colorScheme = effective;
 				} catch (_) {

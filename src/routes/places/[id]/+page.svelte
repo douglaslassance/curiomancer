@@ -3,7 +3,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import RelationToggle from '$lib/components/relation-toggle.svelte';
 	import MatchBadge from '$lib/components/match-badge.svelte';
-	import { ArrowLeft, MapPin, ThumbsUp, Users } from '@lucide/svelte';
+	import { ArrowLeft, ExternalLink, MapPin, ThumbsUp, Users } from '@lucide/svelte';
+	import { googleMapsUrl } from '$lib/maps-link';
 	import { page } from '$app/state';
 
 	let { data } = $props();
@@ -31,6 +32,17 @@
 					<MapPin class="size-4" />
 					{p.neighborhood ? `${p.neighborhood}, ` : ''}{p.city}
 				</p>
+				{#if googleMapsUrl(p)}
+					<a
+						href={googleMapsUrl(p)}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="text-muted-foreground hover:text-foreground mt-1 inline-flex items-center gap-1 text-sm underline"
+					>
+						Open in Google Maps
+						<ExternalLink class="size-3" />
+					</a>
+				{/if}
 			</div>
 			<Badge variant="secondary" class="capitalize">{p.category}</Badge>
 		</div>

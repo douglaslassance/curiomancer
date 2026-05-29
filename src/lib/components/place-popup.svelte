@@ -2,9 +2,10 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import RelationToggle from './relation-toggle.svelte';
 	import MatchBadge from './match-badge.svelte';
-	import { Loader2, MapPin, ThumbsUp, Users } from '@lucide/svelte';
+	import { ExternalLink, Loader2, MapPin, ThumbsUp, Users } from '@lucide/svelte';
 	import type { Place } from '$lib/server/db/schema';
 	import type { MatchedPerson } from '$lib/server/matching';
+	import { googleMapsUrl } from '$lib/maps-link';
 	import { page } from '$app/state';
 
 	let {
@@ -79,6 +80,17 @@
 					? `${context.place.neighborhood}, ${context.place.city}`
 					: context.place.city}
 			</p>
+			{#if googleMapsUrl(context.place)}
+				<a
+					href={googleMapsUrl(context.place)}
+					target="_blank"
+					rel="noopener noreferrer"
+					class="text-muted-foreground hover:text-foreground mt-1 inline-flex items-center gap-1 text-xs underline"
+				>
+					Open in Google Maps
+					<ExternalLink class="size-3" />
+				</a>
+			{/if}
 		</div>
 
 		<p class="text-muted-foreground mt-2 text-xs leading-relaxed">{context.place.description}</p>
