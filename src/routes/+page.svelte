@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
 	import { ArrowRight, MessageCircle, Plane, ShieldCheck, Sparkles } from '@lucide/svelte';
 	import DashboardHeader from '$lib/components/dashboard-header.svelte';
 	import LocationPrompt from '$lib/components/location-prompt.svelte';
@@ -17,8 +16,8 @@
 			Let your taste guide you
 		</h1>
 		<p class="text-muted-foreground mx-auto mt-4 max-w-xl text-balance text-lg">
-			Curiomancer cross-references your taste to surface the places — and people — worth your
-			time, wherever you are or wherever you go.
+			Curiomancer cross-references your taste to surface the places and people worth your time,
+			wherever you are or wherever you go.
 		</p>
 		<div class="mt-8 flex justify-center gap-3">
 			<Button href="/sign-up" size="lg">
@@ -31,36 +30,46 @@
 
 	<section class="grid gap-6 py-12 md:grid-cols-2">
 		<div class="bg-card rounded-xl border p-6">
-			<Plane class="text-primary size-6" />
-			<h2 class="mt-3 text-lg font-medium">Recommendations that travel</h2>
+			<div class="flex items-center gap-2">
+				<Plane class="text-primary size-5" />
+				<h2 class="text-lg font-medium">Recommendations that travel</h2>
+			</div>
 			<p class="text-muted-foreground mt-2 text-sm">
 				Love a handful of spots back home? Whether you land in Tokyo or pull off the highway in
 				the middle of nowhere, Curiomancer surfaces the places loved by people who share your
-				taste — right where the big apps leave you guessing.
-			</p>
-		</div>
-		<div class="bg-card rounded-xl border p-6">
-			<Sparkles class="text-primary size-6" />
-			<h2 class="mt-3 text-lg font-medium">Just taste, no algorithm</h2>
-			<p class="text-muted-foreground mt-2 text-sm">
-				No engagement bait, no ranking games. Curiomancer finds the overlap between your taste and
-				other people's — and turns it into recommendations you'd actually act on.
-			</p>
-		</div>
-		<div class="bg-card rounded-xl border p-6">
-			<ShieldCheck class="text-primary size-6" />
-			<h2 class="mt-3 text-lg font-medium">No data trap</h2>
-			<p class="text-muted-foreground mt-2 text-sm">
-				Your taste belongs to you. Take it anywhere — it's available through our open API to
-				connect with the other services you use.
+				taste, right where the big apps leave you guessing.
 			</p>
 		</div>
 		<div class="bg-card rounded-xl border p-6">
 			<div class="flex items-center gap-2">
-				<MessageCircle class="text-primary size-6" />
-				<Badge variant="secondary">Pro</Badge>
+				<Sparkles class="text-primary size-5" />
+				<h2 class="text-lg font-medium">Just taste, no algorithm</h2>
 			</div>
-			<h2 class="mt-3 text-lg font-medium">Expand your network</h2>
+			<p class="text-muted-foreground mt-2 text-sm">
+				No engagement bait, no ranking games. Curiomancer finds the overlap between your taste
+				and other people's, then turns it into recommendations you'd actually act on.
+			</p>
+		</div>
+		<div class="bg-card rounded-xl border p-6">
+			<div class="flex items-center gap-2">
+				<ShieldCheck class="text-primary size-5" />
+				<h2 class="text-lg font-medium">No data trap</h2>
+			</div>
+			<p class="text-muted-foreground mt-2 text-sm">
+				Your taste belongs to you, available through our open API to connect with the other
+				services you use.
+			</p>
+		</div>
+		<div class="bg-card relative rounded-xl border p-6">
+			<span
+				class="bg-brand text-brand-foreground absolute right-4 top-4 rounded-full px-2 py-0.5 text-xs font-medium"
+			>
+				Pro
+			</span>
+			<div class="flex items-center gap-2">
+				<MessageCircle class="text-primary size-5" />
+				<h2 class="text-lg font-medium">Expand your network</h2>
+			</div>
 			<p class="text-muted-foreground mt-2 text-sm">
 				Reach the people who think like you. Message your taste-twins and trade the spots that
 				never make a list.

@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
 	import { ArrowRight, Check, MessageCircle, Sparkles, Users } from '@lucide/svelte';
 	import { page } from '$app/state';
 
 	const signedIn = $derived(!!page.data.user);
 
-	// Stripe checkout is not wired yet — clicking surfaces an inline note
+	// Stripe checkout is not wired yet - clicking surfaces an inline note
 	// instead of a dead button. Swap this for a POST to a checkout-session
 	// endpoint once billing is live.
 	let checkoutNote = $state(false);
@@ -24,7 +23,11 @@
 
 <div class="mx-auto max-w-xl py-10">
 	<div class="text-center">
-		<Badge variant="secondary" class="mb-3">Pro</Badge>
+		<span
+			class="bg-brand text-brand-foreground mb-3 inline-block rounded-full px-2 py-0.5 text-xs font-medium"
+		>
+			Pro
+		</span>
 		<h1 class="text-3xl font-semibold tracking-tight">Expand your network</h1>
 		<p class="text-muted-foreground mx-auto mt-3 max-w-md text-balance">
 			Curiomancer is free for discovering places and people. Go Pro to reach the people who
@@ -50,12 +53,12 @@
 		<div class="mt-6">
 			{#if signedIn}
 				<Button class="w-full" onclick={() => (checkoutNote = true)}>
-					Subscribe — $4.99/month
+					Subscribe for $4.99/month
 					<ArrowRight class="size-4" />
 				</Button>
 				{#if checkoutNote}
 					<p class="text-muted-foreground mt-3 text-center text-xs">
-						Checkout is being set up — hang tight.
+						Checkout is being set up - hang tight.
 					</p>
 				{/if}
 			{:else}
