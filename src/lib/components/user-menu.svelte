@@ -8,7 +8,7 @@
 	let {
 		user
 	}: {
-		user: { name: string; email: string; image?: string | null; role?: string };
+		user: { id: string; name: string; email: string; image?: string | null; role?: string };
 	} = $props();
 
 	const isAdmin = $derived(user.role === 'admin');
@@ -51,6 +51,10 @@
 			</div>
 		</DropdownMenu.Label>
 		<DropdownMenu.Separator />
+		<DropdownMenu.Item onclick={() => goto(`/users/${user.id}`)}>
+			<User class="size-4" />
+			Profile
+		</DropdownMenu.Item>
 		<DropdownMenu.Item onclick={() => goto('/settings')}>
 			<Settings class="size-4" />
 			Settings
