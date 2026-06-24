@@ -5,7 +5,16 @@
 	import RelationToggle from '$lib/components/relation-toggle.svelte';
 	import MatchBadge from '$lib/components/match-badge.svelte';
 	import { invalidateAll } from '$app/navigation';
-	import { ArrowLeft, AtSign, Loader2, MapPin, ThumbsUp, UserPlus, UserCheck } from '@lucide/svelte';
+	import {
+		ArrowLeft,
+		AtSign,
+		Loader2,
+		MapPin,
+		MessageCircle,
+		ThumbsUp,
+		UserPlus,
+		UserCheck
+	} from '@lucide/svelte';
 	import { instagramUrl } from '$lib/instagram';
 	import type { Place } from '$lib/server/db/schema';
 
@@ -118,6 +127,10 @@
 						<UserPlus class="size-4" />
 						Follow
 					{/if}
+				</Button>
+				<Button size="sm" variant="outline" href="/pro">
+					<MessageCircle class="size-4" />
+					Message
 				</Button>
 			</div>
 		{/if}
