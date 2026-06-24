@@ -11,9 +11,6 @@ import type { Actions, PageServerLoad } from './$types';
  * Sign-up is strictly invite-gated. The very first admin comes in
  * through /setup (only available when the DB has zero users); after
  * that the only way in is a valid, unredeemed invite code.
- *
- * `ADMIN_EMAILS` still promotes specific emails to admin role at create-
- * time (via the auth hook) — it doesn't bypass the invite check though.
  */
 export const load: PageServerLoad = async (event) => {
 	if (event.locals.user) throw redirect(302, '/');
