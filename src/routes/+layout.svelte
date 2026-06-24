@@ -61,6 +61,11 @@
 			<a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
 				<MapPin class="size-5" />
 				Curiomancer
+				<span
+					class="bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide"
+				>
+					Beta
+				</span>
 			</a>
 			<nav class="flex items-center gap-1">
 				{#if data.user}
