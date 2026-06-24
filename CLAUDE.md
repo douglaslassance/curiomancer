@@ -20,4 +20,5 @@ The core idea: if you like certain places in LA and travel to Tokyo, people who 
 
 ## Conventions
 
-- Commit messages: imperative one-liner, 72 characters max. Do not include co-authoring trailers.
+- Commit messages: sentence-cased one-liner, 72 characters max. Do not include co-authoring trailers.
+- No em dashes or en dashes anywhere (code, comments, or copy). Use hyphens, commas, or restructure the sentence.
