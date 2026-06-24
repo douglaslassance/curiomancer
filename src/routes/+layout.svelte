@@ -63,18 +63,20 @@
 				Curiomancer
 			</a>
 			<nav class="flex items-center gap-1">
-				<Button href="/map" variant="ghost" size="sm">
-					<MapIcon class="size-4" />
-					Map
-				</Button>
-				<Button href="/places" variant="ghost" size="sm">
-					<Store class="size-4" />
-					Places
-				</Button>
-				<Button href="/people" variant="ghost" size="sm">
-					<Users class="size-4" />
-					People
-				</Button>
+				{#if data.user}
+					<Button href="/map" variant="ghost" size="sm">
+						<MapIcon class="size-4" />
+						Map
+					</Button>
+					<Button href="/places" variant="ghost" size="sm">
+						<Store class="size-4" />
+						Places
+					</Button>
+					<Button href="/people" variant="ghost" size="sm">
+						<Users class="size-4" />
+						People
+					</Button>
+				{/if}
 				<ThemeToggle />
 				{#if data.user}
 					<UserMenu user={data.user} />
