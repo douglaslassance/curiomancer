@@ -8,9 +8,39 @@
 	import InviteCard from '$lib/components/invite-card.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { AtSign, LogOut, Mail, MapPin, Sparkles, ThumbsUp, User } from '@lucide/svelte';
+	import {
+		AtSign,
+		Loader2,
+		LogOut,
+		Mail,
+		MapPin,
+		RefreshCw,
+		Sparkles,
+		ThumbsUp,
+		User
+	} from '@lucide/svelte';
+	import { updateLocation, type LocationUpdateError } from '$lib/location-update';
 
 	let { data, form } = $props();
+
+	let refreshingLocation = $state(false);
+	let locationError = $state<string | null>(null);
+	let locationHint = $state<string | null>(null);
+
+	async function refreshLocation() {
+		refreshingLocation = true;
+		locationError = null;
+		locationHint = null;
+		try {
+			await updateLocation();
+		} catch (err) {
+			const e = err as LocationUpdateError;
+			locationError = e.message ?? 'Could not update location.';
+			locationHint = e.hint ?? null;
+		} finally {
+			refreshingLocation = false;
+		}
+	}
 
 	// Local editable copy so the input stays controlled across submits.
 	// Server returns the canonical handle (lowercased, no @) so reflecting
@@ -35,7 +65,7 @@
 </script>
 
 <svelte:head>
-	<title>Settings — Bond</title>
+	<title>Settings — Curiomancer</title>
 </svelte:head>
 
 <div class="mx-auto max-w-xl py-4">
@@ -75,9 +105,25 @@
 			<div class="flex items-start gap-3">
 				<MapPin class="text-muted-foreground mt-0.5 size-4" />
 				<div class="min-w-0 flex-1">
-					<div class="text-sm font-medium">Current location</div>
+					<div class="flex items-center justify-between gap-2">
+						<div class="text-sm font-medium">Current location</div>
+						<Button
+							size="sm"
+							variant="outline"
+							onclick={refreshLocation}
+							disabled={refreshingLocation}
+						>
+							{#if refreshingLocation}
+								<Loader2 class="size-3.5 animate-spin" />
+								Updating…
+							{:else}
+								<RefreshCw class="size-3.5" />
+								Update
+							{/if}
+						</Button>
+					</div>
 					{#if data.location}
-						<p class="text-muted-foreground text-sm">
+						<p class="text-muted-foreground mt-1 text-sm">
 							{data.location.city}{data.location.countryCode
 								? `, ${data.location.countryCode}`
 								: ''}
@@ -86,9 +132,15 @@
 							{/if}
 						</p>
 					{:else}
-						<p class="text-muted-foreground text-sm">
+						<p class="text-muted-foreground mt-1 text-sm">
 							Not set. The dashboard prompts on first visit.
 						</p>
+					{/if}
+					{#if locationError}
+						<p class="text-destructive mt-2 text-xs">{locationError}</p>
+						{#if locationHint}
+							<p class="text-muted-foreground mt-1 text-xs">{locationHint}</p>
+						{/if}
 					{/if}
 				</div>
 			</div>
