@@ -25,7 +25,7 @@ async function getAccessToken(): Promise<string> {
 
 	// Origin for server-side calls is irrelevant; pass our own base URL so
 	// the JWT's `sub` claim is well-formed.
-	const jwt = await mintMapkitToken('https://bond.local');
+	const jwt = await mintMapkitToken('https://curiomancer.local');
 
 	const res = await fetch(`${BASE}/v1/token`, {
 		headers: { Authorization: `Bearer ${jwt}` }

@@ -16,7 +16,7 @@
 			Find your people. Find their places.
 		</h1>
 		<p class="text-muted-foreground mx-auto mt-4 max-w-xl text-balance text-lg">
-			Bond cross-references taste so you can discover shops, bars, and restaurants picked by people
+			Curiomancer cross-references taste so you can discover shops, bars, and restaurants picked by people
 			who actually share yours — wherever you happen to be.
 		</p>
 		<div class="mt-8 flex justify-center gap-3">
@@ -33,7 +33,7 @@
 			<Sparkles class="text-primary size-6" />
 			<h2 class="mt-3 text-lg font-medium">Recommendations that travel</h2>
 			<p class="text-muted-foreground mt-2 text-sm">
-				Love a few spots in LA? Land in Tokyo and Bond surfaces the places loved by the people who
+				Love a few spots in LA? Land in Tokyo and Curiomancer surfaces the places loved by the people who
 				agree with you in both cities.
 			</p>
 		</div>

@@ -10,7 +10,7 @@
 </script>
 
 <svelte:head>
-	<title>Set up Bond</title>
+	<title>Set up Curiomancer</title>
 </svelte:head>
 
 <div class="mx-auto max-w-sm py-10">
@@ -18,7 +18,7 @@
 		<Card.Header>
 			<Card.Title class="flex items-center gap-2">
 				<Shield class="text-primary size-5" />
-				Set up Bond
+				Set up Curiomancer
 			</Card.Title>
 			<Card.Description>
 				First-time setup. The account you create here becomes the platform admin. This page

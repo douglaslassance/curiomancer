@@ -72,7 +72,7 @@ export const actions: Actions = {
 			return fail(400, {
 				name,
 				email,
-				message: 'Bond is invite-only. You need a code from a friend on Bond.'
+				message: 'Curiomancer is invite-only. You need a code from a friend on Curiomancer.'
 			});
 		}
 		const existing = await findRedeemableInvite(code);

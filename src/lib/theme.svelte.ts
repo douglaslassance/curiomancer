@@ -11,7 +11,7 @@
  */
 import { browser } from '$app/environment';
 
-const STORAGE_KEY = 'bond:theme';
+const STORAGE_KEY = 'curiomancer:theme';
 
 export type Theme = 'light' | 'dark';
 

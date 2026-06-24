@@ -12,7 +12,7 @@
  */
 import { browser } from '$app/environment';
 
-const STORAGE_KEY = 'bond:likes';
+const STORAGE_KEY = 'curiomancer:likes';
 
 export type Kind = 'liked' | 'disliked' | 'seen' | 'want_to_go';
 

@@ -1,4 +1,4 @@
-# Bond
+# Curiomancer
 
 A web service for taste-based place recommendations (shops, bars, restaurants).
 

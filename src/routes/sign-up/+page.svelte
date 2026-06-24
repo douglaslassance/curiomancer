@@ -17,12 +17,12 @@
 				{#if data.inviteState === 'valid' && data.inviter}
 					<span class="flex items-center gap-1.5">
 						<Sparkles class="text-primary size-4" />
-						{data.inviter.name} is inviting you to Bond.
+						{data.inviter.name} is inviting you to Curiomancer.
 					</span>
 				{:else if data.inviteState === 'invalid'}
 					That invite code is invalid or already used.
 				{:else}
-					Bond is invite-only. Paste your code below.
+					Curiomancer is invite-only. Paste your code below.
 				{/if}
 			</Card.Description>
 		</Card.Header>
@@ -76,7 +76,7 @@
 			</form>
 		</Card.Content>
 		<Card.Footer class="justify-center text-sm">
-			<span class="text-muted-foreground">Already on Bond?</span>
+			<span class="text-muted-foreground">Already on Curiomancer?</span>
 			<a href="/sign-in" class="ml-1 underline">Sign in</a>
 		</Card.Footer>
 	</Card.Root>

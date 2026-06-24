@@ -400,7 +400,7 @@ const TY = { city: 'Tokyo' as const, lat: 35.6762, lng: 139.6503, tz: 'Asia/Toky
 const PERSONAS: Persona[] = [
 	{
 		name: 'Maya Tanaka',
-		email: 'maya@demo.bond',
+		email: 'maya@demo.curiomancer',
 		city: TY.city,
 		latitude: TY.lat,
 		longitude: TY.lng,
@@ -414,7 +414,7 @@ const PERSONAS: Persona[] = [
 	},
 	{
 		name: 'Sam Okafor',
-		email: 'sam@demo.bond',
+		email: 'sam@demo.curiomancer',
 		city: TY.city,
 		latitude: TY.lat,
 		longitude: TY.lng,
@@ -430,7 +430,7 @@ const PERSONAS: Persona[] = [
 	},
 	{
 		name: 'Léo Bernard',
-		email: 'leo@demo.bond',
+		email: 'leo@demo.curiomancer',
 		city: TY.city,
 		latitude: TY.lat,
 		longitude: TY.lng,
@@ -444,7 +444,7 @@ const PERSONAS: Persona[] = [
 	},
 	{
 		name: 'Yuki Nakamura',
-		email: 'yuki@demo.bond',
+		email: 'yuki@demo.curiomancer',
 		city: TY.city,
 		latitude: TY.lat,
 		longitude: TY.lng,
@@ -459,7 +459,7 @@ const PERSONAS: Persona[] = [
 	},
 	{
 		name: 'Hana Wright',
-		email: 'hana@demo.bond',
+		email: 'hana@demo.curiomancer',
 		city: TY.city,
 		latitude: TY.lat,
 		longitude: TY.lng,
@@ -472,7 +472,7 @@ const PERSONAS: Persona[] = [
 	},
 	{
 		name: 'Aiden Park',
-		email: 'aiden@demo.bond',
+		email: 'aiden@demo.curiomancer',
 		city: LA.city,
 		latitude: LA.lat,
 		longitude: LA.lng,
@@ -487,7 +487,7 @@ const PERSONAS: Persona[] = [
 	},
 	{
 		name: 'Camille Rivera',
-		email: 'camille@demo.bond',
+		email: 'camille@demo.curiomancer',
 		city: LA.city,
 		latitude: LA.lat,
 		longitude: LA.lng,
@@ -503,7 +503,7 @@ const PERSONAS: Persona[] = [
 	},
 	{
 		name: 'Marcus Hill',
-		email: 'marcus@demo.bond',
+		email: 'marcus@demo.curiomancer',
 		city: LA.city,
 		latitude: LA.lat,
 		longitude: LA.lng,
@@ -519,7 +519,7 @@ const PERSONAS: Persona[] = [
 	},
 	{
 		name: 'Priya Shah',
-		email: 'priya@demo.bond',
+		email: 'priya@demo.curiomancer',
 		city: LA.city,
 		latitude: LA.lat,
 		longitude: LA.lng,
@@ -528,7 +528,7 @@ const PERSONAS: Persona[] = [
 	},
 	{
 		name: 'Theo Lambert',
-		email: 'theo@demo.bond',
+		email: 'theo@demo.curiomancer',
 		city: LA.city,
 		latitude: LA.lat,
 		longitude: LA.lng,
@@ -554,7 +554,7 @@ await db.delete(placeRelation);
 await db.delete(userLocation);
 await db.delete(event);
 await db.delete(place);
-await sql`DELETE FROM "user" WHERE email LIKE '%@demo.bond'`;
+await sql`DELETE FROM "user" WHERE email LIKE '%@demo.curiomancer'`;
 
 console.log(`Inserting ${resolved.size} places (source=apple)…`);
 const placeRows: NewPlace[] = [...resolved.entries()].map(([query, r]) => {

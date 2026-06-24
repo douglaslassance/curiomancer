@@ -18,7 +18,7 @@ export const load: PageServerLoad = async () => {
 		invites_redeemed: number;
 	}>(sql`
 		SELECT
-			(SELECT COUNT(*)::int FROM "user" WHERE email NOT LIKE '%@demo.bond') AS users,
+			(SELECT COUNT(*)::int FROM "user" WHERE email NOT LIKE '%@demo.curiomancer') AS users,
 			(SELECT COUNT(*)::int FROM "user" WHERE role = 'admin') AS admins,
 			(SELECT COUNT(*)::int FROM place) AS places,
 			(SELECT COUNT(*)::int FROM place WHERE source = 'apple') AS places_apple,

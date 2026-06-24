@@ -52,7 +52,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<title>Bond — taste-matched places</title>
+	<title>Curiomancer — taste-matched places</title>
 </svelte:head>
 
 <div class="bg-background text-foreground min-h-screen">
@@ -60,7 +60,7 @@
 		<div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
 			<a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
 				<MapPin class="size-5" />
-				Bond
+				Curiomancer
 			</a>
 			<nav class="flex items-center gap-1">
 				<Button href="/map" variant="ghost" size="sm">

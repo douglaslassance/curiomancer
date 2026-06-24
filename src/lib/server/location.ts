@@ -2,14 +2,14 @@
  * Reverse-geocode lat/lng to a normalized city via OpenStreetMap's Nominatim.
  *
  * Nominatim is free, keyless, and rate-limited to 1 req/sec; it requires
- * a User-Agent identifying the app. For Bond's scale (one request per
+ * a User-Agent identifying the app. For Curiomancer's scale (one request per
  * sign-in or location refresh) this is fine.
  *
  * Docs: https://nominatim.org/release-docs/develop/api/Reverse/
  */
 
 const ENDPOINT = 'https://nominatim.openstreetmap.org/reverse';
-const USER_AGENT = 'bond-app (contact: hey@bond.app)';
+const USER_AGENT = 'curiomancer-app (contact: hey@curiomancer.app)';
 
 export type ResolvedLocation = {
 	city: string;

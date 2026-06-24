@@ -35,7 +35,7 @@
 <header class="mb-6">
 	<h1 class="text-3xl font-semibold tracking-tight">People</h1>
 	<p class="text-muted-foreground mt-1 text-sm">
-		Bond members near you, sorted by taste-match. Adjust the radius to widen the net.
+		Curiomancer members near you, sorted by taste-match. Adjust the radius to widen the net.
 	</p>
 </header>
 

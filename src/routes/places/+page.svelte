@@ -96,7 +96,7 @@
 <header class="mb-6">
 	<h1 class="text-3xl font-semibold tracking-tight">Places</h1>
 	<p class="text-muted-foreground mt-1 text-sm">
-		Everything Bond knows about within your radius. Filter, search, and react.
+		Everything Curiomancer knows about within your radius. Filter, search, and react.
 	</p>
 </header>
 
