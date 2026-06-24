@@ -27,3 +27,7 @@ vite.config.ts.timestamp-*
 # Secrets — Apple .p8 keys etc.
 /secrets/
 *.p8
+
+# Playwright MCP scratch
+/.playwright-mcp/
+/home.png
