@@ -50,6 +50,13 @@
       "when": 1782281777932,
       "tag": "0006_same_cerise",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782340034316,
+      "tag": "0007_condemned_crusher_hogan",
+      "breakpoints": true
     }
   ]
 }

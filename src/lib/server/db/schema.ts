@@ -192,4 +192,33 @@ export const follow = pgTable(
 
 export type Follow = typeof follow.$inferSelect;
 
+/**
+ * Personal access tokens for the public API. Lets a user pull their own
+ * taste data (likes, location) out of Curiomancer to plug into other
+ * services — the "your taste belongs to you" promise.
+ *
+ * We store only a SHA-256 hash of the token; the plaintext is shown to
+ * the user exactly once at creation. `tokenPrefix` keeps the first few
+ * visible characters so a user can tell their tokens apart in the list.
+ */
+export const apiToken = pgTable(
+	'api_token',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		name: text('name').notNull(),
+		tokenHash: text('token_hash').notNull().unique(),
+		tokenPrefix: text('token_prefix').notNull(),
+		createdAt: timestamp('created_at').notNull().defaultNow(),
+		lastUsedAt: timestamp('last_used_at')
+	},
+	(t) => [index('api_token_user_idx').on(t.userId)]
+);
+
+export type ApiToken = typeof apiToken.$inferSelect;
+
 export * from './auth.schema';

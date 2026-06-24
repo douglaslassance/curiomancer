@@ -10,6 +10,8 @@
 	import { Label } from '$lib/components/ui/label';
 	import {
 		AtSign,
+		Copy,
+		KeyRound,
 		Loader2,
 		LogOut,
 		Mail,
@@ -17,6 +19,7 @@
 		RefreshCw,
 		Sparkles,
 		ThumbsUp,
+		Trash2,
 		User
 	} from '@lucide/svelte';
 	import { updateLocation, type LocationUpdateError } from '$lib/location-update';
@@ -39,6 +42,17 @@
 			locationHint = e.hint ?? null;
 		} finally {
 			refreshingLocation = false;
+		}
+	}
+
+	let tokenCopied = $state(false);
+	async function copyToken(token: string) {
+		try {
+			await navigator.clipboard.writeText(token);
+			tokenCopied = true;
+			setTimeout(() => (tokenCopied = false), 2000);
+		} catch (err) {
+			console.error('Clipboard write failed:', err);
 		}
 	}
 
@@ -211,6 +225,76 @@
 							<p class="text-muted-foreground text-xs">No invites yet.</p>
 						{/each}
 					</div>
+				</div>
+			</div>
+
+			<Separator />
+
+			<!-- API tokens -->
+			<div class="flex items-start gap-3">
+				<KeyRound class="text-muted-foreground mt-0.5 size-4" />
+				<div class="min-w-0 flex-1">
+					<div class="text-sm font-medium">API tokens</div>
+					<p class="text-muted-foreground mt-1 text-sm">
+						Your taste is yours. Create a token to pull your likes and location from
+						<code class="text-xs">GET /api/v1/me</code> and plug them into other services.
+					</p>
+
+					{#if form?.tokenCreated}
+						<div class="bg-muted mt-3 rounded-lg border p-3">
+							<p class="text-xs font-medium">New token — copy it now, it won't be shown again.</p>
+							<div class="mt-2 flex items-center gap-2">
+								<code class="bg-background min-w-0 flex-1 truncate rounded border px-2 py-1 text-xs">
+									{form.tokenCreated}
+								</code>
+								<Button
+									type="button"
+									size="sm"
+									variant="outline"
+									onclick={() => copyToken(form.tokenCreated)}
+								>
+									<Copy class="size-3.5" />
+									{tokenCopied ? 'Copied' : 'Copy'}
+								</Button>
+							</div>
+						</div>
+					{/if}
+
+					<form method="post" action="?/createToken" use:enhance class="mt-3 flex items-center gap-2">
+						<Input name="name" placeholder="e.g. My recipe app" autocomplete="off" class="max-w-xs" />
+						<Button type="submit" size="sm" variant="outline">Create token</Button>
+					</form>
+					{#if form?.tokenError}
+						<p class="text-destructive mt-1 text-xs">{form.tokenError}</p>
+					{/if}
+
+					{#if data.apiTokens.length > 0}
+						<div class="mt-3 space-y-2">
+							{#each data.apiTokens as token (token.id)}
+								<div class="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
+									<div class="min-w-0">
+										<div class="truncate text-sm font-medium">{token.name}</div>
+										<div class="text-muted-foreground text-xs">
+											<code>{token.prefix}…</code>
+											· {token.lastUsedAt ? 'last used' : 'never used'}
+										</div>
+									</div>
+									<form method="post" action="?/revokeToken" use:enhance>
+										<input type="hidden" name="id" value={token.id} />
+										<Button
+											type="submit"
+											size="sm"
+											variant="ghost"
+											class="text-muted-foreground hover:text-destructive"
+										>
+											<Trash2 class="size-3.5" />
+											Revoke
+										</Button>
+									</form>
+								</div>
+							{/each}
+						</div>
+					{/if}
 				</div>
 			</div>
 
