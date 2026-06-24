@@ -99,7 +99,6 @@
 
 		const glyph = hit.category ? categoryGlyphDataUri(hit.category) : undefined;
 		previewMarker = new window.mapkit.MarkerAnnotation(coord, {
-			title: hit.name,
 			color: '#facc15', // amber-400 — temporary, distinct from saved pins
 			animates: true,
 			selected: true,
@@ -200,9 +199,10 @@
 
 			const coord = new window.mapkit.Coordinate(p.latitude, p.longitude);
 			const glyph = categoryGlyphDataUri(p.category);
+			// No title/subtitle: MapKit's default callout below the pin is
+			// noisy and visually misaligned. The PlacePopup card carries
+			// the same info with more context, so we route selection there.
 			const ann = new window.mapkit.MarkerAnnotation(coord, {
-				title: p.name,
-				subtitle: p.neighborhood ?? p.city,
 				color: desiredColor,
 				glyphImage: { 1: glyph, 2: glyph, 3: glyph }
 			});
