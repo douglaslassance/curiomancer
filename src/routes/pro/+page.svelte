@@ -24,7 +24,7 @@
 <div class="mx-auto max-w-xl py-10">
 	<div class="text-center">
 		<span
-			class="bg-brand text-brand-foreground mb-3 inline-block rounded-full px-2 py-0.5 text-xs font-medium"
+			class="bg-primary text-primary-foreground mb-3 inline-block rounded-full px-2 py-0.5 text-xs font-medium"
 		>
 			Pro
 		</span>
