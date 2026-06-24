@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import { ArrowRight, MessageCircle, Plane, ShieldCheck, Sparkles } from '@lucide/svelte';
+	import { ArrowRight, Luggage, MessageCircle, ShieldCheck, Sparkles } from '@lucide/svelte';
 	import DashboardHeader from '$lib/components/dashboard-header.svelte';
 	import LocationPrompt from '$lib/components/location-prompt.svelte';
 	import MatchedPeopleRail from '$lib/components/matched-people-rail.svelte';
@@ -31,7 +31,7 @@
 	<section class="grid gap-6 py-12 md:grid-cols-2">
 		<div class="bg-card rounded-xl border p-6">
 			<div class="flex items-center gap-2">
-				<Plane class="text-primary size-5" />
+				<Luggage class="text-primary size-5" />
 				<h2 class="text-lg font-medium">Recommendations that travel</h2>
 			</div>
 			<p class="text-muted-foreground mt-2 text-sm">
@@ -43,7 +43,7 @@
 		<div class="bg-card rounded-xl border p-6">
 			<div class="flex items-center gap-2">
 				<Sparkles class="text-primary size-5" />
-				<h2 class="text-lg font-medium">No tricks, just taste</h2>
+				<h2 class="text-lg font-medium">Nothing but taste</h2>
 			</div>
 			<p class="text-muted-foreground mt-2 text-sm">
 				No ads, no engagement bait, no pay-to-rank. What you see is decided by one thing only:
