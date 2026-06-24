@@ -1,48 +1,25 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import * as Card from '$lib/components/ui/card';
-	import { Sparkles } from '@lucide/svelte';
+	import { Button } from '$lib/components/ui/button';
 
-	let { data, form } = $props();
+	let { form } = $props();
 </script>
+
+<svelte:head>
+	<title>Create your account - Curiomancer</title>
+</svelte:head>
 
 <div class="mx-auto max-w-sm py-10">
 	<Card.Root>
 		<Card.Header>
 			<Card.Title>Create your account</Card.Title>
-			<Card.Description>
-				{#if data.inviteState === 'valid' && data.inviter}
-					<span class="flex items-center gap-1.5">
-						<Sparkles class="text-primary size-4" />
-						{data.inviter.name} is inviting you to Curiomancer.
-					</span>
-				{:else if data.inviteState === 'invalid'}
-					That invite code is invalid or already used.
-				{:else}
-					Curiomancer is invite-only. Paste your code below.
-				{/if}
-			</Card.Description>
+			<Card.Description>Join Curiomancer and start matching on taste.</Card.Description>
 		</Card.Header>
 		<Card.Content>
 			<form method="post" class="space-y-4" use:enhance>
-				<input type="hidden" name="invite" value={data.code ?? ''} />
-				{#if data.inviteState !== 'valid'}
-					<div class="space-y-2">
-						<Label for="invite-input">Invite code</Label>
-						<Input
-							id="invite-input"
-							name="invite"
-							type="text"
-							placeholder="ABCD-EFGH-IJKL"
-							value={data.code ?? ''}
-							autocomplete="off"
-							class="font-mono uppercase"
-						/>
-					</div>
-				{/if}
 				<div class="space-y-2">
 					<Label for="name">Name</Label>
 					<Input

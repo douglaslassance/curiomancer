@@ -24,8 +24,6 @@
 				<th class="px-4 py-3 font-medium">City</th>
 				<th class="px-4 py-3 text-right font-medium">👍</th>
 				<th class="px-4 py-3 text-right font-medium">👎</th>
-				<th class="px-4 py-3 text-right font-medium">Invites left</th>
-				<th class="px-4 py-3 font-medium">Referred by</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -44,11 +42,9 @@
 					<td class="text-muted-foreground px-4 py-3 text-xs">{u.city ?? '-'}</td>
 					<td class="px-4 py-3 text-right tabular-nums">{u.likes}</td>
 					<td class="px-4 py-3 text-right tabular-nums">{u.dislikes}</td>
-					<td class="px-4 py-3 text-right tabular-nums">{u.invitesRemaining}</td>
-					<td class="text-muted-foreground px-4 py-3 text-xs">{u.referredByName ?? '-'}</td>
 				</tr>
 			{:else}
-				<tr><td colspan="8" class="text-muted-foreground py-8 text-center">No users.</td></tr>
+				<tr><td colspan="6" class="text-muted-foreground py-8 text-center">No users.</td></tr>
 			{/each}
 		</tbody>
 	</table>

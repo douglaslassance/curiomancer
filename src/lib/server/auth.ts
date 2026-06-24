@@ -4,7 +4,6 @@ import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
 import { db } from '$lib/server/db';
-import { createInvitesFor } from '$lib/server/invites';
 
 export const auth = betterAuth({
 	baseURL: env.ORIGIN,
@@ -19,15 +18,6 @@ export const auth = betterAuth({
 			 */
 			role: { type: 'string', defaultValue: 'user', input: false },
 			instagram: { type: 'string', required: false }
-		}
-	},
-	databaseHooks: {
-		user: {
-			create: {
-				after: async (newUser) => {
-					await createInvitesFor(newUser.id, 3);
-				}
-			}
 		}
 	},
 	plugins: [

@@ -14,8 +14,6 @@ export const load: PageServerLoad = async () => {
 		disliked: number;
 		seen: number;
 		want_to_go: number;
-		invites_total: number;
-		invites_redeemed: number;
 	}>(sql`
 		SELECT
 			(SELECT COUNT(*)::int FROM "user" WHERE email NOT LIKE '%@demo.curiomancer') AS users,
@@ -27,9 +25,7 @@ export const load: PageServerLoad = async () => {
 			(SELECT COUNT(*)::int FROM place_relation WHERE kind = 'liked') AS liked,
 			(SELECT COUNT(*)::int FROM place_relation WHERE kind = 'disliked') AS disliked,
 			(SELECT COUNT(*)::int FROM place_relation WHERE kind = 'seen') AS seen,
-			(SELECT COUNT(*)::int FROM place_relation WHERE kind = 'want_to_go') AS want_to_go,
-			(SELECT COUNT(*)::int FROM "invite") AS invites_total,
-			(SELECT COUNT(*)::int FROM "invite" WHERE redeemed_by_user_id IS NOT NULL) AS invites_redeemed
+			(SELECT COUNT(*)::int FROM place_relation WHERE kind = 'want_to_go') AS want_to_go
 	`);
 
 	return { stats: stats[0] };
