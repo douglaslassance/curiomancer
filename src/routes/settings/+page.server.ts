@@ -42,7 +42,7 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const raw = data.get('instagram')?.toString() ?? '';
 
-		// Empty string clears the handle — they took theirs off.
+		// Empty string clears the handle - they took theirs off.
 		if (raw.trim() === '') {
 			await db.update(user).set({ instagram: null }).where(eq(user.id, locals.user.id));
 			return { instagramOk: true, instagram: null };
@@ -69,7 +69,7 @@ export const actions: Actions = {
 			return fail(400, { tokenError: 'Give the token a name so you can recognise it later.' });
 		}
 
-		// Plaintext is returned once here and never stored — the UI shows it
+		// Plaintext is returned once here and never stored - the UI shows it
 		// in a copy-now box and it cannot be retrieved again.
 		const token = await createApiToken(locals.user.id, name);
 		return { tokenCreated: token, tokenName: name };

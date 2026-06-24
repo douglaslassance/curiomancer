@@ -34,7 +34,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.where(eq(placeRelation.userId, userId))
 	).length;
 
-	// Try the personalised recommender first — it pulls from both
+	// Try the personalised recommender first - it pulls from both
 	// algorithmic taste-twins and people the user follows. If both pools
 	// are empty (cold-start user with no likes and no follows), fall back
 	// to raw popularity so the dashboard never renders empty rails.

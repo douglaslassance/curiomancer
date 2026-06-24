@@ -72,7 +72,7 @@
 	/**
 	 * Pin color encodes the user's relationship: liked = pink, want-to-go =
 	 * emerald, neutral = gray. Category is the glyph icon. Disliked and
-	 * seen places never reach the map — the server load filters them out.
+	 * seen places never reach the map - the server load filters them out.
 	 */
 	function pinColor(placeId: string): string {
 		if (likedSet.has(placeId)) return '#ec4899'; // pink-500
@@ -99,7 +99,7 @@
 
 		const glyph = hit.category ? categoryGlyphDataUri(hit.category) : undefined;
 		previewMarker = new window.mapkit.MarkerAnnotation(coord, {
-			color: '#facc15', // amber-400 — temporary, distinct from saved pins
+			color: '#facc15', // amber-400 - temporary, distinct from saved pins
 			animates: true,
 			selected: true,
 			...(glyph ? { glyphImage: { 1: glyph, 2: glyph, 3: glyph } } : {})
@@ -164,7 +164,7 @@
 				try {
 					mapRef.destroy();
 				} catch {
-					/* MapKit doesn't always have destroy() — best effort. */
+					/* MapKit doesn't always have destroy() - best effort. */
 				}
 			}
 		};

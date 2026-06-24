@@ -3,7 +3,7 @@
  *
  * Initial value follows the OS preference. The first toggle locks in an
  * explicit choice that persists across sessions. Subsequent OS changes
- * don't override your stored preference — once you've picked, you've
+ * don't override your stored preference - once you've picked, you've
  * picked. This matches the pattern from douglaslassance.me.
  *
  * The actual class on <html> is set by an inline script in app.html that

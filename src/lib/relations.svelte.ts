@@ -1,8 +1,8 @@
 /**
  * Client-side store of the current user's place relations: liked + disliked + seen.
- * (Want-to-go is omitted for now — defined in the schema but not surfaced in UI.)
+ * (Want-to-go is omitted for now - defined in the schema but not surfaced in UI.)
  *
- * Anonymous users get localStorage persistence for *likes only* — we never
+ * Anonymous users get localStorage persistence for *likes only* - we never
  * persist dislikes or "seen" markers anonymously because they're noisy
  * signals without an account context to learn from.
  *

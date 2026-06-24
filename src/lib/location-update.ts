@@ -3,7 +3,7 @@
  * tell the server." Used by the first-visit prompt and by the refresh
  * affordances on the dashboard header and settings page.
  *
- * Throws a `LocationUpdateError` (object, not Error subclass — Svelte
+ * Throws a `LocationUpdateError` (object, not Error subclass - Svelte
  * components want to read .message and .hint without instanceof) on
  * any failure so callers can render whatever UI fits.
  */
@@ -26,7 +26,7 @@ export async function updateLocation(): Promise<void> {
 				// Coarse wifi/IP positioning is faster and city-accurate.
 				enableHighAccuracy: false,
 				timeout: 20_000,
-				// A manual refresh should not return a cached fix — the
+				// A manual refresh should not return a cached fix - the
 				// whole point is that the user has moved.
 				maximumAge: 0
 			});
@@ -68,7 +68,7 @@ function geoErrorToFriendly(err: unknown): LocationUpdateError {
 			case err.TIMEOUT:
 				return {
 					message: 'Timed out waiting for your location.',
-					hint: 'Try again — sometimes the first attempt takes a moment.'
+					hint: 'Try again - sometimes the first attempt takes a moment.'
 				};
 			default:
 				return { message: `Geolocation error (code ${err.code}).` };

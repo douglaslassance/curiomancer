@@ -2,7 +2,7 @@
  * Personal access tokens for the public API.
  *
  * Tokens are high-entropy random strings prefixed with `crmc_`. We never
- * store the plaintext — only a SHA-256 hash — so a leaked database can't
+ * store the plaintext - only a SHA-256 hash - so a leaked database can't
  * be used to impersonate API clients. The plaintext is returned to the
  * caller exactly once, at creation time.
  */

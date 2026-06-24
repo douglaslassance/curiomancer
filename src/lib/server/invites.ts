@@ -1,5 +1,5 @@
 /**
- * Invite management — creation, redemption, listing.
+ * Invite management - creation, redemption, listing.
  *
  * Each user gets a fixed number of invites at signup. Inviting somebody
  * decrements the inviter's remaining count by linking the invite row to

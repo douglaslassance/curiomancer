@@ -7,7 +7,7 @@ import type { RequestHandler } from './$types';
  * The browser fetches this before initializing the map.
  */
 export const GET: RequestHandler = async ({ url, locals }) => {
-	// Open to anonymous users too — the marketing splash doesn't show a map,
+	// Open to anonymous users too - the marketing splash doesn't show a map,
 	// but if we later add an unauthenticated map view this just works.
 	void locals;
 

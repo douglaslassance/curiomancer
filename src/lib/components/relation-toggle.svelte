@@ -35,7 +35,7 @@
 		try {
 			// Posting the same kind that was current = clearing it; the store
 			// already reflects the desired state. Send the kind being requested
-			// — the server interprets it the same way (toggle).
+			// - the server interprets it the same way (toggle).
 			const res = await fetch('/api/relations', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
@@ -68,7 +68,7 @@
 		aria-pressed={current === 'seen'}
 		aria-label={current === 'seen'
 			? 'Remove seen marker'
-			: 'Mark as seen — you know it, no strong opinion'}
+			: 'Mark as seen - you know it, no strong opinion'}
 		onclick={(e: Event) => press('seen', e)}
 	>
 		<Eye class="size-4" fill={current === 'seen' ? 'currentColor' : 'none'} />
@@ -88,7 +88,7 @@
 		aria-pressed={current === 'want_to_go'}
 		aria-label={current === 'want_to_go'
 			? 'Remove from wishlist'
-			: "Want to go — haven't been but interested"}
+			: "Want to go - haven't been but interested"}
 		onclick={(e: Event) => press('want_to_go', e)}
 	>
 		<Bookmark class="size-4" fill={current === 'want_to_go' ? 'currentColor' : 'none'} />

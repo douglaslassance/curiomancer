@@ -32,7 +32,7 @@ type NominatimResponse = {
 
 /**
  * Returns the best city-level name and country code for the given coordinates.
- * Throws on network or parse failure — the caller is expected to surface that
+ * Throws on network or parse failure - the caller is expected to surface that
  * to the user as "couldn't determine your location."
  */
 export async function reverseGeocode(
@@ -77,7 +77,7 @@ export async function reverseGeocode(
  * the "city" field, even though humans think of them as one metro. Map
  * those to their parent city so our string-equality matching works.
  *
- * The list is hand-picked — we'll grow it as users surface mismatches.
+ * The list is hand-picked - we'll grow it as users surface mismatches.
  * The long-term answer is distance-based matching (separate work item).
  */
 const WARD_TO_METRO: Record<string, string> = {
@@ -118,7 +118,7 @@ const WARD_TO_METRO: Record<string, string> = {
 	// Common Paris arrondissements get returned as "Paris" by Nominatim
 	// already, so no normalization needed there.
 
-	// Seoul districts (gu/구) — partial list of the most-touristy
+	// Seoul districts (gu/구) - partial list of the most-touristy
 	'Gangnam-gu': 'Seoul',
 	'Mapo-gu': 'Seoul',
 	'Jongno-gu': 'Seoul',

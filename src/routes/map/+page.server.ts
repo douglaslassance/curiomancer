@@ -27,7 +27,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		]);
 		likedIds = [...liked];
 		wantToGoIds = [...wantToGo];
-		// Disliked and seen are both "I'm done with this" signals — keep them
+		// Disliked and seen are both "I'm done with this" signals - keep them
 		// off the map. Want-to-go stays visible (you want to go there).
 		hiddenIds = [...disliked, ...seen];
 	}

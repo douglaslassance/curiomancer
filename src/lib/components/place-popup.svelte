@@ -29,7 +29,7 @@
 	const twins = $derived(context?.likers.filter((l) => l.score > 0) ?? []);
 	const others = $derived(context?.likers.filter((l) => l.score === 0) ?? []);
 
-	// Re-fetch context whenever the placeId prop changes — switching pins.
+	// Re-fetch context whenever the placeId prop changes - switching pins.
 	$effect(() => {
 		const id = placeId;
 		context = null;

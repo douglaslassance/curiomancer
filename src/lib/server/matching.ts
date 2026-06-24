@@ -18,7 +18,7 @@
  *  - Cosine on ±1 vectors does roughly the same thing but punishes sparse
  *    overlap (both have an opinion on only 1 place but agree) less than
  *    Jaccard does. The denominator above keeps the same dampening Jaccard
- *    had — you need to overlap on multiple places to get a high score.
+ *    had - you need to overlap on multiple places to get a high score.
  *
  * Computed per-request via raw SQL. At our beta scale (hundreds of users,
  * thousands of relations) this is cheap. Migration path is a nightly job
@@ -131,10 +131,10 @@ export async function getMatchedPeopleInCity(
 
 /**
  * Everyone who has liked `placeId`, ranked by their signed similarity to
- * `userId`. This is the "why was this recommended to me" view — shown on
+ * `userId`. This is the "why was this recommended to me" view - shown on
  * a place's detail page so users can see who's vouching for it. Disliked
  * rows on this place are deliberately excluded (we don't show "this place
- * was disliked by people who share your taste" — that's its own surface).
+ * was disliked by people who share your taste" - that's its own surface).
  */
 export async function getPeopleWhoLikedPlace(
 	userId: string | null,
@@ -198,7 +198,7 @@ export async function getPeopleWhoLikedPlace(
 /**
  * Top N places in `city` of `category` that the user's top-K taste twins
  * liked, scored by sum of similarity weight, excluding places the user
- * already has a relation with (liked, disliked, or want-to-go — we don't
+ * already has a relation with (liked, disliked, or want-to-go - we don't
  * re-recommend places you've already taken a position on).
  *
  * A twin's negative score subtracts from recommendation weight, so a place

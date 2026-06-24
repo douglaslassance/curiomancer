@@ -1,7 +1,7 @@
 /**
  * Server-side place search via Apple's Maps Server API.
  *
- * Same `.p8` we use for MapKit JS — Apple uses one auth key for both.
+ * Same `.p8` we use for MapKit JS - Apple uses one auth key for both.
  * MapKit JS exposes a browser-side `mapkit.Search`; the HTTP API exists
  * for the Node-side path (seed scripts, server-side enrichment, etc.).
  *
@@ -112,7 +112,7 @@ export async function searchAppleMaps(
  * Best-effort mapping of Apple's poiCategory strings to our 3-category enum.
  * Anything we can't classify returns null and the caller decides what to do.
  *
- * Apple has dozens of POI categories. We don't enumerate all of them — this
+ * Apple has dozens of POI categories. We don't enumerate all of them - this
  * is a "the common ones we expect users to add" mapping. Add as we learn.
  */
 export function mapAppleCategory(poiCategory?: string): 'restaurant' | 'bar' | 'shop' | null {

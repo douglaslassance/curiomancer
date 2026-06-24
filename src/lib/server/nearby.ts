@@ -3,7 +3,7 @@
  * computed in raw SQL. Replaces the older "WHERE city = $1" pattern that
  * broke on metro subdivisions (Tokyo wards, NYC boroughs, etc.).
  *
- * The earth-radius constant (6371 km) is hardcoded — yes, the earth is
+ * The earth-radius constant (6371 km) is hardcoded - yes, the earth is
  * a slightly squashed sphere; the few-meter error doesn't matter for
  * "places within 30 km" recommendations.
  */

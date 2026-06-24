@@ -319,7 +319,7 @@ const EVENTS: NewEvent[] = [
 		startsAt: at(9, 19)
 	},
 	{
-		name: 'teamLab Planets — final week',
+		name: 'teamLab Planets - final week',
 		category: 'art',
 		city: 'Tokyo',
 		venue: 'teamLab Planets Toyosu',
@@ -341,7 +341,7 @@ const EVENTS: NewEvent[] = [
 		category: 'food',
 		city: 'Tokyo',
 		venue: 'United Nations University Plaza',
-		description: 'Saturday farmer + craft market in Aoyama — produce, sake, baked goods.',
+		description: 'Saturday farmer + craft market in Aoyama - produce, sake, baked goods.',
 		startsAt: at(2, 10),
 		endsAt: at(2, 16)
 	},
@@ -368,14 +368,14 @@ const EVENTS: NewEvent[] = [
 		category: 'sports',
 		city: 'Tokyo',
 		venue: 'Tokyo Dome',
-		description: 'Yomiuri Giants at home — the most fun-loud crowd in NPB.',
+		description: 'Yomiuri Giants at home - the most fun-loud crowd in NPB.',
 		startsAt: at(8, 18)
 	}
 ];
 
 // ─── Personas ─────────────────────────────────────────────────────────────
 //
-// Each persona's `likes` is a list of `PlaceHint.query` strings — the
+// Each persona's `likes` is a list of `PlaceHint.query` strings - the
 // matching query, not the place name. This keeps everything indirectable
 // through the cache.
 
@@ -564,7 +564,7 @@ const placeRows: NewPlace[] = [...resolved.entries()].map(([query, r]) => {
 		category: r.category,
 		city: r.city,
 		neighborhood: hint.neighborhood ?? null,
-		description: hint.description ?? `${r.name} — ${r.formattedAddress}`,
+		description: hint.description ?? `${r.name} - ${r.formattedAddress}`,
 		latitude: r.latitude,
 		longitude: r.longitude,
 		source: 'apple' as const,
@@ -616,6 +616,6 @@ const likeRows = PERSONAS.flatMap((p) =>
 if (likeRows.length > 0) await db.insert(placeRelation).values(likeRows);
 
 console.log(
-	`Done — ${resolved.size} places, ${EVENTS.length} events, ${PERSONAS.length} personas, ${likeRows.length} likes.`
+	`Done - ${resolved.size} places, ${EVENTS.length} events, ${PERSONAS.length} personas, ${likeRows.length} likes.`
 );
 await sql.end();

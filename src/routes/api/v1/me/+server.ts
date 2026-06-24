@@ -15,7 +15,7 @@ import type { RequestHandler } from './$types';
  *   curl https://curiomancer.com/api/v1/me \
  *     -H "Authorization: Bearer crmc_…"
  *
- * This is the "take your taste anywhere" surface — read-only for now.
+ * This is the "take your taste anywhere" surface - read-only for now.
  */
 export const GET: RequestHandler = async ({ request }) => {
 	const userId = await authenticateToken(request.headers.get('authorization'));

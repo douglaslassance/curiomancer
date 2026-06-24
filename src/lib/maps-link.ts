@@ -3,7 +3,7 @@
  * coordinates aren't available. Returns null when we have neither, so the
  * caller can hide the button entirely.
  *
- * We deliberately use Google's universal search URL — works on web, iOS,
+ * We deliberately use Google's universal search URL - works on web, iOS,
  * and Android, opens the native app if installed.
  */
 export function googleMapsUrl(opts: {

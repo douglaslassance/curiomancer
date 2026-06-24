@@ -14,7 +14,7 @@ import { user } from './auth.schema';
 /**
  * A place is a shop, bar, or restaurant a user has liked or wants to go to.
  *
- * Places are user-generated — the first user to like a spot creates the row,
+ * Places are user-generated - the first user to like a spot creates the row,
  * everyone after them likes the same row. We dedupe by external provider id
  * (`source` + `external_id`) so two users adding "Bestia" from Apple Maps
  * end up on the same row, but a manual entry without an external id stays
@@ -58,13 +58,13 @@ export type NewPlace = typeof place.$inferInsert;
  *
  *   - liked: been, dig it. Strong positive signal for matching.
  *   - disliked: been, don't dig it. Strong negative signal for matching.
- *   - seen: been (or know of it) but no opinion. Zero matching signal —
+ *   - seen: been (or know of it) but no opinion. Zero matching signal -
  *     just tells the recommender to skip this place since the user is
  *     already aware of it.
  *   - want_to_go: haven't been but interested. Wishlist marker; no
  *     matching contribution (planned, not currently exposed in UI).
  *
- * Composite-unique on (userId, placeId) — a user only has one stance per
+ * Composite-unique on (userId, placeId) - a user only has one stance per
  * place at a time. Changing your mind overwrites the prior row.
  *
  * Historically this table was called `like`. Renamed when dislikes were
@@ -149,7 +149,7 @@ export type NewUserLocation = typeof userLocation.$inferInsert;
  * these (currently 3); the code itself is the primary key so URLs like
  * /sign-up?invite=ABCD-EFGH-IJKL go straight to a row lookup.
  *
- * Redemption is atomic via UPDATE … WHERE redeemed_by_user_id IS NULL —
+ * Redemption is atomic via UPDATE … WHERE redeemed_by_user_id IS NULL -
  * race-safe even if the same link is clicked simultaneously.
  */
 export const invite = pgTable('invite', {
@@ -195,7 +195,7 @@ export type Follow = typeof follow.$inferSelect;
 /**
  * Personal access tokens for the public API. Lets a user pull their own
  * taste data (likes, location) out of Curiomancer to plug into other
- * services — the "your taste belongs to you" promise.
+ * services - the "your taste belongs to you" promise.
  *
  * We store only a SHA-256 hash of the token; the plaintext is shown to
  * the user exactly once at creation. `tokenPrefix` keeps the first few

@@ -11,7 +11,7 @@
 </script>
 
 <svelte:head>
-	<title>Admin · Users — Curiomancer</title>
+	<title>Admin · Users - Curiomancer</title>
 </svelte:head>
 
 <div class="bg-card overflow-x-auto rounded-xl border">
@@ -41,11 +41,11 @@
 					<td class="text-muted-foreground px-4 py-3 text-xs tabular-nums">
 						{dateFmt.format(u.createdAt)}
 					</td>
-					<td class="text-muted-foreground px-4 py-3 text-xs">{u.city ?? '—'}</td>
+					<td class="text-muted-foreground px-4 py-3 text-xs">{u.city ?? '-'}</td>
 					<td class="px-4 py-3 text-right tabular-nums">{u.likes}</td>
 					<td class="px-4 py-3 text-right tabular-nums">{u.dislikes}</td>
 					<td class="px-4 py-3 text-right tabular-nums">{u.invitesRemaining}</td>
-					<td class="text-muted-foreground px-4 py-3 text-xs">{u.referredByName ?? '—'}</td>
+					<td class="text-muted-foreground px-4 py-3 text-xs">{u.referredByName ?? '-'}</td>
 				</tr>
 			{:else}
 				<tr><td colspan="8" class="text-muted-foreground py-8 text-center">No users.</td></tr>

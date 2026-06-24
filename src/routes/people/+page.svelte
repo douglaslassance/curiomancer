@@ -9,7 +9,7 @@
 
 	// Radius input is bound to the URL so the page is shareable / refreshable
 	// and the server load re-runs with the new value. Debounced so the
-	// slider stays responsive — `localRadius` is the in-flight visual
+	// slider stays responsive - `localRadius` is the in-flight visual
 	// position, and the URL is the authoritative store.
 	// svelte-ignore state_referenced_locally
 	// eslint-disable-next-line svelte/prefer-writable-derived
@@ -45,7 +45,7 @@
 	</div>
 {:else if !data.center}
 	<div class="text-muted-foreground rounded-xl border border-dashed py-12 text-center text-sm">
-		Set your location first — head to the dashboard and accept the location prompt.
+		Set your location first - head to the dashboard and accept the location prompt.
 	</div>
 {:else}
 	<!-- Radius control -->

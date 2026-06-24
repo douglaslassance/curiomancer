@@ -4,7 +4,7 @@
 </script>
 
 <svelte:head>
-	<title>Admin · Overview — Curiomancer</title>
+	<title>Admin · Overview - Curiomancer</title>
 </svelte:head>
 
 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

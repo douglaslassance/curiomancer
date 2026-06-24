@@ -3,8 +3,8 @@ import { followUser, unfollowUser } from '$lib/server/follows';
 import type { RequestHandler } from './$types';
 
 /**
- * POST /api/follow/[id]   — follow user [id]
- * DELETE /api/follow/[id] — unfollow user [id]
+ * POST /api/follow/[id]   - follow user [id]
+ * DELETE /api/follow/[id] - unfollow user [id]
  *
  * Idempotent on both sides (insert ON CONFLICT DO NOTHING, delete on
  * a non-existent row no-ops). Self-follow is rejected at the DB CHECK

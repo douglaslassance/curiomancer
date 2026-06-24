@@ -24,7 +24,7 @@
 	}: {
 		center: { latitude: number; longitude: number };
 		signedIn: boolean;
-		/** Called when a search result is selected — parent flies the map. */
+		/** Called when a search result is selected - parent flies the map. */
 		onPreview: (hit: Hit) => void;
 		onClearPreview: () => void;
 	} = $props();
@@ -220,7 +220,7 @@
 				<p class="text-muted-foreground mt-2 text-xs">Sign in to like or dislike places.</p>
 			{:else if !selected.category}
 				<p class="text-muted-foreground mt-2 text-xs">
-					This category isn't supported yet — only restaurants, bars, and shops.
+					This category isn't supported yet - only restaurants, bars, and shops.
 				</p>
 			{:else}
 				<div class="mt-3 flex gap-2">

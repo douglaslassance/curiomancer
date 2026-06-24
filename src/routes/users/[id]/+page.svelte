@@ -48,7 +48,7 @@
 </script>
 
 <!--
-  Card snippet — used for both "You both like" and "Everything they like".
+  Card snippet - used for both "You both like" and "Everything they like".
   Avoids nesting <button> inside <a> (invalid HTML) by keeping the link
   scoped to the title row and the like button as a sibling.
 -->

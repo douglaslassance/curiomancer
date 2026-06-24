@@ -13,7 +13,7 @@
 
 <header class="mb-6">
 	<h1 class="text-2xl font-semibold tracking-tight">Admin</h1>
-	<p class="text-muted-foreground mt-1 text-sm">Internal — visible only to admins.</p>
+	<p class="text-muted-foreground mt-1 text-sm">Internal - visible only to admins.</p>
 	<nav class="mt-4 flex gap-1 border-b">
 		{#each tabs as t (t.href)}
 			{@const Icon = t.icon}

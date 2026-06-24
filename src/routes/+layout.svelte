@@ -10,7 +10,7 @@
 
 	let { data, children } = $props();
 
-	// Plain closure variable (NOT $state) — used only for memoization across
+	// Plain closure variable (NOT $state) - used only for memoization across
 	// effect runs. Making it reactive would cause the effect to re-trigger
 	// itself on every assignment, looping forever.
 	let lastUserId: string | null = null;
@@ -52,7 +52,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<title>Curiomancer — taste-matched places</title>
+	<title>Curiomancer - taste-matched places</title>
 </svelte:head>
 
 <div class="bg-background text-foreground min-h-screen">

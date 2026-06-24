@@ -11,7 +11,7 @@ import type { Actions, PageServerLoad } from './$types';
  * very first signup runs here and is automatically promoted to admin.
  *
  * After at least one user exists, this route redirects to /sign-in. The
- * invariant is "no users, ever" — not "no admins" — so deleting your only
+ * invariant is "no users, ever" - not "no admins" - so deleting your only
  * admin doesn't reopen the setup window. That prevents takeover via
  * "wipe the admin and re-claim."
  *
@@ -30,7 +30,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 export const actions: Actions = {
 	default: async (event) => {
-		// Re-check at action time — somebody else might have just claimed it.
+		// Re-check at action time - somebody else might have just claimed it.
 		if (await hasAnyUser()) throw redirect(302, '/sign-in');
 
 		const data = await event.request.formData();

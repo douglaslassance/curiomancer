@@ -106,7 +106,7 @@
 	</div>
 {:else if !data.center}
 	<div class="text-muted-foreground rounded-xl border border-dashed py-12 text-center text-sm">
-		Set your location first — head to the dashboard and accept the location prompt.
+		Set your location first - head to the dashboard and accept the location prompt.
 	</div>
 {:else}
 	<!-- Controls -->

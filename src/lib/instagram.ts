@@ -4,7 +4,7 @@
  * Returns the bare handle (lowercase, no @, no URL) or null if invalid.
  *
  * Instagram handles allow letters, digits, periods, and underscores;
- * 1–30 chars. We're lenient on case (lowercased) and trim aggressively.
+ * 1-30 chars. We're lenient on case (lowercased) and trim aggressively.
  */
 const HANDLE_RE = /^[a-z0-9._]{1,30}$/;
 
