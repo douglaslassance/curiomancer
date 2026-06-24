@@ -4,7 +4,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import RelationToggle from '$lib/components/relation-toggle.svelte';
 	import MatchBadge from '$lib/components/match-badge.svelte';
-	import { ArrowLeft, AtSign, MapPin, ThumbsUp } from '@lucide/svelte';
+	import { invalidateAll } from '$app/navigation';
+	import { ArrowLeft, AtSign, Loader2, MapPin, ThumbsUp, UserPlus, UserCheck } from '@lucide/svelte';
 	import { instagramUrl } from '$lib/instagram';
 	import type { Place } from '$lib/server/db/schema';
 
@@ -18,6 +19,23 @@
 			.map((s: string) => s[0]?.toUpperCase() ?? '')
 			.join('') || '?'
 	);
+
+	let followBusy = $state(false);
+	async function toggleFollow() {
+		if (!data.viewer || data.viewer.isSelf) return;
+		followBusy = true;
+		try {
+			const res = await fetch(`/api/follow/${profile.id}`, {
+				method: data.viewer.following ? 'DELETE' : 'POST'
+			});
+			if (!res.ok) throw new Error(await res.text().catch(() => `Status ${res.status}`));
+			await invalidateAll();
+		} catch (err) {
+			console.error('Follow toggle failed:', err);
+		} finally {
+			followBusy = false;
+		}
+	}
 </script>
 
 <!--
@@ -82,10 +100,71 @@
 				</a>
 			{/if}
 		</div>
-		{#if data.viewer && !data.viewer.isSelf && data.viewer.sharedCount > 0}
-			<MatchBadge score={data.viewer.score} />
+		{#if data.viewer && !data.viewer.isSelf}
+			<div class="flex shrink-0 flex-col items-end gap-2">
+				<MatchBadge score={data.viewer.score} />
+				<Button
+					size="sm"
+					variant={data.viewer.following ? 'outline' : 'default'}
+					onclick={toggleFollow}
+					disabled={followBusy}
+				>
+					{#if followBusy}
+						<Loader2 class="size-4 animate-spin" />
+					{:else if data.viewer.following}
+						<UserCheck class="size-4" />
+						Following
+					{:else}
+						<UserPlus class="size-4" />
+						Follow
+					{/if}
+				</Button>
+			</div>
 		{/if}
 	</header>
+
+	<!-- Follow graph: who they follow + who follows them -->
+	{#snippet peoplePills(people: { id: string; name: string; image: string | null }[])}
+		<div class="flex flex-wrap gap-2">
+			{#each people as p (p.id)}
+				<a
+					href={`/users/${p.id}`}
+					class="bg-card hover:border-foreground/30 inline-flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-sm transition-colors"
+				>
+					<Avatar.Root class="size-6">
+						{#if p.image}
+							<Avatar.Image src={p.image} alt={p.name} />
+						{/if}
+						<Avatar.Fallback class="text-[10px] font-medium">
+							{p.name.slice(0, 1).toUpperCase()}
+						</Avatar.Fallback>
+					</Avatar.Root>
+					<span>{p.name}</span>
+				</a>
+			{/each}
+		</div>
+	{/snippet}
+
+	{#if data.following.length > 0 || data.followers.length > 0}
+		<div class="mb-8 grid gap-6 sm:grid-cols-2">
+			{#if data.following.length > 0}
+				<section>
+					<h2 class="mb-3 text-lg font-medium">
+						Following <span class="text-muted-foreground text-sm font-normal">· {data.following.length}</span>
+					</h2>
+					{@render peoplePills(data.following)}
+				</section>
+			{/if}
+			{#if data.followers.length > 0}
+				<section>
+					<h2 class="mb-3 text-lg font-medium">
+						Followers <span class="text-muted-foreground text-sm font-normal">· {data.followers.length}</span>
+					</h2>
+					{@render peoplePills(data.followers)}
+				</section>
+			{/if}
+		</div>
+	{/if}
 
 	<!-- Shared likes with viewer -->
 	{#if data.viewer && !data.viewer.isSelf && data.viewer.sharedPlaces.length > 0}

@@ -1,11 +1,19 @@
 import { error } from '@sveltejs/kit';
 import { asc, eq, getTableColumns, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { placeRelation, place, user, userLocation, type Place } from '$lib/server/db/schema';
+import {
+	follow,
+	placeRelation,
+	place,
+	user,
+	userLocation,
+	type Place
+} from '$lib/server/db/schema';
+import { isFollowing } from '$lib/server/follows';
 import type { PageServerLoad } from './$types';
 
 /**
- * Public profile for a Bond user.
+ * Public profile for a Curiomancer user.
  *
  * v1 shows what they like + where they are. Public to everyone (signed in
  * or not). When a viewer is signed in we also compute their Jaccard
@@ -43,17 +51,34 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		.where(eq(placeRelation.userId, params.id))
 		.orderBy(asc(place.city), asc(place.name));
 
+	const [following, followers] = await Promise.all([
+		db
+			.select({ id: user.id, name: user.name, image: user.image })
+			.from(follow)
+			.innerJoin(user, eq(user.id, follow.followedId))
+			.where(eq(follow.followerId, params.id))
+			.orderBy(asc(user.name)),
+		db
+			.select({ id: user.id, name: user.name, image: user.image })
+			.from(follow)
+			.innerJoin(user, eq(user.id, follow.followerId))
+			.where(eq(follow.followedId, params.id))
+			.orderBy(asc(user.name))
+	]);
+
 	// Compute similarity with the viewer (if signed in and not viewing self).
 	let viewer: {
 		isSelf: boolean;
 		score: number;
 		sharedCount: number;
 		sharedPlaces: Place[];
+		following: boolean;
 	} | null = null;
 
 	if (locals.user) {
 		const isSelf = locals.user.id === params.id;
 		if (!isSelf) {
+			const viewerFollows = await isFollowing(locals.user.id, params.id);
 			// All places the viewer likes that this profile also likes.
 			const shared = await db.execute<{
 				id: string;
@@ -99,12 +124,13 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 					source: r.source,
 					externalId: r.external_id,
 					createdAt: r.created_at
-				}))
+				})),
+				following: viewerFollows
 			};
 		} else {
-			viewer = { isSelf: true, score: 0, sharedCount: 0, sharedPlaces: [] };
+			viewer = { isSelf: true, score: 0, sharedCount: 0, sharedPlaces: [], following: false };
 		}
 	}
 
-	return { profile, location, likedPlaces, viewer };
+	return { profile, location, likedPlaces, following, followers, viewer };
 };

@@ -34,10 +34,15 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.where(eq(placeRelation.userId, userId))
 	).length;
 
-	const placesFor = (category: 'restaurant' | 'bar' | 'shop') =>
-		myLikeCount > 0
-			? getRecommendedPlaces(userId, loc.city, category)
-			: getPopularPlaces(loc.city, category);
+	// Try the personalised recommender first — it pulls from both
+	// algorithmic taste-twins and people the user follows. If both pools
+	// are empty (cold-start user with no likes and no follows), fall back
+	// to raw popularity so the dashboard never renders empty rails.
+	const placesFor = async (category: 'restaurant' | 'bar' | 'shop') => {
+		const recommended = await getRecommendedPlaces(userId, loc.city, category);
+		if (recommended.length > 0) return recommended;
+		return getPopularPlaces(loc.city, category);
+	};
 
 	const [weather, matchedPeople, restaurants, bars, shops] = await Promise.all([
 		getCurrentWeather(loc.latitude, loc.longitude).catch((err) => {

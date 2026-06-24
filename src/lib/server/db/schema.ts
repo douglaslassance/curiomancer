@@ -1,5 +1,14 @@
 import { sql } from 'drizzle-orm';
-import { doublePrecision, index, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+	check,
+	doublePrecision,
+	index,
+	pgTable,
+	primaryKey,
+	text,
+	timestamp,
+	uniqueIndex
+} from 'drizzle-orm/pg-core';
 import { user } from './auth.schema';
 
 /**
@@ -156,5 +165,31 @@ export const invite = pgTable('invite', {
 });
 
 export type Invite = typeof invite.$inferSelect;
+
+/**
+ * Directed follow edges. Following someone treats them as a trusted
+ * taste source: their liked places are boosted into your dashboard
+ * recommendations regardless of algorithmic taste-similarity. Composite
+ * PK on the pair prevents duplicates; the CHECK prevents self-follows.
+ */
+export const follow = pgTable(
+	'follow',
+	{
+		followerId: text('follower_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		followedId: text('followed_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		createdAt: timestamp('created_at').notNull().defaultNow()
+	},
+	(t) => [
+		primaryKey({ columns: [t.followerId, t.followedId] }),
+		check('follow_no_self', sql`${t.followerId} <> ${t.followedId}`),
+		index('follow_followed_idx').on(t.followedId)
+	]
+);
+
+export type Follow = typeof follow.$inferSelect;
 
 export * from './auth.schema';

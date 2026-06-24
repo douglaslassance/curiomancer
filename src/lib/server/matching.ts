@@ -50,6 +50,15 @@ export type RecommendedPlace = Place & {
 const TWIN_LIMIT = 20;
 
 /**
+ * Weight given to a followed user in the recommendation pool, regardless
+ * of their algorithmic taste-similarity. Set well above realistic Jaccard
+ * scores (which top out around 0.5) so a single followed person liking a
+ * place lifts it above algorithmic-only suggestions. If a followee is
+ * also a strong algorithmic twin, MAX() with their natural score wins.
+ */
+const FOLLOW_WEIGHT = 10;
+
+/**
  * SQL fragment that, joined twice (alias `mine` for the viewer, `theirs`
  * for the candidate), produces `agreement` (+1/-1) for each overlapping
  * place. Encapsulated so we can drop dislikes into more queries later.
@@ -234,12 +243,25 @@ export async function getRecommendedPlaces(
 			  AND theirs.kind IN ('liked', 'disliked')
 			GROUP BY theirs.user_id
 		),
-		twins AS (
+		algo_twins AS (
 			SELECT user_id, score
 			FROM pair_stats
 			WHERE score > 0
 			ORDER BY score DESC
 			LIMIT ${TWIN_LIMIT}
+		),
+		twins AS (
+			-- Algorithmic taste-twins + everyone the viewer follows.
+			-- If someone is both, take the higher weight.
+			SELECT user_id, MAX(score) AS score
+			FROM (
+				SELECT user_id, score FROM algo_twins
+				UNION ALL
+				SELECT followed_id AS user_id, ${FOLLOW_WEIGHT}::float AS score
+				FROM "follow"
+				WHERE follower_id = ${userId}
+			) t
+			GROUP BY user_id
 		)
 		SELECT
 			p.id,
