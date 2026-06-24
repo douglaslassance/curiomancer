@@ -43,11 +43,11 @@
 		<div class="bg-card rounded-xl border p-6">
 			<div class="flex items-center gap-2">
 				<Sparkles class="text-primary size-5" />
-				<h2 class="text-lg font-medium">Just taste, no algorithm</h2>
+				<h2 class="text-lg font-medium">No tricks, just taste</h2>
 			</div>
 			<p class="text-muted-foreground mt-2 text-sm">
-				No engagement bait, no ranking games. Curiomancer finds the overlap between your taste
-				and other people's, then turns it into recommendations you'd actually act on.
+				No ads, no engagement bait, no pay-to-rank. What you see is decided by one thing only:
+				how much your taste overlaps with other people's.
 			</p>
 		</div>
 		<div class="bg-card rounded-xl border p-6">
