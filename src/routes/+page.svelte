@@ -1,12 +1,53 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import { ArrowRight, Luggage, MessageCircle, ShieldCheck, Sparkles } from '@lucide/svelte';
+	import { Input } from '$lib/components/ui/input';
+	import { ArrowRight, Check, Loader2, Luggage, MessageCircle, ShieldCheck, Sparkles } from '@lucide/svelte';
 	import DashboardHeader from '$lib/components/dashboard-header.svelte';
 	import LocationPrompt from '$lib/components/location-prompt.svelte';
 	import MatchedPeopleRail from '$lib/components/matched-people-rail.svelte';
 	import CategoryRail from '$lib/components/category-rail.svelte';
 
 	let { data } = $props();
+
+	// Waitlist signup, inline on the splash.
+	let email = $state('');
+	let joinStatus = $state<'idle' | 'working' | 'done' | 'error'>('idle');
+	let joinError = $state<string | null>(null);
+
+	// Best-effort browser location. Resolves to null on denial/timeout/no
+	// support so it can NEVER block the email capture.
+	function getCoords(): Promise<{ latitude: number; longitude: number } | null> {
+		if (typeof navigator === 'undefined' || !navigator.geolocation) return Promise.resolve(null);
+		return new Promise((resolve) => {
+			navigator.geolocation.getCurrentPosition(
+				(pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+				() => resolve(null),
+				{ enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60_000 }
+			);
+		});
+	}
+
+	async function joinWaitlist(event: SubmitEvent) {
+		event.preventDefault();
+		if (!email.trim() || joinStatus === 'working') return;
+		joinStatus = 'working';
+		joinError = null;
+
+		const coords = await getCoords();
+		try {
+			const res = await fetch('/api/waitlist', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ email: email.trim(), ...(coords ?? {}) })
+			});
+			if (!res.ok) throw new Error(await res.text().catch(() => `Status ${res.status}`));
+			joinStatus = 'done';
+		} catch (err) {
+			console.error('Waitlist join failed:', err);
+			joinStatus = 'error';
+			joinError = 'Something went wrong. Please try again.';
+		}
+	}
 </script>
 
 {#if !data.signedIn}
@@ -19,13 +60,43 @@
 			Curiomancer cross-references your taste to surface the places and people worth your time,
 			wherever you are or wherever you go.
 		</p>
-		<div class="mt-8 flex justify-center gap-3">
-			<Button href="/waitlist" size="lg">
-				Join the waitlist
-				<ArrowRight class="size-4" />
-			</Button>
-			<Button href="/sign-in" variant="outline" size="lg">Sign in</Button>
-		</div>
+		{#if joinStatus === 'done'}
+			<div
+				class="text-foreground mx-auto mt-8 flex max-w-md items-center justify-center gap-2 text-sm"
+			>
+				<Check class="text-primary size-5 shrink-0" />
+				<p>You're on the list. We'll email you an invite when your area is ready.</p>
+			</div>
+		{:else}
+			<form
+				onsubmit={joinWaitlist}
+				class="mx-auto mt-8 flex max-w-md flex-col gap-3 sm:flex-row"
+			>
+				<Input
+					name="email"
+					type="email"
+					placeholder="you@example.com"
+					bind:value={email}
+					required
+					class="h-11 flex-1"
+				/>
+				<Button type="submit" size="lg" disabled={joinStatus === 'working'}>
+					{#if joinStatus === 'working'}
+						<Loader2 class="size-4 animate-spin" />
+						Joining…
+					{:else}
+						Join the waitlist
+						<ArrowRight class="size-4" />
+					{/if}
+				</Button>
+			</form>
+			{#if joinError}
+				<p class="text-destructive mt-3 text-sm">{joinError}</p>
+			{/if}
+			<p class="text-muted-foreground mt-3 text-sm">
+				Already have an invite? <a href="/sign-in" class="underline">Sign in</a>
+			</p>
+		{/if}
 	</section>
 
 	<section class="grid gap-6 py-12 md:grid-cols-2">
