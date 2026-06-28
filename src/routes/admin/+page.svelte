@@ -34,4 +34,11 @@
 			{s.liked} 👍 · {s.disliked} 👎 · {s.seen} 👁 · {s.want_to_go} want
 		</p>
 	</section>
+
+	<!-- Invites -->
+	<section class="bg-card rounded-xl border p-5">
+		<h2 class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Invites</h2>
+		<p class="mt-2 text-3xl font-semibold tabular-nums">{s.invites_redeemed} / {s.invites_total}</p>
+		<p class="text-muted-foreground mt-1 text-xs">redeemed</p>
+	</section>
 </div>

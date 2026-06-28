@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
-	import { BarChart3, Users } from '@lucide/svelte';
+	import { BarChart3, ClipboardList, Users } from '@lucide/svelte';
 
 	let { children } = $props();
 
 	const tabs = [
 		{ href: '/admin', label: 'Overview', icon: BarChart3 },
-		{ href: '/admin/users', label: 'Users', icon: Users }
+		{ href: '/admin/users', label: 'Users', icon: Users },
+		{ href: '/admin/waitlist', label: 'Waitlist', icon: ClipboardList }
 	];
 </script>
 

@@ -2,6 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { placeRelation, user, userLocation } from '$lib/server/db/schema';
+import { getInvitesFor } from '$lib/server/invites';
 import { createApiToken, listApiTokens, revokeApiToken } from '$lib/server/api-tokens';
 import { parseInstagramHandle } from '$lib/instagram';
 import type { Actions, PageServerLoad } from './$types';
@@ -9,12 +10,13 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) throw redirect(302, '/sign-in?next=/settings');
 
-	const [[location], likes, apiTokens] = await Promise.all([
+	const [[location], likes, invites, apiTokens] = await Promise.all([
 		db.select().from(userLocation).where(eq(userLocation.userId, locals.user.id)).limit(1),
 		db
 			.select({ id: placeRelation.id })
 			.from(placeRelation)
 			.where(eq(placeRelation.userId, locals.user.id)),
+		getInvitesFor(locals.user.id),
 		listApiTokens(locals.user.id)
 	]);
 
@@ -28,6 +30,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		},
 		location: location ?? null,
 		likeCount: likes.length,
+		invites,
 		apiTokens
 	};
 };

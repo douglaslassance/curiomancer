@@ -5,6 +5,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
+	import InviteCard from '$lib/components/invite-card.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import {
@@ -16,6 +17,7 @@
 		Mail,
 		MapPin,
 		RefreshCw,
+		Sparkles,
 		ThumbsUp,
 		Trash2,
 		User
@@ -73,6 +75,7 @@
 			.join('') || '?'
 	);
 
+	const invitesRemaining = $derived(data.invites.filter((i) => i.redeemedByUserId === null).length);
 </script>
 
 <svelte:head>
@@ -199,6 +202,31 @@
 					{/if}
 				</div>
 			</form>
+
+			<Separator />
+
+			<!-- Invites -->
+			<div class="flex items-start gap-3">
+				<Sparkles class="text-muted-foreground mt-0.5 size-4" />
+				<div class="min-w-0 flex-1">
+					<div class="flex items-baseline justify-between gap-2">
+						<div class="text-sm font-medium">Invites</div>
+						<span class="text-muted-foreground text-xs">
+							{invitesRemaining} of {data.invites.length} remaining
+						</span>
+					</div>
+					<p class="text-muted-foreground mt-1 text-sm">
+						Share these links with people whose taste you trust.
+					</p>
+					<div class="mt-3 space-y-2">
+						{#each data.invites as inv (inv.id)}
+							<InviteCard invite={inv} />
+						{:else}
+							<p class="text-muted-foreground text-xs">No invites yet.</p>
+						{/each}
+					</div>
+				</div>
+			</div>
 
 			<Separator />
 

@@ -145,6 +145,28 @@ export type UserLocation = typeof userLocation.$inferSelect;
 export type NewUserLocation = typeof userLocation.$inferInsert;
 
 /**
+ * Invite-only signup tokens. Each user is created with a small number of
+ * these (currently 3); the code itself is the primary key so URLs like
+ * /sign-up?invite=ABCD-EFGH-IJKL go straight to a row lookup.
+ *
+ * Redemption is atomic via UPDATE … WHERE redeemed_by_user_id IS NULL -
+ * race-safe even if the same link is clicked simultaneously.
+ */
+export const invite = pgTable('invite', {
+	id: text('id').primaryKey(),
+	createdByUserId: text('created_by_user_id')
+		.notNull()
+		.references(() => user.id, { onDelete: 'cascade' }),
+	redeemedByUserId: text('redeemed_by_user_id').references(() => user.id, {
+		onDelete: 'set null'
+	}),
+	createdAt: timestamp('created_at').notNull().defaultNow(),
+	redeemedAt: timestamp('redeemed_at')
+});
+
+export type Invite = typeof invite.$inferSelect;
+
+/**
  * Directed follow edges. Following someone treats them as a trusted
  * taste source: their liked places are boosted into your dashboard
  * recommendations regardless of algorithmic taste-similarity. Composite
@@ -198,5 +220,29 @@ export const apiToken = pgTable(
 );
 
 export type ApiToken = typeof apiToken.$inferSelect;
+
+/**
+ * Public waitlist. Anyone can join with an email (and optionally their
+ * home city, which helps us batch-admit by geography for density). An
+ * admin later admits an entry, which mints an invite code linked here;
+ * the admitted person then signs up with that code and gets their own
+ * invites to spread further.
+ */
+export const waitlist = pgTable('waitlist', {
+	id: text('id')
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	email: text('email').notNull().unique(),
+	city: text('city'),
+	status: text('status', { enum: ['pending', 'invited'] })
+		.notNull()
+		.default('pending'),
+	/** The invite code minted when this entry was admitted; null while pending. */
+	inviteId: text('invite_id').references(() => invite.id, { onDelete: 'set null' }),
+	createdAt: timestamp('created_at').notNull().defaultNow(),
+	invitedAt: timestamp('invited_at')
+});
+
+export type Waitlist = typeof waitlist.$inferSelect;
 
 export * from './auth.schema';

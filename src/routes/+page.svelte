@@ -20,8 +20,8 @@
 			wherever you are or wherever you go.
 		</p>
 		<div class="mt-8 flex justify-center gap-3">
-			<Button href="/sign-up" size="lg">
-				Create account
+			<Button href="/waitlist" size="lg">
+				Join the waitlist
 				<ArrowRight class="size-4" />
 			</Button>
 			<Button href="/sign-in" variant="outline" size="lg">Sign in</Button>
