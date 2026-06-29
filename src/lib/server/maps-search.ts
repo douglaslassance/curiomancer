@@ -108,6 +108,41 @@ export async function searchAppleMaps(
 		}));
 }
 
+/**
+ * Reverse-geocode coordinates to a "City, Country" label via Apple, so the
+ * splash "Detect" button yields the same style and source as the
+ * autocomplete suggestions (rather than mixing in a second provider).
+ */
+export async function reverseGeocodeApple(lat: number, lng: number): Promise<string | null> {
+	const token = await getAccessToken();
+
+	const url = new URL(`${BASE}/v1/reverseGeocode`);
+	url.searchParams.set('loc', `${lat},${lng}`);
+	url.searchParams.set('lang', 'en-US');
+
+	const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+	if (!res.ok) {
+		throw new Error(`Apple Maps reverseGeocode returned ${res.status}: ${await res.text()}`);
+	}
+
+	const data = (await res.json()) as {
+		results?: Array<{
+			country?: string;
+			structuredAddress?: {
+				locality?: string;
+				subLocality?: string;
+				administrativeArea?: string;
+			};
+		}>;
+	};
+
+	const result = data.results?.[0];
+	const addr = result?.structuredAddress;
+	const city = addr?.locality || addr?.subLocality || addr?.administrativeArea;
+	if (!city) return null;
+	return result?.country ? `${city}, ${result.country}` : city;
+}
+
 export type PlaceCompletion = {
 	/** Primary line, e.g. "Paris". */
 	title: string;

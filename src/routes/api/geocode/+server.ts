@@ -1,13 +1,13 @@
 import { error, json } from '@sveltejs/kit';
-import { reverseGeocode } from '$lib/server/location';
+import { reverseGeocodeApple } from '$lib/server/maps-search';
 import type { RequestHandler } from './$types';
 
 /**
- * POST /api/geocode  body: { latitude, longitude }  ->  { city, countryCode }
+ * POST /api/geocode  body: { latitude, longitude }  ->  { city }
  *
- * Public reverse-geocode used by the splash "Detect" button so a visitor
- * can auto-fill their city. Reverse-geocoding runs server-side because
- * Nominatim requires an identifying User-Agent.
+ * Public reverse-geocode for the splash "Detect" button. Uses Apple Maps
+ * so the returned "City, Country" label matches the autocomplete
+ * suggestions in both source and format.
  */
 export const POST: RequestHandler = async ({ request }) => {
 	const body = (await request.json().catch(() => null)) as {
@@ -22,8 +22,8 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	try {
-		const resolved = await reverseGeocode(lat, lng);
-		return json({ city: resolved.city, countryCode: resolved.countryCode });
+		const city = await reverseGeocodeApple(lat, lng);
+		return json({ city });
 	} catch (err) {
 		console.error('Reverse-geocode failed:', err);
 		throw error(502, 'Could not determine city from coordinates');
