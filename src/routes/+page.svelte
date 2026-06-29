@@ -1,7 +1,16 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { ArrowRight, Check, Loader2, Luggage, MessageCircle, ShieldCheck, Sparkles } from '@lucide/svelte';
+	import {
+		ArrowRight,
+		Check,
+		LocateFixed,
+		Loader2,
+		Luggage,
+		MessageCircle,
+		ShieldCheck,
+		Sparkles
+	} from '@lucide/svelte';
 	import DashboardHeader from '$lib/components/dashboard-header.svelte';
 	import LocationPrompt from '$lib/components/location-prompt.svelte';
 	import MatchedPeopleRail from '$lib/components/matched-people-rail.svelte';
@@ -11,20 +20,43 @@
 
 	// Waitlist signup, inline on the splash.
 	let email = $state('');
+	let city = $state('');
 	let joinStatus = $state<'idle' | 'working' | 'done' | 'error'>('idle');
 	let joinError = $state<string | null>(null);
+	let detecting = $state(false);
 
-	// Best-effort browser location. Resolves to null on denial/timeout/no
-	// support so it can NEVER block the email capture.
-	function getCoords(): Promise<{ latitude: number; longitude: number } | null> {
-		if (typeof navigator === 'undefined' || !navigator.geolocation) return Promise.resolve(null);
-		return new Promise((resolve) => {
-			navigator.geolocation.getCurrentPosition(
-				(pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
-				() => resolve(null),
-				{ enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60_000 }
+	// "Detect" button: ask the browser for location, reverse-geocode it,
+	// and drop the city name into the field. Opt-in, so there's no surprise
+	// permission prompt; on denial/failure we just leave the field for
+	// manual entry.
+	async function detectLocation() {
+		if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+		detecting = true;
+		try {
+			const coords = await new Promise<{ latitude: number; longitude: number } | null>(
+				(resolve) => {
+					navigator.geolocation.getCurrentPosition(
+						(pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+						() => resolve(null),
+						{ enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60_000 }
+					);
+				}
 			);
-		});
+			if (!coords) return;
+			const res = await fetch('/api/geocode', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(coords)
+			});
+			if (res.ok) {
+				const data = (await res.json()) as { city?: string };
+				if (data.city) city = data.city;
+			}
+		} catch (err) {
+			console.error('Detect location failed:', err);
+		} finally {
+			detecting = false;
+		}
 	}
 
 	async function joinWaitlist(event: SubmitEvent) {
@@ -34,16 +66,13 @@
 		joinStatus = 'working';
 		joinError = null;
 
-		// Start the location prompt in parallel, but DON'T let it gate the
-		// email: we save the email first so closing the tab during the
-		// permission prompt can never lose it.
-		const coordsPromise = getCoords();
-
+		// Email and city go up together in one atomic call - nothing async
+		// stands between the click and the save, so we can't lose the email.
 		try {
 			const res = await fetch('/api/waitlist', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ email: value })
+				body: JSON.stringify({ email: value, city: city.trim() || undefined })
 			});
 			if (!res.ok) throw new Error(await res.text().catch(() => `Status ${res.status}`));
 			joinStatus = 'done';
@@ -51,18 +80,6 @@
 			console.error('Waitlist join failed:', err);
 			joinStatus = 'error';
 			joinError = 'Something went wrong. Please try again.';
-			return;
-		}
-
-		// Best-effort location enrichment once the email is safely stored.
-		// Fire-and-forget: a failure here doesn't matter, we already have them.
-		const coords = await coordsPromise;
-		if (coords) {
-			fetch('/api/waitlist', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ email: value, ...coords })
-			}).catch((err) => console.error('Waitlist location enrich failed:', err));
 		}
 	}
 </script>
@@ -85,19 +102,40 @@
 				<p>You're on the list. We'll email you an invite when your area is ready.</p>
 			</div>
 		{:else}
-			<form
-				onsubmit={joinWaitlist}
-				class="mx-auto mt-8 flex max-w-md flex-col gap-3 sm:flex-row"
-			>
+			<form onsubmit={joinWaitlist} class="mx-auto mt-8 max-w-md space-y-3">
 				<Input
 					name="email"
 					type="email"
 					placeholder="you@example.com"
 					bind:value={email}
 					required
-					class="h-11 flex-1"
+					class="h-11"
 				/>
-				<Button type="submit" size="lg" disabled={joinStatus === 'working'}>
+				<div class="flex gap-2">
+					<Input
+						name="city"
+						type="text"
+						placeholder="Your city (optional)"
+						bind:value={city}
+						autocomplete="off"
+						class="h-11 flex-1"
+					/>
+					<Button
+						type="button"
+						variant="outline"
+						class="h-11"
+						onclick={detectLocation}
+						disabled={detecting}
+					>
+						{#if detecting}
+							<Loader2 class="size-4 animate-spin" />
+						{:else}
+							<LocateFixed class="size-4" />
+						{/if}
+						Detect
+					</Button>
+				</div>
+				<Button type="submit" size="lg" class="h-11 w-full" disabled={joinStatus === 'working'}>
 					{#if joinStatus === 'working'}
 						<Loader2 class="size-4 animate-spin" />
 						Joining…

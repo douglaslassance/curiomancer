@@ -1,23 +1,20 @@
 import { error, json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { waitlist } from '$lib/server/db/schema';
-import { reverseGeocode } from '$lib/server/location';
 import type { RequestHandler } from './$types';
 
 /**
- * POST /api/waitlist  body: { email, latitude?, longitude? }
+ * POST /api/waitlist  body: { email, city? }
  *
- * Public waitlist signup from the splash. Email is required and saved
- * immediately. Coordinates are optional and arrive in a separate, later
- * call (so closing the tab during the geolocation prompt can't lose the
- * email): if present we reverse-geocode to a city and fill it in on the
- * existing row. Joining twice is harmless.
+ * Public waitlist signup from the splash. Email and (optional) city are
+ * submitted together in one call - the city is either typed or filled by
+ * the "Detect" button. Joining again updates the city if one is provided
+ * but never clears an existing one.
  */
 export const POST: RequestHandler = async ({ request }) => {
 	const body = (await request.json().catch(() => null)) as {
 		email?: unknown;
-		latitude?: unknown;
-		longitude?: unknown;
+		city?: unknown;
 	} | null;
 
 	const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
@@ -25,26 +22,14 @@ export const POST: RequestHandler = async ({ request }) => {
 		throw error(400, 'Enter a valid email address.');
 	}
 
-	let city: string | null = null;
-	const lat = typeof body?.latitude === 'number' ? body.latitude : NaN;
-	const lng = typeof body?.longitude === 'number' ? body.longitude : NaN;
-	if (isFinite(lat) && isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-		try {
-			city = (await reverseGeocode(lat, lng)).city;
-		} catch (err) {
-			// Non-fatal: keep the email, drop the city.
-			console.error('Waitlist reverse-geocode failed:', err);
-		}
-	}
+	const city = typeof body?.city === 'string' && body.city.trim() ? body.city.trim() : null;
 
 	if (city) {
-		// Location enrichment: insert or fill the city on an existing row.
 		await db
 			.insert(waitlist)
 			.values({ email, city })
 			.onConflictDoUpdate({ target: waitlist.email, set: { city } });
 	} else {
-		// Plain email capture: never clobber a city we may already have.
 		await db.insert(waitlist).values({ email }).onConflictDoNothing();
 	}
 
