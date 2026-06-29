@@ -25,6 +25,12 @@
 	let joinError = $state<string | null>(null);
 	let detecting = $state(false);
 
+	// Both email and city are required; the submit button stays disabled
+	// until they're filled.
+	const canSubmit = $derived(
+		email.trim().length > 0 && city.trim().length > 0 && joinStatus !== 'working'
+	);
+
 	// "Detect" button: ask the browser for location, reverse-geocode it,
 	// and drop the city name into the field. Opt-in, so there's no surprise
 	// permission prompt; on denial/failure we just leave the field for
@@ -62,7 +68,8 @@
 	async function joinWaitlist(event: SubmitEvent) {
 		event.preventDefault();
 		const value = email.trim();
-		if (!value || joinStatus === 'working') return;
+		const cityValue = city.trim();
+		if (!value || !cityValue || joinStatus === 'working') return;
 		joinStatus = 'working';
 		joinError = null;
 
@@ -72,7 +79,7 @@
 			const res = await fetch('/api/waitlist', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ email: value, city: city.trim() || undefined })
+				body: JSON.stringify({ email: value, city: cityValue })
 			});
 			if (!res.ok) throw new Error(await res.text().catch(() => `Status ${res.status}`));
 			joinStatus = 'done';
@@ -115,8 +122,9 @@
 					<Input
 						name="city"
 						type="text"
-						placeholder="Your city (optional)"
+						placeholder="Your city"
 						bind:value={city}
+						required
 						autocomplete="off"
 						class="h-11 flex-1"
 					/>
@@ -135,7 +143,7 @@
 						Detect
 					</Button>
 				</div>
-				<Button type="submit" size="lg" class="h-11 w-full" disabled={joinStatus === 'working'}>
+				<Button type="submit" size="lg" class="h-11 w-full" disabled={!canSubmit}>
 					{#if joinStatus === 'working'}
 						<Loader2 class="size-4 animate-spin" />
 						Joining…
