@@ -7,10 +7,11 @@ import type { RequestHandler } from './$types';
 /**
  * POST /api/waitlist  body: { email, latitude?, longitude? }
  *
- * Public waitlist signup from the splash. Email is required; coordinates
- * are optional and best-effort - if present we reverse-geocode to a city
- * to help with geographic batching, but a failure there never blocks the
- * signup. Joining twice is a no-op (unique email).
+ * Public waitlist signup from the splash. Email is required and saved
+ * immediately. Coordinates are optional and arrive in a separate, later
+ * call (so closing the tab during the geolocation prompt can't lose the
+ * email): if present we reverse-geocode to a city and fill it in on the
+ * existing row. Joining twice is harmless.
  */
 export const POST: RequestHandler = async ({ request }) => {
 	const body = (await request.json().catch(() => null)) as {
@@ -36,6 +37,16 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 	}
 
-	await db.insert(waitlist).values({ email, city }).onConflictDoNothing();
+	if (city) {
+		// Location enrichment: insert or fill the city on an existing row.
+		await db
+			.insert(waitlist)
+			.values({ email, city })
+			.onConflictDoUpdate({ target: waitlist.email, set: { city } });
+	} else {
+		// Plain email capture: never clobber a city we may already have.
+		await db.insert(waitlist).values({ email }).onConflictDoNothing();
+	}
+
 	return json({ ok: true });
 };

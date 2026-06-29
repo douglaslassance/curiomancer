@@ -29,16 +29,21 @@
 
 	async function joinWaitlist(event: SubmitEvent) {
 		event.preventDefault();
-		if (!email.trim() || joinStatus === 'working') return;
+		const value = email.trim();
+		if (!value || joinStatus === 'working') return;
 		joinStatus = 'working';
 		joinError = null;
 
-		const coords = await getCoords();
+		// Start the location prompt in parallel, but DON'T let it gate the
+		// email: we save the email first so closing the tab during the
+		// permission prompt can never lose it.
+		const coordsPromise = getCoords();
+
 		try {
 			const res = await fetch('/api/waitlist', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ email: email.trim(), ...(coords ?? {}) })
+				body: JSON.stringify({ email: value })
 			});
 			if (!res.ok) throw new Error(await res.text().catch(() => `Status ${res.status}`));
 			joinStatus = 'done';
@@ -46,6 +51,18 @@
 			console.error('Waitlist join failed:', err);
 			joinStatus = 'error';
 			joinError = 'Something went wrong. Please try again.';
+			return;
+		}
+
+		// Best-effort location enrichment once the email is safely stored.
+		// Fire-and-forget: a failure here doesn't matter, we already have them.
+		const coords = await coordsPromise;
+		if (coords) {
+			fetch('/api/waitlist', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ email: value, ...coords })
+			}).catch((err) => console.error('Waitlist location enrich failed:', err));
 		}
 	}
 </script>
