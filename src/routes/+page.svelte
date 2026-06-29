@@ -25,11 +25,44 @@
 	let joinError = $state<string | null>(null);
 	let detecting = $state(false);
 
+	// City autocomplete (Apple Maps, proxied server-side).
+	type Completion = { title: string; subtitle: string };
+	let citySuggestions = $state<Completion[]>([]);
+	let showSuggestions = $state(false);
+	let acTimer: ReturnType<typeof setTimeout> | null = null;
+
 	// Both email and city are required; the submit button stays disabled
 	// until they're filled.
 	const canSubmit = $derived(
 		email.trim().length > 0 && city.trim().length > 0 && joinStatus !== 'working'
 	);
+
+	function onCityInput() {
+		const q = city.trim();
+		if (acTimer) clearTimeout(acTimer);
+		if (q.length < 2) {
+			citySuggestions = [];
+			showSuggestions = false;
+			return;
+		}
+		acTimer = setTimeout(async () => {
+			try {
+				const res = await fetch(`/api/place-autocomplete?q=${encodeURIComponent(q)}`);
+				if (!res.ok) return;
+				const data = (await res.json()) as { results: Completion[] };
+				citySuggestions = data.results;
+				showSuggestions = data.results.length > 0;
+			} catch (err) {
+				console.error('City autocomplete failed:', err);
+			}
+		}, 250);
+	}
+
+	function pickSuggestion(s: Completion) {
+		city = s.subtitle ? `${s.title}, ${s.subtitle}` : s.title;
+		citySuggestions = [];
+		showSuggestions = false;
+	}
 
 	// "Detect" button: ask the browser for location, reverse-geocode it,
 	// and drop the city name into the field. Opt-in, so there's no surprise
@@ -119,15 +152,37 @@
 					class="h-11"
 				/>
 				<div class="flex gap-2">
-					<Input
-						name="city"
-						type="text"
-						placeholder="Your city"
-						bind:value={city}
-						required
-						autocomplete="off"
-						class="h-11 flex-1"
-					/>
+					<div class="relative flex-1">
+						<Input
+							name="city"
+							type="text"
+							placeholder="Your city"
+							bind:value={city}
+							required
+							autocomplete="off"
+							oninput={onCityInput}
+							onblur={() => setTimeout(() => (showSuggestions = false), 150)}
+							class="h-11 w-full"
+						/>
+						{#if showSuggestions}
+							<ul
+								class="bg-popover absolute inset-x-0 z-20 mt-1 overflow-hidden rounded-md border text-left shadow-md"
+							>
+								{#each citySuggestions as s (s.title + s.subtitle)}
+									<li>
+										<button
+											type="button"
+											class="hover:bg-accent block w-full px-3 py-2 text-left text-sm"
+											onclick={() => pickSuggestion(s)}
+										>
+											<span class="font-medium">{s.title}</span>
+											{#if s.subtitle}<span class="text-muted-foreground"> · {s.subtitle}</span>{/if}
+										</button>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</div>
 					<Button
 						type="button"
 						variant="outline"

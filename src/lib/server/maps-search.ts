@@ -108,6 +108,40 @@ export async function searchAppleMaps(
 		}));
 }
 
+export type PlaceCompletion = {
+	/** Primary line, e.g. "Paris". */
+	title: string;
+	/** Secondary line, e.g. "France". Empty when Apple gives only one line. */
+	subtitle: string;
+};
+
+/**
+ * As-you-type place completions via Apple's searchAutocomplete endpoint.
+ * Biased to addresses/localities (not business POIs) so it reads as a
+ * city picker. Used by the public waitlist field.
+ */
+export async function autocompletePlaces(query: string): Promise<PlaceCompletion[]> {
+	const token = await getAccessToken();
+
+	const url = new URL(`${BASE}/v1/searchAutocomplete`);
+	url.searchParams.set('q', query);
+	url.searchParams.set('resultTypeFilter', 'Address');
+	url.searchParams.set('lang', 'en-US');
+
+	const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+	if (!res.ok) {
+		throw new Error(`Apple Maps autocomplete returned ${res.status}: ${await res.text()}`);
+	}
+
+	const data = (await res.json()) as {
+		results?: Array<{ displayLines?: string[] }>;
+	};
+
+	return (data.results ?? [])
+		.map((r) => ({ title: r.displayLines?.[0] ?? '', subtitle: r.displayLines?.[1] ?? '' }))
+		.filter((r) => r.title);
+}
+
 /**
  * Best-effort mapping of Apple's poiCategory strings to our 3-category enum.
  * Anything we can't classify returns null and the caller decides what to do.
