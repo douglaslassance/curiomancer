@@ -42,10 +42,29 @@ let cachedToken: { value: string; expiresAt: number; origin: string } | null = n
 async function loadPrivateKey(): Promise<CryptoKey> {
 	if (cachedKey) return cachedKey;
 
+	// Prefer the key contents passed directly via env - that's how the secret
+	// reaches a production container. The multi-stage Docker image never ships
+	// the .p8 file, so MAPKIT_KEY_PATH only works for local dev.
+	const base64 = await readEnv('MAPKIT_PRIVATE_KEY_BASE64');
+	const inline = await readEnv('MAPKIT_PRIVATE_KEY');
 	const path = await readEnv('MAPKIT_KEY_PATH');
-	if (!path) throw new Error('MAPKIT_KEY_PATH is not set');
 
-	const pem = await readFile(resolvePath(path), 'utf8');
+	let pem: string;
+	if (base64) {
+		// Base64 sidesteps newline mangling across secret stores: encode the
+		// whole .p8 with `base64 -i AuthKey_XXXX.p8` and decode it here.
+		pem = Buffer.from(base64, 'base64').toString('utf8');
+	} else if (inline) {
+		// Allow the PEM to be stored with escaped newlines on a single line.
+		pem = inline.includes('\\n') ? inline.replace(/\\n/g, '\n') : inline;
+	} else if (path) {
+		pem = await readFile(resolvePath(path), 'utf8');
+	} else {
+		throw new Error(
+			'Set MAPKIT_PRIVATE_KEY_BASE64, MAPKIT_PRIVATE_KEY, or MAPKIT_KEY_PATH'
+		);
+	}
+
 	cachedKey = await importPKCS8(pem, 'ES256');
 	return cachedKey;
 }
