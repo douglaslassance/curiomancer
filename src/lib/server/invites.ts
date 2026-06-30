@@ -81,6 +81,47 @@ export async function getInvitesFor(userId: string): Promise<InviteWithRedeemer[
 	}));
 }
 
+export type InviteLedgerRow = {
+	id: string;
+	createdAt: Date;
+	createdByName: string | null;
+	redeemedByUserId: string | null;
+	redeemedAt: Date | null;
+	redeemedByName: string | null;
+};
+
+/** Every invite in the system, newest first, with creator and redeemer names. */
+export async function getAllInvites(): Promise<InviteLedgerRow[]> {
+	const rows = await db.execute<{
+		id: string;
+		created_at: Date;
+		created_by_name: string | null;
+		redeemed_by_user_id: string | null;
+		redeemed_at: Date | null;
+		redeemed_by_name: string | null;
+	}>(sql`
+		SELECT
+			i.id,
+			i.created_at,
+			c.name AS created_by_name,
+			i.redeemed_by_user_id,
+			i.redeemed_at,
+			r.name AS redeemed_by_name
+		FROM "invite" i
+		LEFT JOIN "user" c ON c.id = i.created_by_user_id
+		LEFT JOIN "user" r ON r.id = i.redeemed_by_user_id
+		ORDER BY i.created_at DESC
+	`);
+	return rows.map((r) => ({
+		id: r.id,
+		createdAt: r.created_at,
+		createdByName: r.created_by_name,
+		redeemedByUserId: r.redeemed_by_user_id,
+		redeemedAt: r.redeemed_at,
+		redeemedByName: r.redeemed_by_name
+	}));
+}
+
 /**
  * Check whether an invite code is currently redeemable. Returns the code's
  * row if so, null if unknown/already redeemed. Doesn't mutate state.

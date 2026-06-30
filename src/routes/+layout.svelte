@@ -2,7 +2,7 @@
 	import './layout.css';
 	import { invalidateAll } from '$app/navigation';
 	import favicon from '$lib/assets/favicon.svg';
-	import { MapPin, Map as MapIcon, Store, Users } from '@lucide/svelte';
+	import { MapPin, Map as MapIcon, Store, Users, Shield } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import ThemeToggle from '$lib/components/theme-toggle.svelte';
 	import UserMenu from '$lib/components/user-menu.svelte';
@@ -81,6 +81,12 @@
 						<Users class="size-4" />
 						People
 					</Button>
+					{#if data.user.role === 'admin'}
+						<Button href="/admin" variant="ghost" size="sm">
+							<Shield class="size-4" />
+							Admin
+						</Button>
+					{/if}
 				{/if}
 				<ThemeToggle />
 				{#if data.user}
