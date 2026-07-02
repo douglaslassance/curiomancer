@@ -6,6 +6,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import RelationToggle from '$lib/components/relation-toggle.svelte';
 	import MatchBadge from '$lib/components/match-badge.svelte';
+	import CategoryFilter from '$lib/components/category-filter.svelte';
 	import { MapPin, Search, Store } from '@lucide/svelte';
 
 	let { data } = $props();
@@ -48,6 +49,13 @@
 		goto(u, { replaceState: true, keepFocus: true, noScroll: true });
 	}
 
+	// Place-type toggles (all on by default). Same control as the map's.
+	let categories = $state<Record<'shop' | 'bar' | 'restaurant', boolean>>({
+		shop: true,
+		bar: true,
+		restaurant: true
+	});
+
 	const likedSet = $derived(new Set(data.likedIds));
 	const dislikedSet = $derived(new Set(data.dislikedIds));
 	const seenSet = $derived(new Set(data.seenIds));
@@ -59,7 +67,7 @@
 	// relation (you don't need a rec for something you've already engaged with).
 	const visible = $derived.by(() => {
 		const q = query.trim().toLowerCase();
-		let out = data.places;
+		let out = data.places.filter((p) => categories[p.category]);
 
 		if (data.filter === 'liked') out = out.filter((p) => likedSet.has(p.id));
 		else if (data.filter === 'disliked') out = out.filter((p) => dislikedSet.has(p.id));
@@ -111,7 +119,10 @@
 {:else}
 	<!-- Controls -->
 	<section class="bg-card mb-4 space-y-4 rounded-xl border p-4">
-		<!-- Filter pills -->
+		<!-- Place-type toggles -->
+		<CategoryFilter bind:value={categories} />
+
+		<!-- Relation filter pills -->
 		<div class="flex flex-wrap gap-1.5">
 			{#each FILTERS as f (f.value)}
 				<button

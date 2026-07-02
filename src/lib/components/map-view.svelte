@@ -4,6 +4,7 @@
 	import { categoryGlyphDataUri } from '$lib/map-glyphs';
 	import PlacePopup from './place-popup.svelte';
 	import MapSearch from './map-search.svelte';
+	import CategoryFilter from './category-filter.svelte';
 
 	let {
 		places,
@@ -55,6 +56,13 @@
 		wantToGo: true,
 		disliked: false,
 		seen: false
+	});
+
+	// Place-type toggles (all on by default), shared with the places list.
+	let categories = $state<Record<Place['category'], boolean>>({
+		shop: true,
+		bar: true,
+		restaurant: true
 	});
 
 	const FILTER_CHIPS: { key: FilterKey; label: string; color: string }[] = [
@@ -243,9 +251,9 @@
 
 		for (const p of places) {
 			if (p.latitude === null || p.longitude === null) continue;
-			// Reads `filters` (reactive), so toggling a chip re-runs this effect
-			// and adds/removes the affected pins.
-			if (!isVisible(p.id)) continue;
+			// Reads `filters` + `categories` (reactive), so toggling any chip
+			// re-runs this effect and adds/removes the affected pins.
+			if (!isVisible(p.id) || !categories[p.category]) continue;
 			incoming.add(p.id);
 			const desiredColor = pinColor(p.id);
 
@@ -310,23 +318,26 @@
 	{/if}
 
 	{#if status === 'ready' && showFilters}
-		<!-- Relation filters: tap to toggle a category on/off. -->
-		<div class="absolute bottom-4 left-4 z-10 flex flex-wrap gap-1.5">
-			{#each FILTER_CHIPS as chip (chip.key)}
-				<button
-					type="button"
-					onclick={() => (filters[chip.key] = !filters[chip.key])}
-					aria-pressed={filters[chip.key]}
-					class="bg-background/90 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium shadow-sm backdrop-blur-sm transition-opacity {filters[
-						chip.key
-					]
-						? ''
-						: 'opacity-40'}"
-				>
-					<span class="size-2 rounded-full" style="background-color: {chip.color}"></span>
-					{chip.label}
-				</button>
-			{/each}
+		<!-- Filters: place-type toggles on top, relation toggles below. -->
+		<div class="absolute bottom-4 left-4 z-10 flex flex-col gap-1.5">
+			<CategoryFilter bind:value={categories} />
+			<div class="flex flex-wrap gap-1.5">
+				{#each FILTER_CHIPS as chip (chip.key)}
+					<button
+						type="button"
+						onclick={() => (filters[chip.key] = !filters[chip.key])}
+						aria-pressed={filters[chip.key]}
+						class="bg-background/90 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium shadow-sm backdrop-blur-sm transition-opacity {filters[
+							chip.key
+						]
+							? ''
+							: 'opacity-40'}"
+					>
+						<span class="size-2 rounded-full" style="background-color: {chip.color}"></span>
+						{chip.label}
+					</button>
+				{/each}
+			</div>
 		</div>
 	{/if}
 
