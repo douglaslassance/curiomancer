@@ -177,7 +177,7 @@ export async function getMatchedPeopleInCity(
 async function getPeopleWithRelationToPlace(
 	userId: string | null,
 	placeId: string,
-	relationKind: 'liked' | 'disliked',
+	relationKind: 'liked' | 'disliked' | 'seen',
 	limit = 24
 ): Promise<MatchedPerson[]> {
 	const rows = await db.execute<{
@@ -242,6 +242,11 @@ export function getPeopleWhoLikedPlace(userId: string | null, placeId: string, l
 /** People who disliked `placeId`, ranked by similarity to `userId`. */
 export function getPeopleWhoDislikedPlace(userId: string | null, placeId: string, limit = 24) {
 	return getPeopleWithRelationToPlace(userId, placeId, 'disliked', limit);
+}
+
+/** People who marked `placeId` as seen, ranked by similarity to `userId`. */
+export function getPeopleWhoSawPlace(userId: string | null, placeId: string, limit = 24) {
+	return getPeopleWithRelationToPlace(userId, placeId, 'seen', limit);
 }
 
 /**

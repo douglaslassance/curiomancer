@@ -2,7 +2,11 @@ import { error, json } from '@sveltejs/kit';
 import { count, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { placeRelation, place } from '$lib/server/db/schema';
-import { getPeopleWhoLikedPlace, getPeopleWhoDislikedPlace } from '$lib/server/matching';
+import {
+	getPeopleWhoLikedPlace,
+	getPeopleWhoDislikedPlace,
+	getPeopleWhoSawPlace
+} from '$lib/server/matching';
 import type { RequestHandler } from './$types';
 
 /**
@@ -20,10 +24,11 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		.from(placeRelation)
 		.where(eq(placeRelation.placeId, params.id));
 
-	const [likers, dislikers] = await Promise.all([
+	const [likers, dislikers, seers] = await Promise.all([
 		getPeopleWhoLikedPlace(locals.user?.id ?? null, params.id),
-		getPeopleWhoDislikedPlace(locals.user?.id ?? null, params.id)
+		getPeopleWhoDislikedPlace(locals.user?.id ?? null, params.id),
+		getPeopleWhoSawPlace(locals.user?.id ?? null, params.id)
 	]);
 
-	return json({ place: row, likeCount, likers, dislikers });
+	return json({ place: row, likeCount, likers, dislikers, seers });
 };

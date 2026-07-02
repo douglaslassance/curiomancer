@@ -26,26 +26,32 @@
 		likeCount: number;
 		likers: MatchedPerson[];
 		dislikers: MatchedPerson[];
+		seers: MatchedPerson[];
 	};
 
 	let context = $state<Context | null>(null);
 	let loadError = $state<string | null>(null);
 
 	const signedIn = $derived(!!page.data.user);
-	// Taste-twins (positive similarity) who like vs dislike this place.
-	const likeTwins = $derived(context?.likers.filter((l) => l.score > 0) ?? []);
-	const dislikeTwins = $derived(context?.dislikers?.filter((l) => l.score > 0) ?? []);
 	// Likers who aren't taste-twins (or an anonymous viewer's flat list).
 	const others = $derived(context?.likers.filter((l) => l.score === 0) ?? []);
 
-	// "Why you're seeing this" is a recommendation rationale - it only makes
-	// sense for a place you haven't rated. Once you've taken a position on it,
-	// the same taste-twins read as social proof instead.
-	const rated = $derived(relations.kindOf(placeId) !== null);
-	const likeHeading = $derived(rated ? "They're into it too" : "Why you're seeing this");
-	// Only shown once you've rated the place (see markup) - we'd never surface an
-	// unrated place *because* twins disliked it, so there's no recommendation case.
-	const dislikeHeading = 'They also thought it was lame';
+	// One contextual taste-twin group: the twins whose take matches yours, or -
+	// for a place you haven't rated - the ones who like it (why it surfaced).
+	const myKind = $derived(relations.kindOf(placeId));
+	const twinSection = $derived.by(() => {
+		const twinsOf = (list?: MatchedPerson[]) => list?.filter((l) => l.score > 0) ?? [];
+		switch (myKind) {
+			case 'disliked':
+				return { heading: "They think it's lame", people: twinsOf(context?.dislikers) };
+			case 'seen':
+				return { heading: "They think it's whatever", people: twinsOf(context?.seers) };
+			case 'liked':
+				return { heading: 'They like it too', people: twinsOf(context?.likers) };
+			default:
+				return { heading: 'They like it', people: twinsOf(context?.likers) };
+		}
+	});
 
 	// Re-fetch context whenever the placeId prop changes - switching pins.
 	$effect(() => {
@@ -140,14 +146,9 @@
 				</div>
 			{/snippet}
 
-			<!-- Taste-twins who like it -->
-			{#if signedIn && likeTwins.length > 0}
-				{@render twinGroup(likeHeading, likeTwins)}
-			{/if}
-
-			<!-- Taste-twins who dislike it - only as context for a place you've rated. -->
-			{#if signedIn && rated && dislikeTwins.length > 0}
-				{@render twinGroup(dislikeHeading, dislikeTwins)}
+			<!-- Taste-twins whose take on this place matches yours. -->
+			{#if signedIn && twinSection.people.length > 0}
+				{@render twinGroup(twinSection.heading, twinSection.people)}
 			{/if}
 
 			<!-- Other likers (non-twins or anonymous viewer) -->
