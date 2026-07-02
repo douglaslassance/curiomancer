@@ -37,9 +37,17 @@ const PATHS: Record<Place['category'], string[]> = {
  * fill color, so passing `#fff` here is the conventional choice.
  */
 export function categoryGlyphDataUri(category: Place['category'], stroke = '#fff'): string {
+	// Lucide icons are drawn edge-to-edge in a 24×24 box, which makes them fill
+	// the pin wall-to-wall. Pad the canvas so the glyph sits comfortably inside
+	// the marker. Growing width/height with the viewBox keeps the units-to-px
+	// ratio at 1:1, so the stroke weight is unchanged - only transparent margin
+	// is added around the icon.
+	const PAD = 5;
+	const size = 24 + PAD * 2;
 	const paths = PATHS[category].map((d) => `<path d="${d}"/>`).join('');
 	const svg =
-		`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" ` +
+		`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" ` +
+		`viewBox="${-PAD} ${-PAD} ${size} ${size}" ` +
 		`fill="none" stroke="${stroke}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">` +
 		paths +
 		`</svg>`;
