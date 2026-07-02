@@ -1,8 +1,10 @@
 import { sql } from 'drizzle-orm';
 import {
 	check,
+	date,
 	doublePrecision,
 	index,
+	integer,
 	pgTable,
 	primaryKey,
 	text,
@@ -244,5 +246,81 @@ export const waitlist = pgTable('waitlist', {
 });
 
 export type Waitlist = typeof waitlist.$inferSelect;
+
+/**
+ * A paid subscription. Currently one tier ("pro"); the enum leaves room for
+ * more later. We snapshot the monthly price on the row (`priceCents`) so MRR
+ * is computed from the subscription itself and stays correct if the list
+ * price ever changes. Billing/checkout is not wired yet - rows are created
+ * out of band - but the shape is complete so metrics read real data the
+ * moment subscriptions start landing.
+ *
+ * Subscriber counts and MRR over time are reconstructable from `createdAt`
+ * and `canceledAt`, so they never need a daily snapshot: a subscription is
+ * "active on day D" when createdAt <= D and (canceledAt IS NULL OR canceledAt > D).
+ */
+export const subscription = pgTable(
+	'subscription',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		tier: text('tier', { enum: ['pro'] })
+			.notNull()
+			.default('pro'),
+		status: text('status', { enum: ['active', 'canceled'] })
+			.notNull()
+			.default('active'),
+		/** Monthly price in cents captured at signup. Pro is currently $4.99. */
+		priceCents: integer('price_cents').notNull().default(499),
+		createdAt: timestamp('created_at').notNull().defaultNow(),
+		canceledAt: timestamp('canceled_at')
+	},
+	(t) => [
+		index('subscription_user_idx').on(t.userId),
+		index('subscription_status_idx').on(t.status)
+	]
+);
+
+export type Subscription = typeof subscription.$inferSelect;
+
+/**
+ * Last-seen heartbeat per user, kept out of the better-auth `user` table (like
+ * `userLocation`) so the auth schema stays generated/untouched. Updated from
+ * the request hook, throttled in-process so it's at most one write per user
+ * every few minutes. Only stores the *latest* seen time, which is why active
+ * counts for past days are captured into `metricSnapshot` daily - you can't
+ * recover "who was active last Tuesday" from a single overwriting column.
+ */
+export const userActivity = pgTable('user_activity', {
+	userId: text('user_id')
+		.primaryKey()
+		.references(() => user.id, { onDelete: 'cascade' }),
+	lastSeenAt: timestamp('last_seen_at').notNull().defaultNow()
+});
+
+export type UserActivity = typeof userActivity.$inferSelect;
+
+/**
+ * One row per UTC day of point-in-time metrics that cannot be reconstructed
+ * after the fact - currently just active-user counts. Signups and subscribers
+ * are derived on the fly from their source tables, so they are deliberately
+ * NOT stored here. The daily cron upserts today's row (idempotent on `day`).
+ */
+export const metricSnapshot = pgTable('metric_snapshot', {
+	day: date('day').primaryKey(),
+	/** DAU: distinct users seen in the trailing 24h as of capture. */
+	activeDay: integer('active_day').notNull().default(0),
+	/** WAU: trailing 7 days. */
+	activeWeek: integer('active_week').notNull().default(0),
+	/** MAU: trailing 30 days. */
+	activeMonth: integer('active_month').notNull().default(0),
+	createdAt: timestamp('created_at').notNull().defaultNow()
+});
+
+export type MetricSnapshot = typeof metricSnapshot.$inferSelect;
 
 export * from './auth.schema';

@@ -71,6 +71,13 @@
       "when": 1782583336771,
       "tag": "0009_mean_rage",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782966731956,
+      "tag": "0010_orange_slyde",
+      "breakpoints": true
     }
   ]
 }
