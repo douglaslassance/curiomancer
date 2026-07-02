@@ -18,6 +18,9 @@
 		center={data.center}
 		likedIds={data.likedIds}
 		wantToGoIds={data.wantToGoIds ?? []}
+		dislikedIds={data.dislikedIds ?? []}
+		seenIds={data.seenIds ?? []}
 		{signedIn}
+		showFilters={signedIn}
 	/>
 </div>

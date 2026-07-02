@@ -10,17 +10,24 @@
 		center,
 		likedIds = [],
 		wantToGoIds = [],
+		dislikedIds = [],
+		seenIds = [],
 		signedIn = false,
 		showSearch = true,
+		showFilters = false,
 		zoom = 12
 	}: {
 		places: Place[];
 		center: { latitude: number; longitude: number };
 		likedIds?: string[];
 		wantToGoIds?: string[];
+		dislikedIds?: string[];
+		seenIds?: string[];
 		signedIn?: boolean;
 		/** Show the search overlay. Off for read-only maps (e.g. another user's map). */
 		showSearch?: boolean;
+		/** Show relation filter chips (liked/want-to-go/seen/disliked). */
+		showFilters?: boolean;
 		zoom?: number;
 	} = $props();
 
@@ -31,6 +38,50 @@
 
 	const likedSet = $derived(new Set(likedIds));
 	const wantToGoSet = $derived(new Set(wantToGoIds));
+	const dislikedSet = $derived(new Set(dislikedIds));
+	const seenSet = $derived(new Set(seenIds));
+
+	type Relation = 'liked' | 'wantToGo' | 'disliked' | 'seen' | 'other';
+	type FilterKey = Exclude<Relation, 'other'>;
+
+	// Which relation categories are shown. Seen and disliked default off so the
+	// map stays uncluttered; the filter chips let the user reveal them. Neutral
+	// ("other") discovery pins are always shown - they're the base layer.
+	let filters = $state<Record<FilterKey, boolean>>({
+		liked: true,
+		wantToGo: true,
+		disliked: false,
+		seen: false
+	});
+
+	const FILTER_CHIPS: { key: FilterKey; label: string; color: string }[] = [
+		{ key: 'liked', label: 'Liked', color: '#ec4899' },
+		{ key: 'wantToGo', label: 'Want to go', color: '#10b981' },
+		{ key: 'seen', label: 'Seen', color: '#64748b' },
+		{ key: 'disliked', label: 'Disliked', color: '#ef4444' }
+	];
+
+	const REL_COLOR: Record<Relation, string> = {
+		liked: '#ec4899', // pink-500
+		wantToGo: '#10b981', // emerald-500
+		disliked: '#ef4444', // red-500
+		seen: '#64748b', // slate-500
+		other: '#9ca3af' // gray-400
+	};
+
+	function relationOf(id: string): Relation {
+		if (likedSet.has(id)) return 'liked';
+		if (wantToGoSet.has(id)) return 'wantToGo';
+		if (dislikedSet.has(id)) return 'disliked';
+		if (seenSet.has(id)) return 'seen';
+		return 'other';
+	}
+
+	/** Neutral pins always show; relationship pins follow their filter chip. */
+	function isVisible(id: string): boolean {
+		const rel = relationOf(id);
+		return rel === 'other' ? true : filters[rel];
+	}
 
 	// Map handle held outside onMount so other functions can drive the camera.
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -74,13 +125,11 @@
 
 	/**
 	 * Pin color encodes the user's relationship: liked = pink, want-to-go =
-	 * emerald, neutral = gray. Category is the glyph icon. Disliked and
-	 * seen places never reach the map - the server load filters them out.
+	 * emerald, disliked = red, seen = slate, neutral = gray. Category is the
+	 * glyph icon.
 	 */
 	function pinColor(placeId: string): string {
-		if (likedSet.has(placeId)) return '#ec4899'; // pink-500
-		if (wantToGoSet.has(placeId)) return '#10b981'; // emerald-500
-		return '#9ca3af'; // gray-400
+		return REL_COLOR[relationOf(placeId)];
 	}
 
 	function previewSelected(hit: {
@@ -191,6 +240,9 @@
 
 		for (const p of places) {
 			if (p.latitude === null || p.longitude === null) continue;
+			// Reads `filters` (reactive), so toggling a chip re-runs this effect
+			// and adds/removes the affected pins.
+			if (!isVisible(p.id)) continue;
 			incoming.add(p.id);
 			const desiredColor = pinColor(p.id);
 
@@ -202,12 +254,17 @@
 
 			const coord = new window.mapkit.Coordinate(p.latitude, p.longitude);
 			const glyph = categoryGlyphDataUri(p.category);
-			// No title/subtitle: MapKit's default callout below the pin is
-			// noisy and visually misaligned. The PlacePopup card carries
-			// the same info with more context, so we route selection there.
 			const ann = new window.mapkit.MarkerAnnotation(coord, {
 				color: desiredColor,
-				glyphImage: { 1: glyph, 2: glyph, 3: glyph }
+				glyphImage: { 1: glyph, 2: glyph, 3: glyph },
+				// Show the place name as a label; MapKit reveals it when zoomed in
+				// enough and hides it when far out or crowded, so you can read pins
+				// without clicking. Detail still lives in PlacePopup on select, so
+				// we suppress MapKit's own callout to avoid a redundant bubble.
+				title: p.name,
+				titleVisibility: window.mapkit.FeatureVisibility.Adaptive,
+				subtitleVisibility: window.mapkit.FeatureVisibility.Hidden,
+				callout: { calloutShouldAppearForAnnotation: () => false }
 			});
 			ann.data = p;
 			ann.addEventListener('select', () => {
@@ -247,6 +304,27 @@
 			onPreview={previewSelected}
 			onClearPreview={clearPreviewMarker}
 		/>
+	{/if}
+
+	{#if status === 'ready' && showFilters}
+		<!-- Relation filters: tap to toggle a category on/off. -->
+		<div class="absolute bottom-4 left-4 z-10 flex flex-wrap gap-1.5">
+			{#each FILTER_CHIPS as chip (chip.key)}
+				<button
+					type="button"
+					onclick={() => (filters[chip.key] = !filters[chip.key])}
+					aria-pressed={filters[chip.key]}
+					class="bg-background/90 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium shadow-sm backdrop-blur-sm transition-opacity {filters[
+						chip.key
+					]
+						? ''
+						: 'opacity-40'}"
+				>
+					<span class="size-2 rounded-full" style="background-color: {chip.color}"></span>
+					{chip.label}
+				</button>
+			{/each}
+		</div>
 	{/if}
 
 	{#if status === 'loading'}

@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, notInArray } from 'drizzle-orm';
+import { and, asc, eq, isNotNull } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { place, userLocation } from '$lib/server/db/schema';
 import { getPlaceIdsByKind } from '$lib/server/likes';
@@ -9,7 +9,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 	let center = { latitude: 34.0522, longitude: -118.2437 };
 	let likedIds: string[] = [];
 	let wantToGoIds: string[] = [];
-	let hiddenIds: string[] = [];
+	let dislikedIds: string[] = [];
+	let seenIds: string[] = [];
 
 	if (locals.user) {
 		const [loc] = await db
@@ -27,20 +28,17 @@ export const load: PageServerLoad = async ({ locals }) => {
 		]);
 		likedIds = [...liked];
 		wantToGoIds = [...wantToGo];
-		// Disliked and seen are both "I'm done with this" signals - keep them
-		// off the map. Want-to-go stays visible (you want to go there).
-		hiddenIds = [...disliked, ...seen];
+		dislikedIds = [...disliked];
+		seenIds = [...seen];
 	}
 
-	// Places with coords, excluding ones the viewer disliked or marked seen.
-	const baseFilters = [isNotNull(place.latitude), isNotNull(place.longitude)];
-	if (hiddenIds.length > 0) baseFilters.push(notInArray(place.id, hiddenIds));
-
+	// All places with coords. Seen and disliked are no longer filtered out -
+	// the map's filter chips control which relation categories are shown.
 	const places = await db
 		.select()
 		.from(place)
-		.where(and(...baseFilters))
+		.where(and(isNotNull(place.latitude), isNotNull(place.longitude)))
 		.orderBy(asc(place.city), asc(place.name));
 
-	return { places, center, likedIds, wantToGoIds };
+	return { places, center, likedIds, wantToGoIds, dislikedIds, seenIds };
 };
