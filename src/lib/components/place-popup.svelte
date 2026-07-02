@@ -6,6 +6,7 @@
 	import type { Place } from '$lib/server/db/schema';
 	import type { MatchedPerson } from '$lib/server/matching';
 	import { googleMapsUrl, googleDirectionsUrl } from '$lib/maps-link';
+	import { relations } from '$lib/relations.svelte';
 	import { page } from '$app/state';
 
 	let {
@@ -28,6 +29,12 @@
 	const signedIn = $derived(!!page.data.user);
 	const twins = $derived(context?.likers.filter((l) => l.score > 0) ?? []);
 	const others = $derived(context?.likers.filter((l) => l.score === 0) ?? []);
+
+	// "Why you're seeing this" is a recommendation rationale - it only makes
+	// sense for a place you haven't rated. Once you've taken a position on it,
+	// the same taste-twins read as social proof instead.
+	const rated = $derived(relations.kindOf(placeId) !== null);
+	const twinsHeading = $derived(rated ? 'Liked by people like you' : "Why you're seeing this");
 
 	// Re-fetch context whenever the placeId prop changes - switching pins.
 	$effect(() => {
@@ -98,7 +105,7 @@
 		<!-- Why you're seeing this -->
 		{#if signedIn && twins.length > 0}
 			<div class="mt-4 border-t pt-3">
-				<p class="text-foreground text-xs font-medium">Why you're seeing this</p>
+				<p class="text-foreground text-xs font-medium">{twinsHeading}</p>
 				<p class="text-muted-foreground mt-0.5 text-xs">
 					{twins.length}
 					{twins.length === 1 ? 'person who shares' : 'people who share'} your taste.
