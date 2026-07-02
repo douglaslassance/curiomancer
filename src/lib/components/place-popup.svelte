@@ -43,9 +43,9 @@
 	// the same taste-twins read as social proof instead.
 	const rated = $derived(relations.kindOf(placeId) !== null);
 	const likeHeading = $derived(rated ? "They're into it too" : "Why you're seeing this");
-	const dislikeHeading = $derived(
-		rated ? 'They also thought it was lame' : "People like you weren't sold on it"
-	);
+	// Only shown once you've rated the place (see markup) - we'd never surface an
+	// unrated place *because* twins disliked it, so there's no recommendation case.
+	const dislikeHeading = 'They also thought it was lame';
 
 	// Re-fetch context whenever the placeId prop changes - switching pins.
 	$effect(() => {
@@ -145,8 +145,8 @@
 				{@render twinGroup(likeHeading, likeTwins)}
 			{/if}
 
-			<!-- Taste-twins who dislike it -->
-			{#if signedIn && dislikeTwins.length > 0}
+			<!-- Taste-twins who dislike it - only as context for a place you've rated. -->
+			{#if signedIn && rated && dislikeTwins.length > 0}
 				{@render twinGroup(dislikeHeading, dislikeTwins)}
 			{/if}
 
