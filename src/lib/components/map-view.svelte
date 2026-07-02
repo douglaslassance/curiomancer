@@ -11,6 +11,7 @@
 		likedIds = [],
 		wantToGoIds = [],
 		signedIn = false,
+		showSearch = true,
 		zoom = 12
 	}: {
 		places: Place[];
@@ -18,6 +19,8 @@
 		likedIds?: string[];
 		wantToGoIds?: string[];
 		signedIn?: boolean;
+		/** Show the search overlay. Off for read-only maps (e.g. another user's map). */
+		showSearch?: boolean;
 		zoom?: number;
 	} = $props();
 
@@ -237,7 +240,7 @@
 <div class="relative h-full w-full">
 	<div bind:this={mapElement} class="absolute inset-0 bg-muted"></div>
 
-	{#if status === 'ready'}
+	{#if status === 'ready' && showSearch}
 		<MapSearch
 			{center}
 			{signedIn}

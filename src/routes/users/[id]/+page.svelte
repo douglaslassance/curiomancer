@@ -8,6 +8,7 @@
 	import {
 		ArrowLeft,
 		Loader2,
+		Map,
 		MapPin,
 		MessageCircle,
 		ThumbsUp,
@@ -18,6 +19,10 @@
 
 	let { data } = $props();
 	const profile = $derived(data.profile);
+	// Only offer the map when they have at least one liked place we can plot.
+	const hasMap = $derived(
+		data.likedPlaces.some((p) => p.latitude !== null && p.longitude !== null)
+	);
 	const initials = $derived(
 		profile.name
 			.split(/\s+/)
@@ -95,6 +100,12 @@
 				<ThumbsUp class="size-4" />
 				{data.likedPlaces.length} liked place{data.likedPlaces.length === 1 ? '' : 's'}
 			</p>
+			{#if hasMap}
+				<Button href={`/users/${profile.id}/map`} variant="outline" size="sm" class="mt-3">
+					<Map class="size-4" />
+					See their map
+				</Button>
+			{/if}
 		</div>
 		{#if data.viewer && !data.viewer.isSelf}
 			<div class="flex shrink-0 flex-col items-end gap-2">
