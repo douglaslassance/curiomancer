@@ -80,14 +80,24 @@
 		Back
 	</Button>
 
-	<!-- Header: avatar, name, location, match-with-viewer -->
+	<!-- Header: avatar (with match % overlapping its base), name, location -->
 	<header class="mb-8 flex items-start gap-4">
-		<Avatar.Root class="size-16">
-			{#if profile.image}
-				<Avatar.Image src={profile.image} alt={profile.name} />
+		<div class="relative shrink-0">
+			<Avatar.Root class="size-16">
+				{#if profile.image}
+					<Avatar.Image src={profile.image} alt={profile.name} />
+				{/if}
+				<Avatar.Fallback class="text-lg font-medium">{initials}</Avatar.Fallback>
+			</Avatar.Root>
+			{#if data.viewer && !data.viewer.isSelf}
+				<!-- Overlap the score on the avatar's bottom edge; ring blends it into the page bg. -->
+				<div
+					class="ring-background absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full ring-2"
+				>
+					<MatchBadge score={data.viewer.score} />
+				</div>
 			{/if}
-			<Avatar.Fallback class="text-lg font-medium">{initials}</Avatar.Fallback>
-		</Avatar.Root>
+		</div>
 		<div class="min-w-0 flex-1">
 			<h1 class="text-2xl font-semibold tracking-tight">{profile.name}</h1>
 			{#if data.location}
@@ -109,7 +119,6 @@
 		</div>
 		{#if data.viewer && !data.viewer.isSelf}
 			<div class="flex shrink-0 flex-col items-end gap-2">
-				<MatchBadge score={data.viewer.score} />
 				<Button
 					size="sm"
 					variant={data.viewer.following ? 'outline' : 'default'}
