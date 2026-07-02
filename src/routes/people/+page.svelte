@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Slider } from '$lib/components/ui/slider';
-	import MatchBadge from '$lib/components/match-badge.svelte';
+	import AvatarMatch from '$lib/components/avatar-match.svelte';
 	import { Users } from '@lucide/svelte';
 
 	let { data } = $props();
@@ -83,20 +83,13 @@
 					href={`/users/${person.id}`}
 					class="bg-card hover:border-foreground/30 flex items-center gap-3 rounded-xl border p-4 transition-colors"
 				>
-					<div
-						class="bg-muted flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium uppercase"
-					>
-						{person.name.slice(0, 1)}
-					</div>
+					<AvatarMatch name={person.name} image={person.image} score={person.score} size={44} />
 					<div class="min-w-0 flex-1">
 						<div class="truncate text-sm font-medium">{person.name}</div>
 						<div class="text-muted-foreground text-xs">
 							{person.city} · {Math.round(person.distanceKm)} km away
 						</div>
 					</div>
-					{#if person.score !== null}
-						<MatchBadge score={person.score} />
-					{/if}
 				</a>
 			{/each}
 		</div>

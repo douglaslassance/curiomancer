@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Badge } from '$lib/components/ui/badge';
 	import RelationToggle from './relation-toggle.svelte';
-	import MatchBadge from './match-badge.svelte';
+	import AvatarMatch from './avatar-match.svelte';
 	import { ExternalLink, Loader2, MapPin, Navigation, ThumbsUp, Users } from '@lucide/svelte';
 	import type { Place } from '$lib/server/db/schema';
 	import type { MatchedPerson } from '$lib/server/matching';
@@ -131,15 +131,15 @@
 						{#each people as person (person.id)}
 							<a
 								href={`/users/${person.id}`}
-								class="bg-background hover:border-foreground/30 flex w-32 shrink-0 flex-col gap-1 rounded-lg border p-2.5 transition-colors"
+								class="bg-background hover:border-foreground/30 flex w-32 shrink-0 flex-col gap-1.5 rounded-lg border p-2.5 transition-colors"
 							>
-								<div
-									class="bg-muted flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-medium uppercase"
-								>
-									{person.name.slice(0, 1)}
-								</div>
+								<AvatarMatch
+									name={person.name}
+									image={person.image}
+									score={person.score}
+									size={38}
+								/>
 								<div class="truncate text-xs font-medium">{person.name}</div>
-								<MatchBadge score={person.score} />
 							</a>
 						{/each}
 					</div>

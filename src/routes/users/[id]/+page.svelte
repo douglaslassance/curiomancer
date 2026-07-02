@@ -3,7 +3,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import RelationToggle from '$lib/components/relation-toggle.svelte';
-	import MatchBadge from '$lib/components/match-badge.svelte';
+	import AvatarMatch from '$lib/components/avatar-match.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import {
 		ArrowLeft,
@@ -22,14 +22,6 @@
 	// Only offer the map when they have at least one liked place we can plot.
 	const hasMap = $derived(
 		data.likedPlaces.some((p) => p.latitude !== null && p.longitude !== null)
-	);
-	const initials = $derived(
-		profile.name
-			.split(/\s+/)
-			.filter(Boolean)
-			.slice(0, 2)
-			.map((s: string) => s[0]?.toUpperCase() ?? '')
-			.join('') || '?'
 	);
 
 	let followBusy = $state(false);
@@ -80,24 +72,14 @@
 		Back
 	</Button>
 
-	<!-- Header: avatar (with match % on its base), identity, grouped actions -->
+	<!-- Header: avatar (ringed with the match score), identity, grouped actions -->
 	<header class="mb-8 flex items-start gap-4">
-		<div class="relative shrink-0">
-			<Avatar.Root class="size-16">
-				{#if profile.image}
-					<Avatar.Image src={profile.image} alt={profile.name} />
-				{/if}
-				<Avatar.Fallback class="text-lg font-medium">{initials}</Avatar.Fallback>
-			</Avatar.Root>
-			{#if data.viewer && !data.viewer.isSelf && data.viewer.score !== null}
-				<!-- Match score sits on the avatar's bottom edge; ring blends it into the page bg. -->
-				<div
-					class="ring-background absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full ring-2"
-				>
-					<MatchBadge score={data.viewer.score} compact />
-				</div>
-			{/if}
-		</div>
+		<AvatarMatch
+			name={profile.name}
+			image={profile.image}
+			score={data.viewer && !data.viewer.isSelf ? data.viewer.score : null}
+			size={76}
+		/>
 
 		<div class="min-w-0 flex-1">
 			<h1 class="text-2xl font-semibold tracking-tight">{profile.name}</h1>

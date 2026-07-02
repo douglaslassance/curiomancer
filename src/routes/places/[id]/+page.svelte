@@ -2,7 +2,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import RelationToggle from '$lib/components/relation-toggle.svelte';
-	import MatchBadge from '$lib/components/match-badge.svelte';
+	import AvatarMatch from '$lib/components/avatar-match.svelte';
 	import { ArrowLeft, ExternalLink, MapPin, ThumbsUp, Users } from '@lucide/svelte';
 	import { googleMapsUrl } from '$lib/maps-link';
 	import { page } from '$app/state';
@@ -74,16 +74,11 @@
 						href={`/users/${person.id}`}
 						class="bg-card hover:border-foreground/30 flex w-44 shrink-0 flex-col gap-2 rounded-xl border p-4 transition-colors"
 					>
-						<div
-							class="bg-muted flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium uppercase"
-						>
-							{person.name.slice(0, 1)}
-						</div>
+						<AvatarMatch name={person.name} image={person.image} score={person.score} size={52} />
 						<div class="text-sm font-medium">{person.name}</div>
 						<div class="text-muted-foreground text-xs">
 							{person.sharedCount} shared like{person.sharedCount === 1 ? '' : 's'}
 						</div>
-						<div class="mt-1"><MatchBadge score={person.score} /></div>
 					</a>
 				{/each}
 			</div>
