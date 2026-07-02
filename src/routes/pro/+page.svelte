@@ -30,8 +30,7 @@
 		</span>
 		<h1 class="text-3xl font-semibold tracking-tight">Expand your network</h1>
 		<p class="text-muted-foreground mx-auto mt-3 max-w-md text-balance">
-			Curiomancer is free for discovering places and people. Go Pro to reach the people who
-			share your taste.
+			Curiomancer is free for discovering places and people. Go Pro to reach your taste-twins.
 		</p>
 	</div>
 

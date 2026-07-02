@@ -176,7 +176,9 @@
 											onclick={() => pickSuggestion(s)}
 										>
 											<span class="font-medium">{s.title}</span>
-											{#if s.subtitle}<span class="text-muted-foreground"> · {s.subtitle}</span>{/if}
+											{#if s.subtitle}<span class="text-muted-foreground">
+													· {s.subtitle}</span
+												>{/if}
 										</button>
 									</li>
 								{/each}
@@ -224,9 +226,9 @@
 				<h2 class="text-lg font-medium">Recommendations that travel</h2>
 			</div>
 			<p class="text-muted-foreground mt-2 text-sm">
-				Love a handful of spots back home? Whether you land in Tokyo or pull off the highway in
-				the middle of nowhere, Curiomancer surfaces the places loved by people who share your
-				taste, right where the big apps leave you guessing.
+				Love a handful of spots back home? Whether you land in Tokyo or pull off the highway in the
+				middle of nowhere, Curiomancer surfaces the places your taste-twins love, right where the
+				big apps leave you guessing.
 			</p>
 		</div>
 		<div class="bg-card rounded-xl border p-6">
@@ -235,8 +237,8 @@
 				<h2 class="text-lg font-medium">Nothing but taste</h2>
 			</div>
 			<p class="text-muted-foreground mt-2 text-sm">
-				No ads, no engagement bait, no pay-to-rank. What you see is decided by one thing only:
-				how much your taste overlaps with other people's.
+				No ads, no engagement bait, no pay-to-rank. What you see is decided by one thing only: how
+				much your taste overlaps with other people's.
 			</p>
 		</div>
 		<div class="bg-card rounded-xl border p-6">
@@ -245,8 +247,8 @@
 				<h2 class="text-lg font-medium">No data trap</h2>
 			</div>
 			<p class="text-muted-foreground mt-2 text-sm">
-				Your taste belongs to you, available through our open API to connect with the other
-				services you use.
+				Your taste belongs to you, available through our open API to connect with the other services
+				you use.
 			</p>
 		</div>
 		<div class="bg-card relative rounded-xl border p-6">
@@ -260,8 +262,8 @@
 				<h2 class="text-lg font-medium">Expand your network</h2>
 			</div>
 			<p class="text-muted-foreground mt-2 text-sm">
-				Reach the people who think like you. Message your taste-twins and trade the spots that
-				never make a list.
+				Reach the people who think like you. Message your taste-twins and trade the spots that never
+				make a list.
 			</p>
 		</div>
 	</section>

@@ -17,9 +17,7 @@
 	{#if people.length === 0}
 		<div class="text-muted-foreground rounded-xl border border-dashed py-8 text-center text-sm">
 			<Users class="mx-auto size-6 opacity-60" />
-			<p class="mt-2">
-				No matches yet. Like 5 places to start finding people who share your taste.
-			</p>
+			<p class="mt-2">No matches yet. Like 5 places to start finding your taste-twins.</p>
 		</div>
 	{:else}
 		<div class="flex gap-3 overflow-x-auto pb-2">

@@ -119,7 +119,7 @@
 					<p class="text-foreground text-xs font-medium">{heading}</p>
 					<p class="text-muted-foreground mt-0.5 text-xs">
 						{people.length}
-						{people.length === 1 ? 'person who shares' : 'people who share'} your taste.
+						{people.length === 1 ? 'taste-twin' : 'taste-twins'}.
 					</p>
 					<div class="mt-2 flex gap-2 overflow-x-auto pb-1">
 						{#each people as person (person.id)}

@@ -65,10 +65,7 @@
 				<h2 class="text-lg font-medium">Why you're seeing this</h2>
 				<p class="text-muted-foreground mt-0.5 text-sm">
 					{twins.length}
-					{twins.length === 1 ? 'person who shares' : 'people who share'} your taste {twins.length ===
-					1
-						? 'has'
-						: 'have'} liked this place.
+					{twins.length === 1 ? 'taste-twin' : 'taste-twins'} liked this place.
 				</p>
 			</header>
 			<div class="flex gap-3 overflow-x-auto pb-2">
@@ -101,7 +98,7 @@
 			<header class="mb-3">
 				<h2 class="text-lg font-medium">Liked by</h2>
 				<p class="text-muted-foreground mt-0.5 text-sm">
-					Sign in to see which of these people share your taste.
+					Sign in to see which of these are your taste-twins.
 				</p>
 			</header>
 		{/if}

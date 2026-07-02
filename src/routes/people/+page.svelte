@@ -41,7 +41,7 @@
 
 {#if !data.signedIn}
 	<div class="text-muted-foreground rounded-xl border border-dashed py-12 text-center text-sm">
-		Sign in to see people who share your taste.
+		Sign in to see your taste-twins.
 	</div>
 {:else if !data.center}
 	<div class="text-muted-foreground rounded-xl border border-dashed py-12 text-center text-sm">
