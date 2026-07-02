@@ -42,8 +42,10 @@
 	// sense for a place you haven't rated. Once you've taken a position on it,
 	// the same taste-twins read as social proof instead.
 	const rated = $derived(relations.kindOf(placeId) !== null);
-	const likeHeading = $derived(rated ? 'They also like it' : "Why you're seeing this");
-	const dislikeHeading = $derived(rated ? 'They also hate it' : 'People like you dislike it');
+	const likeHeading = $derived(rated ? "They're into it too" : "Why you're seeing this");
+	const dislikeHeading = $derived(
+		rated ? 'They also thought it was lame' : "People like you weren't sold on it"
+	);
 
 	// Re-fetch context whenever the placeId prop changes - switching pins.
 	$effect(() => {
