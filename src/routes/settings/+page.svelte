@@ -72,7 +72,7 @@
 	<title>Settings - Curiomancer</title>
 </svelte:head>
 
-<div class="mx-auto max-w-xl py-4">
+<div class="mx-auto max-w-2xl py-4">
 	<header class="mb-6">
 		<h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
 		<p class="text-muted-foreground mt-1 text-sm">
