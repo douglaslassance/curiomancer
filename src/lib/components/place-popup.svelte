@@ -2,10 +2,10 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import RelationToggle from './relation-toggle.svelte';
 	import MatchBadge from './match-badge.svelte';
-	import { ExternalLink, Loader2, MapPin, ThumbsUp, Users } from '@lucide/svelte';
+	import { ExternalLink, Loader2, MapPin, Navigation, ThumbsUp, Users } from '@lucide/svelte';
 	import type { Place } from '$lib/server/db/schema';
 	import type { MatchedPerson } from '$lib/server/matching';
-	import { googleMapsUrl } from '$lib/maps-link';
+	import { googleMapsUrl, googleDirectionsUrl } from '$lib/maps-link';
 	import { page } from '$app/state';
 
 	let {
@@ -82,17 +82,30 @@
 					? `${context.place.neighborhood}, ${context.place.city}`
 					: context.place.city}
 			</p>
-			{#if googleMapsUrl(context.place)}
-				<a
-					href={googleMapsUrl(context.place)}
-					target="_blank"
-					rel="noopener noreferrer"
-					class="text-muted-foreground hover:text-foreground mt-1 inline-flex items-center gap-1 text-xs underline"
-				>
-					Open in Google Maps
-					<ExternalLink class="size-3" />
-				</a>
-			{/if}
+			<div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+				{#if googleDirectionsUrl(context.place)}
+					<a
+						href={googleDirectionsUrl(context.place)}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="text-foreground hover:text-foreground inline-flex items-center gap-1 text-xs font-medium underline"
+					>
+						<Navigation class="size-3" />
+						Directions
+					</a>
+				{/if}
+				{#if googleMapsUrl(context.place)}
+					<a
+						href={googleMapsUrl(context.place)}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs underline"
+					>
+						Open in Google Maps
+						<ExternalLink class="size-3" />
+					</a>
+				{/if}
+			</div>
 		</div>
 
 		<p class="text-muted-foreground mt-2 text-xs leading-relaxed">{context.place.description}</p>

@@ -25,3 +25,26 @@ export function googleMapsUrl(opts: {
 	}
 	return null;
 }
+
+/**
+ * Builds a Google Maps "directions to here" URL (origin is the user's current
+ * location, filled in by Google). Prefers exact coordinates; falls back to a
+ * name+city destination. Returns null when we have neither. Works on web, iOS,
+ * and Android, opening the native app if installed.
+ */
+export function googleDirectionsUrl(opts: {
+	latitude?: number | null;
+	longitude?: number | null;
+	name?: string | null;
+	city?: string | null;
+}): string | null {
+	const { latitude, longitude, name, city } = opts;
+	if (typeof latitude === 'number' && typeof longitude === 'number') {
+		return `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+	}
+	if (name) {
+		const q = city ? `${name} ${city}` : name;
+		return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}`;
+	}
+	return null;
+}
