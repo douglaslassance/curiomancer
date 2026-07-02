@@ -11,30 +11,39 @@
 
 	let {
 		placeId,
-		onClose
+		onClose,
+		// The taste-twin social proof is viewer-relative ("who like *you* likes
+		// this"), so it's off when browsing someone else's curated map.
+		showSocial = true
 	}: {
 		placeId: string;
 		onClose: () => void;
+		showSocial?: boolean;
 	} = $props();
 
 	type Context = {
 		place: Place;
 		likeCount: number;
 		likers: MatchedPerson[];
+		dislikers: MatchedPerson[];
 	};
 
 	let context = $state<Context | null>(null);
 	let loadError = $state<string | null>(null);
 
 	const signedIn = $derived(!!page.data.user);
-	const twins = $derived(context?.likers.filter((l) => l.score > 0) ?? []);
+	// Taste-twins (positive similarity) who like vs dislike this place.
+	const likeTwins = $derived(context?.likers.filter((l) => l.score > 0) ?? []);
+	const dislikeTwins = $derived(context?.dislikers?.filter((l) => l.score > 0) ?? []);
+	// Likers who aren't taste-twins (or an anonymous viewer's flat list).
 	const others = $derived(context?.likers.filter((l) => l.score === 0) ?? []);
 
 	// "Why you're seeing this" is a recommendation rationale - it only makes
 	// sense for a place you haven't rated. Once you've taken a position on it,
 	// the same taste-twins read as social proof instead.
 	const rated = $derived(relations.kindOf(placeId) !== null);
-	const twinsHeading = $derived(rated ? 'Liked by people like you' : "Why you're seeing this");
+	const likeHeading = $derived(rated ? 'They also like it' : "Why you're seeing this");
+	const dislikeHeading = $derived(rated ? 'They also hate it' : 'People like you dislike it');
 
 	// Re-fetch context whenever the placeId prop changes - switching pins.
 	$effect(() => {
@@ -102,57 +111,68 @@
 			</span>
 		</div>
 
-		<!-- Why you're seeing this -->
-		{#if signedIn && twins.length > 0}
-			<div class="mt-4 border-t pt-3">
-				<p class="text-foreground text-xs font-medium">{twinsHeading}</p>
-				<p class="text-muted-foreground mt-0.5 text-xs">
-					{twins.length}
-					{twins.length === 1 ? 'person who shares' : 'people who share'} your taste.
-				</p>
-				<div class="mt-2 flex gap-2 overflow-x-auto pb-1">
-					{#each twins as person (person.id)}
+		{#if showSocial}
+			{#snippet twinGroup(heading: string, people: MatchedPerson[])}
+				<div class="mt-4 border-t pt-3">
+					<p class="text-foreground text-xs font-medium">{heading}</p>
+					<p class="text-muted-foreground mt-0.5 text-xs">
+						{people.length}
+						{people.length === 1 ? 'person who shares' : 'people who share'} your taste.
+					</p>
+					<div class="mt-2 flex gap-2 overflow-x-auto pb-1">
+						{#each people as person (person.id)}
+							<a
+								href={`/users/${person.id}`}
+								class="bg-background hover:border-foreground/30 flex w-32 shrink-0 flex-col gap-1 rounded-lg border p-2.5 transition-colors"
+							>
+								<div
+									class="bg-muted flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-medium uppercase"
+								>
+									{person.name.slice(0, 1)}
+								</div>
+								<div class="truncate text-xs font-medium">{person.name}</div>
+								<MatchBadge score={person.score} />
+							</a>
+						{/each}
+					</div>
+				</div>
+			{/snippet}
+
+			<!-- Taste-twins who like it -->
+			{#if signedIn && likeTwins.length > 0}
+				{@render twinGroup(likeHeading, likeTwins)}
+			{/if}
+
+			<!-- Taste-twins who dislike it -->
+			{#if signedIn && dislikeTwins.length > 0}
+				{@render twinGroup(dislikeHeading, dislikeTwins)}
+			{/if}
+
+			<!-- Other likers (non-twins or anonymous viewer) -->
+			{#if others.length > 0}
+				<div class="mt-3 flex flex-wrap gap-1.5">
+					{#each others as person (person.id)}
 						<a
 							href={`/users/${person.id}`}
-							class="bg-background hover:border-foreground/30 flex w-32 shrink-0 flex-col gap-1 rounded-lg border p-2.5 transition-colors"
+							class="bg-background hover:border-foreground/30 flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] transition-colors"
 						>
 							<div
-								class="bg-muted flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-medium uppercase"
+								class="bg-muted flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-medium uppercase"
 							>
 								{person.name.slice(0, 1)}
 							</div>
-							<div class="truncate text-xs font-medium">{person.name}</div>
-							<MatchBadge score={person.score} />
+							{person.name}
 						</a>
 					{/each}
 				</div>
-			</div>
-		{/if}
+			{/if}
 
-		<!-- Other likers (non-twins or anonymous viewer) -->
-		{#if others.length > 0}
-			<div class="mt-3 flex flex-wrap gap-1.5">
-				{#each others as person (person.id)}
-					<a
-						href={`/users/${person.id}`}
-						class="bg-background hover:border-foreground/30 flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] transition-colors"
-					>
-						<div
-							class="bg-muted flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-medium uppercase"
-						>
-							{person.name.slice(0, 1)}
-						</div>
-						{person.name}
-					</a>
-				{/each}
-			</div>
-		{/if}
-
-		{#if context.likers.length === 0}
-			<p class="text-muted-foreground mt-3 flex items-center gap-1 text-xs">
-				<Users class="size-3" />
-				Nobody has liked this yet. Be the first.
-			</p>
+			{#if context.likers.length === 0}
+				<p class="text-muted-foreground mt-3 flex items-center gap-1 text-xs">
+					<Users class="size-3" />
+					Nobody has liked this yet. Be the first.
+				</p>
+			{/if}
 		{/if}
 
 		<!-- Map links pinned to the bottom of the card. -->

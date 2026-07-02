@@ -23,6 +23,7 @@
 		likedIds={data.likedIds}
 		{signedIn}
 		showSearch={false}
+		showPlaceSocial={false}
 	/>
 
 	<!-- Whose map this is, with a way back to their profile. -->

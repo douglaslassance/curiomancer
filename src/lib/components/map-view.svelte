@@ -15,6 +15,7 @@
 		signedIn = false,
 		showSearch = true,
 		showFilters = false,
+		showPlaceSocial = true,
 		zoom = 12
 	}: {
 		places: Place[];
@@ -28,6 +29,8 @@
 		showSearch?: boolean;
 		/** Show relation filter chips (liked/want-to-go/seen/disliked). */
 		showFilters?: boolean;
+		/** Show the viewer-relative taste-twin proof in the place popup. */
+		showPlaceSocial?: boolean;
 		zoom?: number;
 	} = $props();
 
@@ -349,6 +352,10 @@
 	{/if}
 
 	{#if selectedPlace}
-		<PlacePopup placeId={selectedPlace.id} onClose={() => (selectedPlace = null)} />
+		<PlacePopup
+			placeId={selectedPlace.id}
+			showSocial={showPlaceSocial}
+			onClose={() => (selectedPlace = null)}
+		/>
 	{/if}
 </div>

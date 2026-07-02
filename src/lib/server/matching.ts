@@ -170,15 +170,14 @@ export async function getMatchedPeopleInCity(
 }
 
 /**
- * Everyone who has liked `placeId`, ranked by their signed similarity to
- * `userId`. This is the "why was this recommended to me" view - shown on
- * a place's detail page so users can see who's vouching for it. Disliked
- * rows on this place are deliberately excluded (we don't show "this place
- * was disliked by people who share your taste" - that's its own surface).
+ * Everyone with `relationKind` on `placeId`, ranked by their signed
+ * similarity to `userId`. Powers the popup's social proof: who that shares
+ * your taste likes (or dislikes) this place.
  */
-export async function getPeopleWhoLikedPlace(
+async function getPeopleWithRelationToPlace(
 	userId: string | null,
 	placeId: string,
+	relationKind: 'liked' | 'disliked',
 	limit = 24
 ): Promise<MatchedPerson[]> {
 	const rows = await db.execute<{
@@ -192,11 +191,11 @@ export async function getPeopleWhoLikedPlace(
 			SELECT place_id, kind FROM "place_relation"
 			WHERE user_id = ${userId ?? ''} AND kind IN ('liked', 'disliked')
 		),
-		likers AS (
+		raters AS (
 			SELECT user_id, created_at
 			FROM "place_relation"
 			WHERE place_id = ${placeId}
-			  AND kind = 'liked'
+			  AND kind = ${relationKind}
 			  AND (${userId}::text IS NULL OR user_id <> ${userId ?? ''})
 		),
 		pair_stats AS (
@@ -206,7 +205,7 @@ export async function getPeopleWhoLikedPlace(
 				SUM(${AGREEMENT_EXPR})::float / NULLIF(COUNT(*), 0)::float AS score
 			FROM "place_relation" theirs
 			JOIN my_relations mine ON mine.place_id = theirs.place_id
-			WHERE theirs.user_id IN (SELECT user_id FROM likers)
+			WHERE theirs.user_id IN (SELECT user_id FROM raters)
 			  AND theirs.kind IN ('liked', 'disliked')
 			GROUP BY theirs.user_id
 		)
@@ -219,10 +218,10 @@ export async function getPeopleWhoLikedPlace(
 				WHEN (SELECT COUNT(*) FROM my_relations) = 0 THEN NULL
 				ELSE ps.score
 			END AS score
-		FROM likers lk
-		JOIN "user" u ON u.id = lk.user_id
-		LEFT JOIN pair_stats ps ON ps.user_id = lk.user_id
-		ORDER BY score DESC NULLS LAST, lk.created_at DESC
+		FROM raters r
+		JOIN "user" u ON u.id = r.user_id
+		LEFT JOIN pair_stats ps ON ps.user_id = r.user_id
+		ORDER BY score DESC NULLS LAST, r.created_at DESC
 		LIMIT ${limit}
 	`);
 
@@ -233,6 +232,16 @@ export async function getPeopleWhoLikedPlace(
 		sharedCount: r.shared_count,
 		score: Number(r.score) || 0
 	}));
+}
+
+/** People who liked `placeId`, ranked by similarity to `userId`. */
+export function getPeopleWhoLikedPlace(userId: string | null, placeId: string, limit = 24) {
+	return getPeopleWithRelationToPlace(userId, placeId, 'liked', limit);
+}
+
+/** People who disliked `placeId`, ranked by similarity to `userId`. */
+export function getPeopleWhoDislikedPlace(userId: string | null, placeId: string, limit = 24) {
+	return getPeopleWithRelationToPlace(userId, placeId, 'disliked', limit);
 }
 
 /**
