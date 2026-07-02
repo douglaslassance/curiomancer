@@ -67,8 +67,8 @@
 		{size}
 		aria-pressed={current === 'seen'}
 		aria-label={current === 'seen'
-			? 'Remove seen marker'
-			: 'Mark as seen - you know it, no strong opinion'}
+			? 'Unmark been there'
+			: 'Been there - you know it, no strong opinion'}
 		onclick={(e: Event) => press('seen', e)}
 	>
 		<Eye class="size-4" fill={current === 'seen' ? 'currentColor' : 'none'} />

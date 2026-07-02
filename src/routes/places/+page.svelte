@@ -16,7 +16,7 @@
 		{ value: 'all', label: 'All' },
 		{ value: 'liked', label: 'Liked' },
 		{ value: 'disliked', label: 'Disliked' },
-		{ value: 'seen', label: 'Seen' },
+		{ value: 'seen', label: 'Been there' },
 		{ value: 'want_to_go', label: 'Want to go' },
 		{ value: 'recommended', label: 'Recommended' }
 	];

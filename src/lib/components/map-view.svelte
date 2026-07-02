@@ -68,7 +68,7 @@
 	const FILTER_CHIPS: { key: FilterKey; label: string; color: string }[] = [
 		{ key: 'liked', label: 'Liked', color: '#ec4899' },
 		{ key: 'wantToGo', label: 'Want to go', color: '#10b981' },
-		{ key: 'seen', label: 'Seen', color: '#64748b' },
+		{ key: 'seen', label: 'Been there', color: '#64748b' },
 		{ key: 'disliked', label: 'Disliked', color: '#ef4444' }
 	];
 
