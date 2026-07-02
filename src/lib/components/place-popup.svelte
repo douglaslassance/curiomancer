@@ -82,30 +82,6 @@
 					? `${context.place.neighborhood}, ${context.place.city}`
 					: context.place.city}
 			</p>
-			<div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-				{#if googleDirectionsUrl(context.place)}
-					<a
-						href={googleDirectionsUrl(context.place)}
-						target="_blank"
-						rel="noopener noreferrer"
-						class="text-foreground hover:text-foreground inline-flex items-center gap-1 text-xs font-medium underline"
-					>
-						<Navigation class="size-3" />
-						Directions
-					</a>
-				{/if}
-				{#if googleMapsUrl(context.place)}
-					<a
-						href={googleMapsUrl(context.place)}
-						target="_blank"
-						rel="noopener noreferrer"
-						class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs underline"
-					>
-						Open in Google Maps
-						<ExternalLink class="size-3" />
-					</a>
-				{/if}
-			</div>
 		</div>
 
 		<p class="text-muted-foreground mt-2 text-xs leading-relaxed">{context.place.description}</p>
@@ -170,6 +146,34 @@
 				<Users class="size-3" />
 				Nobody has liked this yet. Be the first.
 			</p>
+		{/if}
+
+		<!-- Map links pinned to the bottom of the card. -->
+		{#if googleDirectionsUrl(context.place) || googleMapsUrl(context.place)}
+			<div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-3">
+				{#if googleDirectionsUrl(context.place)}
+					<a
+						href={googleDirectionsUrl(context.place)}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="text-foreground inline-flex items-center gap-1 text-xs font-medium underline"
+					>
+						<Navigation class="size-3" />
+						Directions
+					</a>
+				{/if}
+				{#if googleMapsUrl(context.place)}
+					<a
+						href={googleMapsUrl(context.place)}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs underline"
+					>
+						Open in Google Maps
+						<ExternalLink class="size-3" />
+					</a>
+				{/if}
+			</div>
 		{/if}
 	{/if}
 </div>
