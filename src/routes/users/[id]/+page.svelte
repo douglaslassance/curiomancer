@@ -80,7 +80,7 @@
 		Back
 	</Button>
 
-	<!-- Header: avatar (with match % overlapping its base), name, location -->
+	<!-- Header: avatar (with match % on its base), identity, grouped actions -->
 	<header class="mb-8 flex items-start gap-4">
 		<div class="relative shrink-0">
 			<Avatar.Root class="size-16">
@@ -89,15 +89,16 @@
 				{/if}
 				<Avatar.Fallback class="text-lg font-medium">{initials}</Avatar.Fallback>
 			</Avatar.Root>
-			{#if data.viewer && !data.viewer.isSelf}
-				<!-- Overlap the score on the avatar's bottom edge; ring blends it into the page bg. -->
+			{#if data.viewer && !data.viewer.isSelf && data.viewer.score !== null}
+				<!-- Match score sits on the avatar's bottom edge; ring blends it into the page bg. -->
 				<div
 					class="ring-background absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full ring-2"
 				>
-					<MatchBadge score={data.viewer.score} />
+					<MatchBadge score={data.viewer.score} compact />
 				</div>
 			{/if}
 		</div>
+
 		<div class="min-w-0 flex-1">
 			<h1 class="text-2xl font-semibold tracking-tight">{profile.name}</h1>
 			{#if data.location}
@@ -110,35 +111,39 @@
 				<ThumbsUp class="size-4" />
 				{data.likedPlaces.length} liked place{data.likedPlaces.length === 1 ? '' : 's'}
 			</p>
-			{#if hasMap}
-				<Button href={`/users/${profile.id}/map`} variant="outline" size="sm" class="mt-3">
-					<Map class="size-4" />
-					See their map
-				</Button>
-			{/if}
 		</div>
-		{#if data.viewer && !data.viewer.isSelf}
-			<div class="flex shrink-0 flex-col items-end gap-2">
-				<Button
-					size="sm"
-					variant={data.viewer.following ? 'outline' : 'default'}
-					onclick={toggleFollow}
-					disabled={followBusy}
-				>
-					{#if followBusy}
-						<Loader2 class="size-4 animate-spin" />
-					{:else if data.viewer.following}
-						<UserCheck class="size-4" />
-						Following
-					{:else}
-						<UserPlus class="size-4" />
-						Follow
-					{/if}
-				</Button>
-				<Button size="sm" variant="outline" href="/pro">
-					<MessageCircle class="size-4" />
-					Message
-				</Button>
+
+		<!-- Actions: map is public; follow/message only for a signed-in viewer. -->
+		{#if hasMap || (data.viewer && !data.viewer.isSelf)}
+			<div class="flex shrink-0 flex-col items-stretch gap-2">
+				{#if data.viewer && !data.viewer.isSelf}
+					<Button
+						size="sm"
+						variant={data.viewer.following ? 'outline' : 'default'}
+						onclick={toggleFollow}
+						disabled={followBusy}
+					>
+						{#if followBusy}
+							<Loader2 class="size-4 animate-spin" />
+						{:else if data.viewer.following}
+							<UserCheck class="size-4" />
+							Following
+						{:else}
+							<UserPlus class="size-4" />
+							Follow
+						{/if}
+					</Button>
+					<Button size="sm" variant="outline" href="/pro">
+						<MessageCircle class="size-4" />
+						Message
+					</Button>
+				{/if}
+				{#if hasMap}
+					<Button href={`/users/${profile.id}/map`} variant="outline" size="sm">
+						<Map class="size-4" />
+						See their map
+					</Button>
+				{/if}
 			</div>
 		{/if}
 	</header>

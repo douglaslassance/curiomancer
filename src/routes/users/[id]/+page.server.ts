@@ -10,6 +10,7 @@ import {
 	type Place
 } from '$lib/server/db/schema';
 import { isFollowing } from '$lib/server/follows';
+import { getPairScore } from '$lib/server/matching';
 import type { PageServerLoad } from './$types';
 
 /**
@@ -68,7 +69,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	// Compute similarity with the viewer (if signed in and not viewing self).
 	let viewer: {
 		isSelf: boolean;
-		score: number;
+		score: number | null;
 		sharedCount: number;
 		sharedPlaces: Place[];
 		following: boolean;
@@ -77,8 +78,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	if (locals.user) {
 		const isSelf = locals.user.id === params.id;
 		if (!isSelf) {
-			const viewerFollows = await isFollowing(locals.user.id, params.id);
-			// All places the viewer likes that this profile also likes.
+			// Score comes from the shared matching helper so it can't disagree
+			// with the people list. `shared` is the places both actually like
+			// (the "You both like" set), which is a different thing from the
+			// score's liked+disliked overlap - so we still query it separately.
+			const [viewerFollows, pair] = await Promise.all([
+				isFollowing(locals.user.id, params.id),
+				getPairScore(locals.user.id, params.id)
+			]);
 			const shared = await db.execute<{
 				id: string;
 				name: string;
@@ -94,23 +101,15 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			}>(sql`
 				SELECT p.*
 				FROM place p
-				JOIN "place_relation" mine ON mine.place_id = p.id AND mine.user_id = ${locals.user.id}
-				JOIN "place_relation" theirs ON theirs.place_id = p.id AND theirs.user_id = ${params.id}
+				JOIN "place_relation" mine ON mine.place_id = p.id AND mine.user_id = ${locals.user.id} AND mine.kind = 'liked'
+				JOIN "place_relation" theirs ON theirs.place_id = p.id AND theirs.user_id = ${params.id} AND theirs.kind = 'liked'
 				ORDER BY p.city, p.name
 			`);
 
-			const [{ myTotal }] = await db.execute<{ myTotal: number }>(
-				sql`SELECT COUNT(*)::int AS "myTotal" FROM "place_relation" WHERE user_id = ${locals.user.id}`
-			);
-			const theirTotal = likedPlaces.length;
-			const sharedCount = shared.length;
-			const denom = myTotal + theirTotal - sharedCount;
-			const score = denom > 0 ? sharedCount / denom : 0;
-
 			viewer = {
 				isSelf: false,
-				score,
-				sharedCount,
+				score: pair.score,
+				sharedCount: pair.sharedCount,
 				sharedPlaces: shared.map((r) => ({
 					id: r.id,
 					name: r.name,
@@ -127,7 +126,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 				following: viewerFollows
 			};
 		} else {
-			viewer = { isSelf: true, score: 0, sharedCount: 0, sharedPlaces: [], following: false };
+			viewer = { isSelf: true, score: null, sharedCount: 0, sharedPlaces: [], following: false };
 		}
 	}
 

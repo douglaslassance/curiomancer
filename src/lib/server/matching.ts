@@ -74,6 +74,46 @@ const AGREEMENT_EXPR = sql`
 `;
 
 /**
+ * Signed-similarity score between two specific users, using the exact same
+ * formula as the people list (getPeopleNearby). Keeping one definition means
+ * a pair's "match %" is identical wherever it's shown - profile page and
+ * people list can't disagree.
+ *
+ * Returns score in −1..+1 (UI clamps to 0..100%) plus the number of places
+ * the two overlap on. `score` is null when the viewer has no liked/disliked
+ * signal to compare against, matching the people list's "no badge" behavior.
+ */
+export async function getPairScore(
+	viewerId: string,
+	targetId: string
+): Promise<{ score: number | null; sharedCount: number }> {
+	const [row] = await db.execute<{
+		viewer_total: number;
+		shared_count: number;
+		score: number | null;
+	}>(sql`
+		WITH viewer_relations AS (
+			SELECT place_id, kind FROM "place_relation"
+			WHERE user_id = ${viewerId} AND kind IN ('liked', 'disliked')
+		)
+		SELECT
+			(SELECT COUNT(*)::int FROM viewer_relations) AS viewer_total,
+			COUNT(*)::int AS shared_count,
+			SUM(${AGREEMENT_EXPR})::float / NULLIF(COUNT(*), 0)::float AS score
+		FROM "place_relation" theirs
+		JOIN viewer_relations mine ON mine.place_id = theirs.place_id
+		WHERE theirs.user_id = ${targetId} AND theirs.kind IN ('liked', 'disliked')
+	`);
+
+	// Null when there's nothing to compare - no viewer signal, or no overlapping
+	// opinions. Matches the people list, which only badges pairs that overlap.
+	if (!row || row.viewer_total === 0 || row.shared_count === 0) {
+		return { score: null, sharedCount: 0 };
+	}
+	return { score: Number(row.score), sharedCount: row.shared_count };
+}
+
+/**
  * Top N people in `city` with the highest signed similarity to `userId`.
  * Excludes the user themselves; only considers candidates we overlap with
  * on ≥1 place (either kind).
