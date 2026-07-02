@@ -1,6 +1,5 @@
 import { error, json } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
-import { waitlist } from '$lib/server/db/schema';
+import { joinWaitlist } from '$lib/server/waitlist';
 import type { RequestHandler } from './$types';
 
 /**
@@ -16,20 +15,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		city?: unknown;
 	} | null;
 
-	const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : '';
-	if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-		throw error(400, 'Enter a valid email address.');
-	}
-
-	const city = typeof body?.city === 'string' ? body.city.trim() : '';
-	if (!city) {
-		throw error(400, 'Tell us your city.');
-	}
-
-	await db
-		.insert(waitlist)
-		.values({ email, city })
-		.onConflictDoUpdate({ target: waitlist.email, set: { city } });
+	const result = await joinWaitlist(body?.email, body?.city);
+	if (!result.ok) throw error(400, result.message);
 
 	return json({ ok: true });
 };

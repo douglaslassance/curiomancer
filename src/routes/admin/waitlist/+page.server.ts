@@ -3,6 +3,7 @@ import { desc, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { waitlist } from '$lib/server/db/schema';
 import { createInviteReturningCode } from '$lib/server/invites';
+import { joinWaitlist } from '$lib/server/waitlist';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
@@ -11,6 +12,19 @@ export const load: PageServerLoad = async () => {
 };
 
 export const actions: Actions = {
+	add: async ({ request, locals }) => {
+		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+
+		const data = await request.formData();
+		const email = data.get('email')?.toString() ?? '';
+		const city = data.get('city')?.toString() ?? '';
+
+		const result = await joinWaitlist(email, city);
+		if (!result.ok) return fail(400, { addError: result.message, email, city });
+
+		return { added: true };
+	},
+
 	invite: async ({ request, locals }) => {
 		if (!locals.user) return fail(401, { message: 'Not signed in.' });
 
