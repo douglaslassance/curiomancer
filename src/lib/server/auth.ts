@@ -5,20 +5,30 @@ import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
 import { db } from '$lib/server/db';
 import { createInvitesFor } from '$lib/server/invites';
+import { sendPasswordResetEmail } from '$lib/server/email';
 
 export const auth = betterAuth({
 	baseURL: env.ORIGIN,
 	secret: env.BETTER_AUTH_SECRET,
 	database: drizzleAdapter(db, { provider: 'pg' }),
-	emailAndPassword: { enabled: true },
+	emailAndPassword: {
+		enabled: true,
+		// Called when a user requests a reset. We build the link straight to our
+		// own /reset-password page with the raw token (which resetPassword()
+		// validates directly), rather than better-auth's /api/auth callback URL -
+		// this app serves auth through server actions, not the HTTP auth routes.
+		sendResetPassword: async ({ user, token }) => {
+			const resetUrl = `${env.ORIGIN}/reset-password?token=${encodeURIComponent(token)}`;
+			await sendPasswordResetEmail(user.email, resetUrl);
+		}
+	},
 	user: {
 		additionalFields: {
 			/**
 			 * 'user' (default) or 'admin'. The first admin is created via
 			 * /setup; subsequent promotions happen through the /admin panel.
 			 */
-			role: { type: 'string', defaultValue: 'user', input: false },
-			instagram: { type: 'string', required: false }
+			role: { type: 'string', defaultValue: 'user', input: false }
 		}
 	},
 	databaseHooks: {

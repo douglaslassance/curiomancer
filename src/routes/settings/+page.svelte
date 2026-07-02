@@ -9,10 +9,10 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import {
-		AtSign,
 		Copy,
 		KeyRound,
 		Loader2,
+		Lock,
 		LogOut,
 		Mail,
 		MapPin,
@@ -55,16 +55,6 @@
 			console.error('Clipboard write failed:', err);
 		}
 	}
-
-	// Local editable copy so the input stays controlled across submits.
-	// Server returns the canonical handle (lowercased, no @) so reflecting
-	// data.profile.instagram is correct, but on validation failure we keep
-	// the user's raw input from form.instagram.
-	// svelte-ignore state_referenced_locally
-	let instagramInput = $state(data.profile.instagram ?? '');
-	$effect(() => {
-		if (form?.instagramOk) instagramInput = form.instagram ?? '';
-	});
 
 	const initials = $derived(
 		data.profile.name
@@ -172,33 +162,28 @@
 
 			<Separator />
 
-			<!-- Instagram handle -->
-			<form method="post" action="?/updateInstagram" use:enhance class="flex items-start gap-3">
-				<AtSign class="text-muted-foreground mt-0.5 size-4" />
+			<!-- Display name -->
+			<form method="post" action="?/updateName" use:enhance class="flex items-start gap-3">
+				<User class="text-muted-foreground mt-0.5 size-4" />
 				<div class="min-w-0 flex-1 space-y-2">
-					<Label for="instagram" class="text-sm font-medium">Instagram</Label>
+					<Label for="name" class="text-sm font-medium">Name</Label>
 					<div class="flex items-center gap-2">
-						<span class="text-muted-foreground text-sm">@</span>
 						<Input
-							id="instagram"
-							name="instagram"
-							placeholder="yourhandle"
-							autocomplete="off"
-							bind:value={instagramInput}
+							id="name"
+							name="name"
+							placeholder="Your name"
+							autocomplete="name"
+							value={form?.name ?? data.profile.name}
 							class="max-w-xs"
 						/>
 						<Button type="submit" size="sm" variant="outline">Save</Button>
 					</div>
-					{#if form?.instagramError}
-						<p class="text-destructive text-xs">{form.instagramError}</p>
-					{:else if form?.instagramOk}
-						<p class="text-muted-foreground text-xs">
-							{form.instagram ? `Saved as @${form.instagram}.` : 'Cleared.'}
-						</p>
+					{#if form?.nameError}
+						<p class="text-destructive text-xs">{form.nameError}</p>
+					{:else if form?.nameOk}
+						<p class="text-muted-foreground text-xs">Saved.</p>
 					{:else}
-						<p class="text-muted-foreground text-xs">
-							Optional. Shown on your profile so taste-twins can find you.
-						</p>
+						<p class="text-muted-foreground text-xs">Shown on your profile and to taste-twins.</p>
 					{/if}
 				</div>
 			</form>
@@ -244,7 +229,9 @@
 						<div class="bg-muted mt-3 rounded-lg border p-3">
 							<p class="text-xs font-medium">New token - copy it now, it won't be shown again.</p>
 							<div class="mt-2 flex items-center gap-2">
-								<code class="bg-background min-w-0 flex-1 truncate rounded border px-2 py-1 text-xs">
+								<code
+									class="bg-background min-w-0 flex-1 truncate rounded border px-2 py-1 text-xs"
+								>
 									{form.tokenCreated}
 								</code>
 								<Button
@@ -260,8 +247,18 @@
 						</div>
 					{/if}
 
-					<form method="post" action="?/createToken" use:enhance class="mt-3 flex items-center gap-2">
-						<Input name="name" placeholder="e.g. My recipe app" autocomplete="off" class="max-w-xs" />
+					<form
+						method="post"
+						action="?/createToken"
+						use:enhance
+						class="mt-3 flex items-center gap-2"
+					>
+						<Input
+							name="name"
+							placeholder="e.g. My recipe app"
+							autocomplete="off"
+							class="max-w-xs"
+						/>
 						<Button type="submit" size="sm" variant="outline">Create token</Button>
 					</form>
 					{#if form?.tokenError}
@@ -300,12 +297,46 @@
 
 			<Separator />
 
+			<!-- Change password -->
+			<form method="post" action="?/changePassword" use:enhance class="flex items-start gap-3">
+				<Lock class="text-muted-foreground mt-0.5 size-4" />
+				<div class="min-w-0 flex-1 space-y-2">
+					<div class="text-sm font-medium">Change password</div>
+					<div class="grid max-w-xs gap-2">
+						<Input
+							type="password"
+							name="currentPassword"
+							placeholder="Current password"
+							autocomplete="current-password"
+							required
+						/>
+						<Input
+							type="password"
+							name="newPassword"
+							placeholder="New password (min 8 characters)"
+							autocomplete="new-password"
+							required
+						/>
+						<Button type="submit" size="sm" variant="outline" class="justify-self-start">
+							Update password
+						</Button>
+					</div>
+					{#if form?.passwordError}
+						<p class="text-destructive text-xs">{form.passwordError}</p>
+					{:else if form?.passwordOk}
+						<p class="text-muted-foreground text-xs">Password updated.</p>
+					{/if}
+				</div>
+			</form>
+
+			<Separator />
+
 			<div class="flex items-start gap-3">
 				<User class="text-muted-foreground mt-0.5 size-4" />
 				<div class="min-w-0 flex-1">
 					<div class="text-sm font-medium">Coming soon</div>
 					<p class="text-muted-foreground text-sm">
-						Editing your name, avatar upload, change-password, and account deletion all live here.
+						Avatar upload and account deletion land here next.
 					</p>
 				</div>
 			</div>

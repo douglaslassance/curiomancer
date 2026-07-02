@@ -4,8 +4,10 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import * as Card from '$lib/components/ui/card';
+	import { page } from '$app/state';
 
 	let { form } = $props();
+	const justReset = $derived(page.url.searchParams.get('reset') === '1');
 </script>
 
 <div class="mx-auto max-w-sm py-10">
@@ -15,6 +17,11 @@
 			<Card.Description>Sign in to sync your taste across devices.</Card.Description>
 		</Card.Header>
 		<Card.Content>
+			{#if justReset}
+				<p class="mb-4 text-sm text-emerald-600 dark:text-emerald-500">
+					Password updated. Sign in with your new password.
+				</p>
+			{/if}
 			<form method="post" class="space-y-4" use:enhance>
 				<div class="space-y-2">
 					<Label for="email">Email</Label>
@@ -28,7 +35,12 @@
 					/>
 				</div>
 				<div class="space-y-2">
-					<Label for="password">Password</Label>
+					<div class="flex items-center justify-between">
+						<Label for="password">Password</Label>
+						<a href="/forgot-password" class="text-muted-foreground text-xs underline">
+							Forgot your password?
+						</a>
+					</div>
 					<Input id="password" name="password" type="password" required />
 				</div>
 				{#if form?.message}

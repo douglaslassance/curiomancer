@@ -7,7 +7,6 @@
 	import { invalidateAll } from '$app/navigation';
 	import {
 		ArrowLeft,
-		AtSign,
 		Loader2,
 		MapPin,
 		MessageCircle,
@@ -15,7 +14,6 @@
 		UserPlus,
 		UserCheck
 	} from '@lucide/svelte';
-	import { instagramUrl } from '$lib/instagram';
 	import type { Place } from '$lib/server/db/schema';
 
 	let { data } = $props();
@@ -97,17 +95,6 @@
 				<ThumbsUp class="size-4" />
 				{data.likedPlaces.length} liked place{data.likedPlaces.length === 1 ? '' : 's'}
 			</p>
-			{#if profile.instagram && instagramUrl(profile.instagram)}
-				<a
-					href={instagramUrl(profile.instagram)}
-					target="_blank"
-					rel="noopener noreferrer"
-					class="text-muted-foreground hover:text-foreground mt-1 inline-flex items-center gap-1 text-sm underline"
-				>
-					<AtSign class="size-4" />
-					{profile.instagram} on Instagram
-				</a>
-			{/if}
 		</div>
 		{#if data.viewer && !data.viewer.isSelf}
 			<div class="flex shrink-0 flex-col items-end gap-2">
@@ -163,7 +150,9 @@
 			{#if data.following.length > 0}
 				<section>
 					<h2 class="mb-3 text-lg font-medium">
-						Following <span class="text-muted-foreground text-sm font-normal">· {data.following.length}</span>
+						Following <span class="text-muted-foreground text-sm font-normal"
+							>· {data.following.length}</span
+						>
 					</h2>
 					{@render peoplePills(data.following)}
 				</section>
@@ -171,7 +160,9 @@
 			{#if data.followers.length > 0}
 				<section>
 					<h2 class="mb-3 text-lg font-medium">
-						Followers <span class="text-muted-foreground text-sm font-normal">· {data.followers.length}</span>
+						Followers <span class="text-muted-foreground text-sm font-normal"
+							>· {data.followers.length}</span
+						>
 					</h2>
 					{@render peoplePills(data.followers)}
 				</section>

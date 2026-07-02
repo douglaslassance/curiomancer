@@ -25,7 +25,7 @@ export const GET: RequestHandler = async ({ request }) => {
 
 	const [profile, [location], likes] = await Promise.all([
 		db
-			.select({ id: user.id, name: user.name, instagram: user.instagram })
+			.select({ id: user.id, name: user.name })
 			.from(user)
 			.where(eq(user.id, userId))
 			.limit(1)
