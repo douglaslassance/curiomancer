@@ -38,7 +38,7 @@ const db = drizzle(sql);
 
 const CACHE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), 'seed-cache.json');
 
-// ─── Places we want personas to know about ────────────────────────────────
+// --- Places we want personas to know about --------------------------------
 //
 // Each entry is a search hint we'll pass to Apple Maps. The result gets
 // cached so re-runs are offline.
@@ -188,7 +188,7 @@ const PLACE_HINTS: PlaceHint[] = [
 	{ query: 'Daikanyama T-Site', city: 'Tokyo', neighborhood: 'Daikanyama', category: 'shop' }
 ];
 
-// ─── Cache plumbing ───────────────────────────────────────────────────────
+// --- Cache plumbing -------------------------------------------------------
 
 type CachedPlace = {
 	muid: string;
@@ -260,7 +260,7 @@ async function resolvePlace(hint: PlaceHint, cache: Cache): Promise<CachedPlace 
 	return cached;
 }
 
-// ─── Events ────────────────────────────────────────────────────────────────
+// --- Events ----------------------------------------------------------------
 
 const now = Date.now();
 const day = 24 * 60 * 60 * 1000;
@@ -373,7 +373,7 @@ const EVENTS: NewEvent[] = [
 	}
 ];
 
-// ─── Personas ─────────────────────────────────────────────────────────────
+// --- Personas -------------------------------------------------------------
 //
 // Each persona's `likes` is a list of `PlaceHint.query` strings - the
 // matching query, not the place name. This keeps everything indirectable
@@ -537,7 +537,7 @@ const PERSONAS: Persona[] = [
 	}
 ];
 
-// ─── Run ───────────────────────────────────────────────────────────────────
+// --- Run -------------------------------------------------------------------
 
 console.log('Resolving places via Apple Maps (with cache)…');
 const cache = await readCache();

@@ -87,7 +87,7 @@ export type NearbyPerson = {
 	image: string | null;
 	city: string;
 	distanceKm: number;
-	/** −1..+1; null if viewer has no signal to compare against. */
+	/** -1..+1; null if viewer has no signal to compare against. */
 	score: number | null;
 	sharedCount: number;
 };

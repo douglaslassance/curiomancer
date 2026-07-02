@@ -5,13 +5,13 @@
  * 'want_to_go' = ignored (it's a wishlist marker, not a taste signal).
  * Similarity between two users is then:
  *
- *     score(A, B) = agreements − disagreements
+ *     score(A, B) = agreements - disagreements
  *                  -----------------------------
  *                       |places A and B both have an opinion on|
  *
  * Agreement means both rows have the same kind on the same place (both
  * liked OR both disliked); disagreement means opposite kinds. Range is
- * −1..+1; we display Math.max(0, score) as a 0..100 % match badge.
+ * -1..+1; we display Math.max(0, score) as a 0..100 % match badge.
  *
  * Why this shape:
  *  - Pure Jaccard over likes only sees positive signal.
@@ -35,7 +35,7 @@ export type MatchedPerson = {
 	image: string | null;
 	/** How many places we overlap on (any kind agreement OR disagreement). */
 	sharedCount: number;
-	/** −1..+1. UI typically clamps to [0, 1] when displaying as a percentage. */
+	/** -1..+1. UI typically clamps to [0, 1] when displaying as a percentage. */
 	score: number;
 };
 
@@ -63,7 +63,7 @@ const FOLLOW_WEIGHT = 10;
  * for the candidate), produces `agreement` (+1/-1) for each overlapping
  * place. Encapsulated so we can drop dislikes into more queries later.
  *
- *   sum(agreement) = (agreements) − (disagreements)
+ *   sum(agreement) = (agreements) - (disagreements)
  *   count(*)       = (overlapping opinions)
  */
 const AGREEMENT_EXPR = sql`
@@ -79,7 +79,7 @@ const AGREEMENT_EXPR = sql`
  * a pair's "match %" is identical wherever it's shown - profile page and
  * people list can't disagree.
  *
- * Returns score in −1..+1 (UI clamps to 0..100%) plus the number of places
+ * Returns score in -1..+1 (UI clamps to 0..100%) plus the number of places
  * the two overlap on. `score` is null when the viewer has no liked/disliked
  * signal to compare against, matching the people list's "no badge" behavior.
  */

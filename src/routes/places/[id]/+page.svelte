@@ -58,7 +58,7 @@
 		</span>
 	</div>
 
-	<!-- ─── Why this is recommended ──────────────────────────────────────── -->
+	<!-- --- Why this is recommended ---------------------------------------- -->
 	<section class="mt-10">
 		{#if signedIn && twins.length > 0}
 			<header class="mb-3">

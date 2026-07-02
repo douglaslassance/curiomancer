@@ -21,4 +21,4 @@ The core idea: if you like certain places in LA and travel to Tokyo, people who 
 ## Conventions
 
 - Commit messages: sentence-cased one-liner, 72 characters max. Do not include co-authoring trailers.
-- No em dashes or en dashes anywhere (code, comments, or copy). Use hyphens, commas, or restructure the sentence.
+- No em dashes, en dashes, or any other non-hyphen dash character (minus signs, box-drawing lines, horizontal bars, figure dashes) anywhere (code, comments, or copy). Use a plain hyphen, commas, or restructure the sentence.

@@ -125,7 +125,7 @@
 </script>
 
 {#if !data.signedIn}
-	<!-- ─── Anonymous splash ─────────────────────────────────────────────── -->
+	<!-- --- Anonymous splash ----------------------------------------------- -->
 	<section class="py-16 text-center">
 		<h1 class="text-balance text-4xl font-semibold tracking-tight md:text-5xl">
 			Let your taste guide you
@@ -268,12 +268,12 @@
 		</div>
 	</section>
 {:else if !data.location}
-	<!-- ─── Signed-in but no location yet ─────────────────────────────────── -->
+	<!-- --- Signed-in but no location yet ----------------------------------- -->
 	<div class="py-12">
 		<LocationPrompt />
 	</div>
 {:else}
-	<!-- ─── Dashboard ─────────────────────────────────────────────────────── -->
+	<!-- --- Dashboard ------------------------------------------------------- -->
 	<DashboardHeader location={data.location} weather={data.weather} />
 
 	<MatchedPeopleRail people={data.matchedPeople} />
