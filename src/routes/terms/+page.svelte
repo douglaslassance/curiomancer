@@ -17,9 +17,7 @@
 			time. Your taste data is yours: you can export it and delete your account.
 		</p>
 		<p>
-			Questions? Reach us at <a href="mailto:hello@curiomancer.com" class="font-medium underline"
-				>hello@curiomancer.com</a
-			>.
+			Questions? <a href="/contact" class="font-medium underline">Contact us</a>.
 		</p>
 	</div>
 </div>

@@ -75,10 +75,7 @@
 					</div>
 					{#if status === 'error'}
 						<p class="text-destructive text-sm">
-							Something went wrong sending your message. Try again, or email us directly at <a
-								href="mailto:hey@douglaslassance.me"
-								class="underline">hey@douglaslassance.me</a
-							>.
+							Something went wrong sending your message. Please try again.
 						</p>
 					{/if}
 					<Button type="submit" class="w-full" disabled={!isValid || status === 'sending'}>
