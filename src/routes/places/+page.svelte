@@ -11,9 +11,8 @@
 
 	let { data } = $props();
 
-	type Filter = 'all' | 'liked' | 'disliked' | 'seen' | 'want_to_go' | 'recommended';
-	const FILTERS: { value: Filter; label: string }[] = [
-		{ value: 'all', label: 'All' },
+	type RelFilter = 'liked' | 'disliked' | 'seen' | 'want_to_go' | 'recommended';
+	const REL_FILTERS: { value: RelFilter; label: string }[] = [
 		{ value: 'liked', label: 'Liked' },
 		{ value: 'disliked', label: 'Disliked' },
 		{ value: 'seen', label: 'Been there' },
@@ -42,11 +41,17 @@
 		}, 250);
 	}
 
-	function setFilter(f: Filter) {
-		const u = new URL(page.url);
-		if (f === 'all') u.searchParams.delete('filter');
-		else u.searchParams.set('filter', f);
-		goto(u, { replaceState: true, keepFocus: true, noScroll: true });
+	// Multi-toggle relation filters (empty = show everything). Seeded once from
+	// the ?filter= deep-link (e.g. Settings "View liked") for backwards compat.
+	// svelte-ignore state_referenced_locally
+	let activeFilters = $state<Set<RelFilter>>(
+		data.filter && data.filter !== 'all' ? new Set([data.filter as RelFilter]) : new Set()
+	);
+	function toggleFilter(f: RelFilter) {
+		const next = new Set(activeFilters);
+		if (next.has(f)) next.delete(f);
+		else next.add(f);
+		activeFilters = next;
 	}
 
 	// Place-type toggles (all on by default). Same control as the map's.
@@ -62,31 +67,37 @@
 	const seenSet = $derived(new Set(data.seenIds));
 	const wantToGoSet = $derived(new Set(data.wantToGoIds));
 
-	// Filter pipeline: text + relation filter applied client-side over the
-	// server's radius-filtered list. For "Recommended" we further require
-	// the place to have a positive recommendation score AND no existing
-	// relation (you don't need a rec for something you've already engaged with).
+	// A place is "recommended" when the viewer has no relation to it yet and it
+	// has a positive recommendation score.
+	const isRecommended = (id: string) =>
+		!likedSet.has(id) &&
+		!dislikedSet.has(id) &&
+		!seenSet.has(id) &&
+		!wantToGoSet.has(id) &&
+		(data.recommendedScores[id] ?? 0) > 0;
+
+	// Filter pipeline: category + relation toggles + text, over the server's
+	// radius-filtered list. Relation toggles are OR'd (a place matches if it's
+	// in ANY selected relation); no toggles means show everything.
 	const visible = $derived.by(() => {
 		const q = query.trim().toLowerCase();
 		let out = data.places.filter((p) => categories[p.category]);
 
-		if (data.filter === 'liked') out = out.filter((p) => likedSet.has(p.id));
-		else if (data.filter === 'disliked') out = out.filter((p) => dislikedSet.has(p.id));
-		else if (data.filter === 'seen') out = out.filter((p) => seenSet.has(p.id));
-		else if (data.filter === 'want_to_go') out = out.filter((p) => wantToGoSet.has(p.id));
-		else if (data.filter === 'recommended') {
+		if (activeFilters.size > 0) {
 			out = out.filter(
 				(p) =>
-					!likedSet.has(p.id) &&
-					!dislikedSet.has(p.id) &&
-					!seenSet.has(p.id) &&
-					!wantToGoSet.has(p.id) &&
-					(data.recommendedScores[p.id] ?? 0) > 0
+					(activeFilters.has('liked') && likedSet.has(p.id)) ||
+					(activeFilters.has('disliked') && dislikedSet.has(p.id)) ||
+					(activeFilters.has('seen') && seenSet.has(p.id)) ||
+					(activeFilters.has('want_to_go') && wantToGoSet.has(p.id)) ||
+					(activeFilters.has('recommended') && isRecommended(p.id))
 			);
-			// Sort by recommendation score descending.
-			out = [...out].sort(
-				(a, b) => (data.recommendedScores[b.id] ?? 0) - (data.recommendedScores[a.id] ?? 0)
-			);
+			if (activeFilters.has('recommended')) {
+				// Surface the strongest recommendations first.
+				out = [...out].sort(
+					(a, b) => (data.recommendedScores[b.id] ?? 0) - (data.recommendedScores[a.id] ?? 0)
+				);
+			}
 		}
 
 		if (q) {
@@ -123,16 +134,17 @@
 		<!-- Place-type toggles -->
 		<CategoryFilter bind:value={categories} />
 
-		<!-- Relation filter pills -->
+		<!-- Relation filter toggles (multi-select; none = show all) -->
 		<div class="flex flex-wrap gap-1.5">
-			{#each FILTERS as f (f.value)}
+			{#each REL_FILTERS as f (f.value)}
 				<button
 					type="button"
 					class="rounded-full border px-3 py-1 text-xs transition-colors"
-					class:bg-primary={data.filter === f.value}
-					class:text-primary-foreground={data.filter === f.value}
-					class:hover:bg-accent={data.filter !== f.value}
-					onclick={() => setFilter(f.value)}
+					class:bg-primary={activeFilters.has(f.value)}
+					class:text-primary-foreground={activeFilters.has(f.value)}
+					class:hover:bg-accent={!activeFilters.has(f.value)}
+					aria-pressed={activeFilters.has(f.value)}
+					onclick={() => toggleFilter(f.value)}
 				>
 					{f.label}
 				</button>
@@ -174,7 +186,7 @@
 		<div class="text-muted-foreground rounded-xl border border-dashed py-12 text-center text-sm">
 			<Store class="mx-auto size-6 opacity-60" />
 			<p class="mt-2">
-				{#if data.filter === 'recommended'}
+				{#if activeFilters.has('recommended')}
 					No recommendations yet. Like a few places to start getting matches.
 				{:else if query}
 					No matches for "{query}".
@@ -202,7 +214,7 @@
 							{p.neighborhood ? `${p.neighborhood}, ` : ''}{p.city}
 							<span>· {Math.round(p.distanceKm)} km</span>
 						</p>
-						{#if data.filter === 'recommended' && (data.recommendedScores[p.id] ?? 0) > 0}
+						{#if activeFilters.has('recommended') && (data.recommendedScores[p.id] ?? 0) > 0}
 							<div class="mt-2">
 								<MatchBadge score={Math.min(data.recommendedScores[p.id], 1)} />
 							</div>
