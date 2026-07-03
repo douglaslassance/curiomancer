@@ -1,10 +1,12 @@
 <script lang="ts">
+	import { Bookmark, Eye, ThumbsDown, ThumbsUp } from '@lucide/svelte';
+
 	let { data } = $props();
 	const s = $derived(data.stats);
 </script>
 
 <svelte:head>
-	<title>Admin · Overview - Curiomancer</title>
+	<title>Admin · Overview · Curiomancer</title>
 </svelte:head>
 
 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -24,15 +26,18 @@
 		</p>
 	</section>
 
-	<!-- Relations -->
+	<!-- Ratings -->
 	<section class="bg-card rounded-xl border p-5">
-		<h2 class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Relations</h2>
+		<h2 class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Ratings</h2>
 		<p class="mt-2 text-3xl font-semibold tabular-nums">
 			{s.liked + s.disliked + s.seen + s.want_to_go}
 		</p>
-		<p class="text-muted-foreground mt-1 text-xs">
-			{s.liked} 👍 · {s.disliked} 👎 · {s.seen} 👁 · {s.want_to_go} want
-		</p>
+		<div class="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+			<span class="inline-flex items-center gap-1"><ThumbsUp class="size-3" />{s.liked}</span>
+			<span class="inline-flex items-center gap-1"><ThumbsDown class="size-3" />{s.disliked}</span>
+			<span class="inline-flex items-center gap-1"><Eye class="size-3" />{s.seen}</span>
+			<span class="inline-flex items-center gap-1"><Bookmark class="size-3" />{s.want_to_go}</span>
+		</div>
 	</section>
 
 	<!-- Invites -->

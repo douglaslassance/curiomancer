@@ -4,6 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import RelationToggle from '$lib/components/relation-toggle.svelte';
 	import AvatarMatch from '$lib/components/avatar-match.svelte';
+	import CategoryFilter from '$lib/components/category-filter.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { invalidateAll } from '$app/navigation';
 	import {
@@ -26,17 +27,26 @@
 		data.likedPlaces.some((p) => p.latitude !== null && p.longitude !== null)
 	);
 
-	// Search filter over their liked places (same idea as the places page).
+	// Search + category filters over their liked places (same idea as the places
+	// page: type-to-search, plus toggle which place categories show).
 	let placeQuery = $state('');
+	let categories = $state<Record<'eat' | 'drink' | 'shop' | 'visit', boolean>>({
+		eat: true,
+		drink: true,
+		shop: true,
+		visit: true
+	});
 	const filteredLikes = $derived.by(() => {
 		const q = placeQuery.trim().toLowerCase();
-		if (!q) return data.likedPlaces;
-		return data.likedPlaces.filter(
-			(p) =>
+		return data.likedPlaces.filter((p) => {
+			if (!categories[p.category]) return false;
+			if (!q) return true;
+			return (
 				p.name.toLowerCase().includes(q) ||
 				p.city.toLowerCase().includes(q) ||
 				(p.neighborhood?.toLowerCase().includes(q) ?? false)
-		);
+			);
+		});
 	});
 
 	let followBusy = $state(false);
@@ -79,7 +89,7 @@
 	</article>
 {/snippet}
 
-<div class="mx-auto max-w-2xl">
+<div>
 	<Button href="/" variant="ghost" size="sm" class="mb-4">
 		<ArrowLeft class="size-4" />
 		Back
@@ -115,7 +125,7 @@
 				{#if data.viewer && !data.viewer.isSelf}
 					<Button
 						size="sm"
-						variant={data.viewer.following ? 'outline' : 'default'}
+						variant={data.viewer.following ? 'secondary' : 'default'}
 						onclick={toggleFollow}
 						disabled={followBusy}
 					>
@@ -129,13 +139,13 @@
 							Follow
 						{/if}
 					</Button>
-					<Button size="sm" variant="outline" href="/pro">
+					<Button size="sm" variant="secondary" href="/pro">
 						<MessageCircle class="size-4" />
 						Message
 					</Button>
 				{/if}
 				{#if hasMap}
-					<Button href={`/users/${profile.id}/map`} variant="outline" size="sm">
+					<Button href={`/users/${profile.id}/map`} variant="secondary" size="sm">
 						<Map class="size-4" />
 						See their map
 					</Button>
@@ -195,7 +205,7 @@
 	{#if data.viewer && !data.viewer.isSelf && data.viewer.sharedPlaces.length > 0}
 		<section class="mb-8">
 			<h2 class="mb-3 text-lg font-medium">You both like</h2>
-			<div class="grid gap-3 sm:grid-cols-2">
+			<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 				{#each data.viewer.sharedPlaces as p (p.id)}
 					{@render placeCard(p)}
 				{/each}
@@ -205,35 +215,36 @@
 
 	<!-- All their likes -->
 	<section>
-		<div class="mb-3 flex items-center justify-between gap-3">
-			<h2 class="text-lg font-medium">
-				{data.viewer && !data.viewer.isSelf && data.viewer.sharedPlaces.length > 0
-					? 'Everything they like'
-					: 'Likes'}
-			</h2>
-			{#if data.likedPlaces.length > 0}
-				<div class="relative w-36 sm:w-56">
-					<Search class="text-muted-foreground absolute left-2.5 top-1/2 size-4 -translate-y-1/2" />
+		<h2 class="mb-3 text-lg font-medium">
+			{data.viewer && !data.viewer.isSelf && data.viewer.sharedPlaces.length > 0
+				? 'Everything they like'
+				: 'Likes'}
+		</h2>
+		{#if data.likedPlaces.length > 0}
+			<section class="bg-card mb-4 space-y-4 rounded-xl border p-4">
+				<CategoryFilter bind:value={categories} />
+				<div class="relative">
+					<Search class="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
 					<Input
 						type="search"
 						placeholder="Search…"
 						value={placeQuery}
 						oninput={(e) => (placeQuery = e.currentTarget.value)}
-						class="h-9 pl-8"
+						class="pl-9"
 					/>
 				</div>
-			{/if}
-		</div>
+			</section>
+		{/if}
 		{#if data.likedPlaces.length === 0}
 			<p class="text-muted-foreground rounded-xl border border-dashed py-8 text-center text-sm">
 				No likes yet.
 			</p>
 		{:else if filteredLikes.length === 0}
 			<p class="text-muted-foreground rounded-xl border border-dashed py-8 text-center text-sm">
-				No matches for "{placeQuery}".
+				No places match your filters.
 			</p>
 		{:else}
-			<div class="grid gap-3 sm:grid-cols-2">
+			<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 				{#each filteredLikes as p (p.id)}
 					{@render placeCard(p)}
 				{/each}

@@ -10,8 +10,8 @@
 		{ href: '/admin', label: 'Overview', icon: BarChart3 },
 		{ href: '/admin/metrics', label: 'Growth', icon: TrendingUp },
 		{ href: '/admin/users', label: 'Users', icon: Users },
-		{ href: '/admin/waitlist', label: 'Waitlist', icon: ClipboardList },
-		{ href: '/admin/invites', label: 'Invites', icon: Mail }
+		{ href: '/admin/invites', label: 'Invites', icon: Mail },
+		{ href: '/admin/waitlist', label: 'Waitlist', icon: ClipboardList }
 	];
 
 	// Match the deepest tab whose href prefixes the current path so nested
@@ -26,7 +26,7 @@
 
 <header class="mb-6">
 	<h1 class="text-2xl font-semibold tracking-tight">Admin</h1>
-	<p class="text-muted-foreground mt-1 text-sm">Internal - visible only to admins.</p>
+	<p class="text-muted-foreground mt-1 text-sm">Internal, visible only to admins.</p>
 	<Tabs.Root value={active} onValueChange={(v) => goto(v)} class="mt-4">
 		<Tabs.List>
 			{#each tabs as t (t.href)}
