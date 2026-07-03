@@ -41,7 +41,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const placesFor = async (category: 'eat' | 'drink' | 'shop' | 'visit') => {
 		const recommended = await getRecommendedPlaces(userId, loc.city, category);
 		if (recommended.length > 0) return recommended;
-		return getPopularPlaces(loc.city, category);
+		return getPopularPlaces(userId, loc.city, category);
 	};
 
 	const [weather, matchedPeople, eat, drink, shop, visit] = await Promise.all([

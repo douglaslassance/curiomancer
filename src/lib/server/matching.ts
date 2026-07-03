@@ -156,6 +156,9 @@ export async function getMatchedPeopleInCity(
 		JOIN "user" u ON u.id = ps.user_id
 		JOIN user_location ul ON ul.user_id = ps.user_id
 		WHERE ul.city = ${city}
+		  AND u.id NOT IN (
+		  	SELECT followed_id FROM "follow" WHERE follower_id = ${userId}
+		  )
 		ORDER BY ps.score DESC, ps.shared_count DESC
 		LIMIT ${limit}
 	`);
@@ -365,6 +368,7 @@ export async function getRecommendedPlaces(
  * the city by raw like count. Same shape so the UI doesn't branch.
  */
 export async function getPopularPlaces(
+	userId: string,
 	city: string,
 	category: 'eat' | 'drink' | 'shop' | 'visit',
 	limit = 8
@@ -398,7 +402,11 @@ export async function getPopularPlaces(
 			COUNT(l.id) FILTER (WHERE l.kind = 'liked')::int AS like_count
 		FROM place p
 		LEFT JOIN "place_relation" l ON l.place_id = p.id
-		WHERE p.city = ${city} AND p.category = ${category}
+		WHERE p.city = ${city}
+		  AND p.category = ${category}
+		  AND p.id NOT IN (
+		  	SELECT place_id FROM "place_relation" WHERE user_id = ${userId}
+		  )
 		GROUP BY p.id
 		ORDER BY like_count DESC, p.name ASC
 		LIMIT ${limit}
