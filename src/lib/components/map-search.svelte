@@ -1,10 +1,20 @@
 <script lang="ts">
-	import { Loader2, MapPin, ThumbsDown, ThumbsUp, X } from '@lucide/svelte';
-	import { Button } from '$lib/components/ui/button';
+	import { Bookmark, Eye, Loader2, MapPin, ThumbsDown, ThumbsUp, X } from '@lucide/svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { Badge } from '$lib/components/ui/badge';
 	import { invalidateAll } from '$app/navigation';
 	import { mapAppleCategoryClient } from '$lib/map-category';
+	import type { Component } from 'svelte';
+
+	type Kind = 'liked' | 'seen' | 'disliked' | 'want_to_go';
+	// Same four relations as RelationToggle, in the same order, so rating a
+	// search result matches rating a saved pin.
+	const RATINGS: { kind: Kind; label: string; icon: Component }[] = [
+		{ kind: 'liked', label: 'Like', icon: ThumbsUp },
+		{ kind: 'seen', label: 'Been there', icon: Eye },
+		{ kind: 'disliked', label: 'Dislike', icon: ThumbsDown },
+		{ kind: 'want_to_go', label: 'Want to go', icon: Bookmark }
+	];
 
 	type Hit = {
 		muid: string;
@@ -34,7 +44,7 @@
 	let searching = $state(false);
 	let selected = $state<Hit | null>(null);
 	// Which hit + kind is currently being saved, so we can spin the right button.
-	let saving = $state<{ muid: string; kind: 'liked' | 'disliked' } | null>(null);
+	let saving = $state<{ muid: string; kind: Kind } | null>(null);
 	let error = $state<string | null>(null);
 	let debounceId: ReturnType<typeof setTimeout> | null = null;
 
@@ -115,7 +125,7 @@
 
 	// Rate a hit directly (from a result row or the preview panel) - no need to
 	// "select" it first.
-	async function commit(kind: 'liked' | 'disliked', hit: Hit) {
+	async function commit(kind: Kind, hit: Hit) {
 		if (!hit.category) {
 			error = "We don't support this place's type yet (only places to eat, drink, shop, or visit).";
 			return;
@@ -155,6 +165,29 @@
 	}
 </script>
 
+<!-- Icon group mirroring RelationToggle: like / been there / dislike / want to go. -->
+{#snippet ratingGroup(hit: Hit)}
+	<div class="flex shrink-0 items-center gap-1">
+		{#each RATINGS as r (r.kind)}
+			{@const Icon = r.icon}
+			<button
+				type="button"
+				aria-label={r.label}
+				title={r.label}
+				disabled={saving !== null}
+				onclick={() => commit(r.kind, hit)}
+				class="hover:bg-background rounded-md border p-1.5 disabled:opacity-50"
+			>
+				{#if saving?.muid === hit.muid && saving.kind === r.kind}
+					<Loader2 class="size-4 animate-spin" />
+				{:else}
+					<Icon class="size-4" />
+				{/if}
+			</button>
+		{/each}
+	</div>
+{/snippet}
+
 <div class="absolute left-4 top-4 z-20 w-[min(22rem,calc(100vw-2rem))]">
 	<!-- Search input -->
 	<div class="bg-card flex items-center gap-2 rounded-xl border p-2 shadow-md backdrop-blur">
@@ -190,8 +223,8 @@
 	{#if results.length > 0 && !selected}
 		<div class="bg-card mt-1 max-h-96 overflow-y-auto rounded-xl border shadow-md backdrop-blur">
 			{#each results as hit (hit.muid)}
-				<div class="hover:bg-accent flex items-start gap-2 px-3 py-2">
-					<button type="button" class="min-w-0 flex-1 text-left" onclick={() => selectHit(hit)}>
+				<div class="hover:bg-accent flex flex-col gap-2 px-3 py-2">
+					<button type="button" class="min-w-0 text-left" onclick={() => selectHit(hit)}>
 						<div class="flex items-center gap-2">
 							<span class="truncate text-sm font-medium">{hit.name}</span>
 							{#if hit.category}
@@ -201,36 +234,7 @@
 						<p class="text-muted-foreground mt-0.5 truncate text-xs">{hit.address}</p>
 					</button>
 					{#if signedIn && hit.category}
-						<div class="flex shrink-0 items-center gap-1 pt-0.5">
-							<button
-								type="button"
-								aria-label="Like"
-								title="Like"
-								disabled={saving !== null}
-								onclick={() => commit('liked', hit)}
-								class="hover:bg-background rounded-md border p-1.5 disabled:opacity-50"
-							>
-								{#if saving?.muid === hit.muid && saving.kind === 'liked'}
-									<Loader2 class="size-4 animate-spin" />
-								{:else}
-									<ThumbsUp class="size-4" />
-								{/if}
-							</button>
-							<button
-								type="button"
-								aria-label="Dislike"
-								title="Dislike"
-								disabled={saving !== null}
-								onclick={() => commit('disliked', hit)}
-								class="hover:bg-background rounded-md border p-1.5 disabled:opacity-50"
-							>
-								{#if saving?.muid === hit.muid && saving.kind === 'disliked'}
-									<Loader2 class="size-4 animate-spin" />
-								{:else}
-									<ThumbsDown class="size-4" />
-								{/if}
-							</button>
-						</div>
+						{@render ratingGroup(hit)}
 					{/if}
 				</div>
 			{/each}
@@ -256,37 +260,11 @@
 				<p class="text-muted-foreground mt-2 text-xs">Sign in to like or dislike places.</p>
 			{:else if !selected.category}
 				<p class="text-muted-foreground mt-2 text-xs">
-					This type isn't supported yet - only places to eat, drink, shop, or visit.
+					This type isn't supported yet, only places to eat, drink, shop, or visit.
 				</p>
 			{:else}
-				<div class="mt-3 flex gap-2">
-					<Button
-						size="sm"
-						class="flex-1"
-						disabled={saving !== null}
-						onclick={() => selected && commit('liked', selected)}
-					>
-						{#if saving?.kind === 'liked'}
-							<Loader2 class="size-4 animate-spin" />
-						{:else}
-							<ThumbsUp class="size-4" />
-						{/if}
-						Like
-					</Button>
-					<Button
-						size="sm"
-						variant="outline"
-						class="flex-1"
-						disabled={saving !== null}
-						onclick={() => selected && commit('disliked', selected)}
-					>
-						{#if saving?.kind === 'disliked'}
-							<Loader2 class="size-4 animate-spin" />
-						{:else}
-							<ThumbsDown class="size-4" />
-						{/if}
-						Dislike
-					</Button>
+				<div class="mt-3">
+					{@render ratingGroup(selected)}
 				</div>
 			{/if}
 		</div>

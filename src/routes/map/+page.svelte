@@ -4,6 +4,8 @@
 
 	let { data } = $props();
 	const signedIn = $derived(!!page.data.user);
+	// Deep link from the places list: /map?place=<id> flies to + opens that place.
+	const selectPlaceId = $derived(page.url.searchParams.get('place'));
 </script>
 
 <!--
@@ -21,6 +23,7 @@
 		dislikedIds={data.dislikedIds ?? []}
 		seenIds={data.seenIds ?? []}
 		{signedIn}
+		{selectPlaceId}
 		showFilters={signedIn}
 	/>
 </div>

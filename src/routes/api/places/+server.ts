@@ -43,8 +43,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (source === 'apple' && !externalId) {
 		throw error(400, 'externalId is required for source=apple');
 	}
-	if (kind !== 'liked' && kind !== 'disliked' && kind !== 'want_to_go') {
-		throw error(400, "kind must be 'liked', 'disliked', or 'want_to_go'.");
+	if (kind !== 'liked' && kind !== 'disliked' && kind !== 'want_to_go' && kind !== 'seen') {
+		throw error(400, "kind must be 'liked', 'disliked', 'seen', or 'want_to_go'.");
 	}
 
 	// Dedupe: if this Apple place already exists, reuse it.

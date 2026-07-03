@@ -23,8 +23,8 @@
 
 	type RelFilter = 'liked' | 'disliked' | 'seen' | 'want_to_go' | 'recommended';
 	const REL_FILTERS: { value: RelFilter; label: string; icon: Component }[] = [
-		{ value: 'liked', label: 'Liked', icon: ThumbsUp },
 		{ value: 'recommended', label: 'Recommended', icon: Sparkles },
+		{ value: 'liked', label: 'Liked', icon: ThumbsUp },
 		{ value: 'disliked', label: 'Disliked', icon: ThumbsDown },
 		{ value: 'seen', label: 'Been there', icon: Eye },
 		{ value: 'want_to_go', label: 'Want to go', icon: Bookmark }
@@ -140,7 +140,7 @@
 	</div>
 {:else if !data.center}
 	<div class="text-muted-foreground rounded-xl border border-dashed py-12 text-center text-sm">
-		Set your location first - head to the dashboard and accept the location prompt.
+		Set your location first. Head to the dashboard and accept the location prompt.
 	</div>
 {:else}
 	<!-- Controls -->
@@ -222,7 +222,7 @@
 					class="bg-card hover:border-foreground/30 flex flex-col gap-3 rounded-xl border p-4 transition-colors"
 				>
 					<div class="min-w-0">
-						<a href={`/places/${p.id}`} class="text-sm font-medium hover:underline">{p.name}</a>
+						<a href={`/map?place=${p.id}`} class="text-sm font-medium hover:underline">{p.name}</a>
 						<div
 							class="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
 						>

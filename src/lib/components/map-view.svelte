@@ -19,6 +19,7 @@
 		showSearch = true,
 		showFilters = false,
 		showPlaceSocial = true,
+		selectPlaceId = null,
 		zoom = 12
 	}: {
 		places: Place[];
@@ -28,6 +29,8 @@
 		dislikedIds?: string[];
 		seenIds?: string[];
 		signedIn?: boolean;
+		/** Deep-link: fly to and open this place's popup once the map is ready. */
+		selectPlaceId?: string | null;
 		/** Show the search overlay. Off for read-only maps (e.g. another user's map). */
 		showSearch?: boolean;
 		/** Show relation filter chips (liked/want-to-go/seen/disliked). */
@@ -190,18 +193,23 @@
 				await loadMapKitScript();
 				if (cancelled) return;
 
-				window.mapkit.init({
-					authorizationCallback: (done: (token: string) => void) => {
-						fetchToken()
-							.then(done)
-							.catch((err) => {
-								console.error('MapKit token fetch failed:', err);
-								status = 'error';
-								errorMessage = 'Could not authenticate the map.';
-							});
-					},
-					language: navigator.language
-				});
+				// Init once per page; the rate page shares this flag via ensureMapKit
+				// so mapkit is never double-initialized (which throws).
+				if (!window.mapkit.__ccInited) {
+					window.mapkit.init({
+						authorizationCallback: (done: (token: string) => void) => {
+							fetchToken()
+								.then(done)
+								.catch((err) => {
+									console.error('MapKit token fetch failed:', err);
+									status = 'error';
+									errorMessage = 'Could not authenticate the map.';
+								});
+						},
+						language: navigator.language
+					});
+					window.mapkit.__ccInited = true;
+				}
 
 				mapRef = new window.mapkit.Map(mapElement, {
 					center: new window.mapkit.Coordinate(center.latitude, center.longitude),
@@ -209,6 +217,11 @@
 					showsCompass: window.mapkit.FeatureVisibility.Hidden,
 					showsZoomControl: false,
 					showsMapTypeControl: false,
+					// We show Apple's native POIs for street-level context alongside
+					// our own curated pins. A place you've rated therefore appears
+					// twice (our colored pin over Apple's POI); MapKit has no way to
+					// hide a single native POI, so this overlap is a known tradeoff
+					// to revisit (e.g. a unified pin layer we fully own).
 					colorScheme: window.matchMedia?.('(prefers-color-scheme: dark)').matches
 						? window.mapkit.Map.ColorSchemes.Dark
 						: window.mapkit.Map.ColorSchemes.Light
@@ -307,6 +320,25 @@
 			}
 		}
 		if (toRemove.length > 0) mapRef.removeAnnotations(toRemove);
+	});
+
+	// Deep link: when arriving with ?place=<id>, fly to that place and open its
+	// popup once the map is ready. Guarded so it only runs per distinct id.
+	let flownToId: string | null = null;
+	$effect(() => {
+		if (status !== 'ready' || !mapRef || !window.mapkit) return;
+		if (!selectPlaceId || selectPlaceId === flownToId) return;
+		const p = places.find((x) => x.id === selectPlaceId);
+		if (!p || p.latitude === null || p.longitude === null) return;
+		flownToId = selectPlaceId;
+		selectedPlace = p;
+		mapRef.setRegionAnimated(
+			new window.mapkit.CoordinateRegion(
+				new window.mapkit.Coordinate(p.latitude, p.longitude),
+				new window.mapkit.CoordinateSpan(0.02, 0.02)
+			),
+			true
+		);
 	});
 </script>
 
