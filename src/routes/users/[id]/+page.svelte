@@ -4,6 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import RelationToggle from '$lib/components/relation-toggle.svelte';
 	import AvatarMatch from '$lib/components/avatar-match.svelte';
+	import { Input } from '$lib/components/ui/input';
 	import { invalidateAll } from '$app/navigation';
 	import {
 		ArrowLeft,
@@ -11,6 +12,7 @@
 		Map,
 		MapPin,
 		MessageCircle,
+		Search,
 		ThumbsUp,
 		UserPlus,
 		UserCheck
@@ -23,6 +25,19 @@
 	const hasMap = $derived(
 		data.likedPlaces.some((p) => p.latitude !== null && p.longitude !== null)
 	);
+
+	// Search filter over their liked places (same idea as the places page).
+	let placeQuery = $state('');
+	const filteredLikes = $derived.by(() => {
+		const q = placeQuery.trim().toLowerCase();
+		if (!q) return data.likedPlaces;
+		return data.likedPlaces.filter(
+			(p) =>
+				p.name.toLowerCase().includes(q) ||
+				p.city.toLowerCase().includes(q) ||
+				(p.neighborhood?.toLowerCase().includes(q) ?? false)
+		);
+	});
 
 	let followBusy = $state(false);
 	async function toggleFollow() {
@@ -189,18 +204,36 @@
 
 	<!-- All their likes -->
 	<section>
-		<h2 class="mb-3 text-lg font-medium">
-			{data.viewer && !data.viewer.isSelf && data.viewer.sharedPlaces.length > 0
-				? 'Everything they like'
-				: 'Likes'}
-		</h2>
+		<div class="mb-3 flex items-center justify-between gap-3">
+			<h2 class="text-lg font-medium">
+				{data.viewer && !data.viewer.isSelf && data.viewer.sharedPlaces.length > 0
+					? 'Everything they like'
+					: 'Likes'}
+			</h2>
+			{#if data.likedPlaces.length > 0}
+				<div class="relative w-36 sm:w-56">
+					<Search class="text-muted-foreground absolute left-2.5 top-1/2 size-4 -translate-y-1/2" />
+					<Input
+						type="search"
+						placeholder="Search…"
+						value={placeQuery}
+						oninput={(e) => (placeQuery = e.currentTarget.value)}
+						class="h-9 pl-8"
+					/>
+				</div>
+			{/if}
+		</div>
 		{#if data.likedPlaces.length === 0}
 			<p class="text-muted-foreground rounded-xl border border-dashed py-8 text-center text-sm">
 				No likes yet.
 			</p>
+		{:else if filteredLikes.length === 0}
+			<p class="text-muted-foreground rounded-xl border border-dashed py-8 text-center text-sm">
+				No matches for "{placeQuery}".
+			</p>
 		{:else}
 			<div class="grid gap-3 sm:grid-cols-2">
-				{#each data.likedPlaces as p (p.id)}
+				{#each filteredLikes as p (p.id)}
 					{@render placeCard(p)}
 				{/each}
 			</div>
