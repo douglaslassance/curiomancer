@@ -37,7 +37,7 @@
 </script>
 
 <svelte:head>
-	<title>Admin · Waitlist - Curiomancer</title>
+	<title>Admin · Waitlist · Curiomancer</title>
 </svelte:head>
 
 <!-- Add someone by hand (same email + city as the public signup). -->

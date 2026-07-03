@@ -32,7 +32,7 @@
 </script>
 
 <svelte:head>
-	<title>Admin · Invites - Curiomancer</title>
+	<title>Admin · Invites · Curiomancer</title>
 </svelte:head>
 
 <div class="mb-4 flex items-center justify-between gap-4">

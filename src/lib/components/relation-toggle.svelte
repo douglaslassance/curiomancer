@@ -68,7 +68,7 @@
 		aria-pressed={current === 'seen'}
 		aria-label={current === 'seen'
 			? 'Unmark been there'
-			: 'Been there - you know it, no strong opinion'}
+			: 'Been there, you know it but no strong opinion'}
 		onclick={(e: Event) => press('seen', e)}
 	>
 		<Eye class="size-4" />
@@ -88,7 +88,7 @@
 		aria-pressed={current === 'want_to_go'}
 		aria-label={current === 'want_to_go'
 			? 'Remove from wishlist'
-			: "Want to go - haven't been but interested"}
+			: "Want to go, haven't been but interested"}
 		onclick={(e: Event) => press('want_to_go', e)}
 	>
 		<Bookmark class="size-4" />

@@ -11,7 +11,7 @@
 </script>
 
 <svelte:head>
-	<title>Admin · Users - Curiomancer</title>
+	<title>Admin · Users · Curiomancer</title>
 </svelte:head>
 
 <div class="bg-card overflow-x-auto rounded-xl border">

@@ -57,7 +57,7 @@
 				</Button>
 				{#if checkoutNote}
 					<p class="text-muted-foreground mt-3 text-center text-xs">
-						Checkout is being set up - hang tight.
+						Checkout is being set up. Hang tight.
 					</p>
 				{/if}
 			{:else}
