@@ -1,14 +1,20 @@
 <script lang="ts">
 	import './layout.css';
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import favicon from '$lib/assets/favicon.svg';
-	import { MapPin, Map as MapIcon, Store, Users, Shield } from '@lucide/svelte';
+	import { MapPin, Map as MapIcon, Store, Users, Shield, Star } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import ThemeToggle from '$lib/components/theme-toggle.svelte';
 	import UserMenu from '$lib/components/user-menu.svelte';
 	import { relations } from '$lib/relations.svelte';
 
 	let { data, children } = $props();
+
+	// The map routes are full-bleed (fixed overlay), so a footer would sit
+	// behind them. Hide it there; show it on every normal page.
+	const hideFooter = $derived(page.url.pathname.endsWith('/map'));
+	const year = new Date().getFullYear();
 
 	// Plain closure variable (NOT $state) - used only for memoization across
 	// effect runs. Making it reactive would cause the effect to re-trigger
@@ -52,10 +58,10 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<title>Curiomancer - taste-matched places</title>
+	<title>Curiomancer · taste-matched places</title>
 </svelte:head>
 
-<div class="bg-background text-foreground min-h-screen">
+<div class="bg-background text-foreground flex min-h-screen flex-col">
 	<header class="border-border/60 sticky top-0 z-10 border-b backdrop-blur">
 		<div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
 			<a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
@@ -79,7 +85,11 @@
 					</Button>
 					<Button href="/people" variant="ghost" size="sm">
 						<Users class="size-4" />
-						People
+						Twins
+					</Button>
+					<Button href="/rate" variant="ghost" size="sm">
+						<Star class="size-4" />
+						Rate
 					</Button>
 					{#if data.user.role === 'admin'}
 						<Button href="/admin" variant="ghost" size="sm">
@@ -98,7 +108,28 @@
 		</div>
 	</header>
 
-	<main class="mx-auto max-w-5xl px-4 py-8">
+	<main class="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
 		{@render children()}
 	</main>
+
+	{#if !hideFooter}
+		<footer class="border-border/60 border-t">
+			<div
+				class="text-muted-foreground mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-6 text-xs"
+			>
+				<span class="flex items-center gap-1.5">
+					<MapPin class="size-3.5" />
+					© {year} Curiomancer
+				</span>
+				<nav class="flex flex-wrap items-center gap-x-4 gap-y-2">
+					<a href="/pro" class="hover:text-foreground transition-colors">Pro</a>
+					<a href="/terms" class="hover:text-foreground transition-colors">Terms</a>
+					<a href="/privacy" class="hover:text-foreground transition-colors">Privacy</a>
+					<a href="mailto:hello@curiomancer.com" class="hover:text-foreground transition-colors">
+						Contact
+					</a>
+				</nav>
+			</div>
+		</footer>
+	{/if}
 </div>
