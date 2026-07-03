@@ -33,7 +33,8 @@
 	let results = $state<Hit[]>([]);
 	let searching = $state(false);
 	let selected = $state<Hit | null>(null);
-	let savingKind = $state<'liked' | 'disliked' | null>(null);
+	// Which hit + kind is currently being saved, so we can spin the right button.
+	let saving = $state<{ muid: string; kind: 'liked' | 'disliked' } | null>(null);
 	let error = $state<string | null>(null);
 	let debounceId: ReturnType<typeof setTimeout> | null = null;
 
@@ -112,26 +113,27 @@
 		onClearPreview();
 	}
 
-	async function commit(kind: 'liked' | 'disliked') {
-		if (!selected) return;
-		if (!selected.category) {
+	// Rate a hit directly (from a result row or the preview panel) - no need to
+	// "select" it first.
+	async function commit(kind: 'liked' | 'disliked', hit: Hit) {
+		if (!hit.category) {
 			error = "We don't support this place's type yet (only places to eat, drink, shop, or visit).";
 			return;
 		}
-		savingKind = kind;
+		saving = { muid: hit.muid, kind };
 		error = null;
 		try {
 			const res = await fetch('/api/places', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({
-					externalId: selected.muid,
+					externalId: hit.muid,
 					source: 'apple',
-					name: selected.name,
-					category: selected.category,
-					city: selected.locality ?? '',
-					latitude: selected.latitude,
-					longitude: selected.longitude,
+					name: hit.name,
+					category: hit.category,
+					city: hit.locality ?? '',
+					latitude: hit.latitude,
+					longitude: hit.longitude,
 					kind
 				})
 			});
@@ -148,7 +150,7 @@
 			console.error('Failed to add place:', err);
 			error = err instanceof Error ? err.message : 'Could not add the place.';
 		} finally {
-			savingKind = null;
+			saving = null;
 		}
 	}
 </script>
@@ -178,16 +180,18 @@
 		{/if}
 	</div>
 
-	<!-- Results dropdown -->
+	{#if error}
+		<p class="bg-card text-destructive mt-1 rounded-xl border px-3 py-2 text-xs shadow-md">
+			{error}
+		</p>
+	{/if}
+
+	<!-- Results dropdown: rate inline, or click the text to preview on the map. -->
 	{#if results.length > 0 && !selected}
 		<div class="bg-card mt-1 max-h-96 overflow-y-auto rounded-xl border shadow-md backdrop-blur">
 			{#each results as hit (hit.muid)}
-				<button
-					type="button"
-					class="hover:bg-accent flex w-full items-start gap-2 px-3 py-2 text-left"
-					onclick={() => selectHit(hit)}
-				>
-					<div class="min-w-0 flex-1">
+				<div class="hover:bg-accent flex items-start gap-2 px-3 py-2">
+					<button type="button" class="min-w-0 flex-1 text-left" onclick={() => selectHit(hit)}>
 						<div class="flex items-center gap-2">
 							<span class="truncate text-sm font-medium">{hit.name}</span>
 							{#if hit.category}
@@ -195,8 +199,40 @@
 							{/if}
 						</div>
 						<p class="text-muted-foreground mt-0.5 truncate text-xs">{hit.address}</p>
-					</div>
-				</button>
+					</button>
+					{#if signedIn && hit.category}
+						<div class="flex shrink-0 items-center gap-1 pt-0.5">
+							<button
+								type="button"
+								aria-label="Like"
+								title="Like"
+								disabled={saving !== null}
+								onclick={() => commit('liked', hit)}
+								class="hover:bg-background rounded-md border p-1.5 disabled:opacity-50"
+							>
+								{#if saving?.muid === hit.muid && saving.kind === 'liked'}
+									<Loader2 class="size-4 animate-spin" />
+								{:else}
+									<ThumbsUp class="size-4" />
+								{/if}
+							</button>
+							<button
+								type="button"
+								aria-label="Dislike"
+								title="Dislike"
+								disabled={saving !== null}
+								onclick={() => commit('disliked', hit)}
+								class="hover:bg-background rounded-md border p-1.5 disabled:opacity-50"
+							>
+								{#if saving?.muid === hit.muid && saving.kind === 'disliked'}
+									<Loader2 class="size-4 animate-spin" />
+								{:else}
+									<ThumbsDown class="size-4" />
+								{/if}
+							</button>
+						</div>
+					{/if}
+				</div>
 			{/each}
 		</div>
 	{/if}
@@ -227,10 +263,10 @@
 					<Button
 						size="sm"
 						class="flex-1"
-						disabled={savingKind !== null}
-						onclick={() => commit('liked')}
+						disabled={saving !== null}
+						onclick={() => selected && commit('liked', selected)}
 					>
-						{#if savingKind === 'liked'}
+						{#if saving?.kind === 'liked'}
 							<Loader2 class="size-4 animate-spin" />
 						{:else}
 							<ThumbsUp class="size-4" />
@@ -241,10 +277,10 @@
 						size="sm"
 						variant="outline"
 						class="flex-1"
-						disabled={savingKind !== null}
-						onclick={() => commit('disliked')}
+						disabled={saving !== null}
+						onclick={() => selected && commit('disliked', selected)}
 					>
-						{#if savingKind === 'disliked'}
+						{#if saving?.kind === 'disliked'}
 							<Loader2 class="size-4 animate-spin" />
 						{:else}
 							<ThumbsDown class="size-4" />
@@ -252,10 +288,6 @@
 						Dislike
 					</Button>
 				</div>
-			{/if}
-
-			{#if error}
-				<p class="text-destructive mt-2 text-xs">{error}</p>
 			{/if}
 		</div>
 	{/if}
