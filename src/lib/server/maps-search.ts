@@ -178,56 +178,67 @@ export async function autocompletePlaces(query: string): Promise<PlaceCompletion
 }
 
 /**
- * Best-effort mapping of Apple's poiCategory strings to our category enum
- * (eat / drink / shop / visit). Anything we can't classify returns null and
- * the caller decides what to do. Keep in sync with mapAppleCategoryClient.
+ * Map Apple's poiCategory strings to our category enum (eat / drink / shop /
+ * visit). Keep in sync with mapAppleCategoryClient.
  *
- * Apple has dozens of POI categories. We don't enumerate all of them - this
- * is a "the common ones we expect users to add" mapping. Add as we learn.
+ * Matched exactly, not by substring: substring matching classified
+ * "PublicTransport" as drink (contains "pub"), "Parking" as visit (contains
+ * "park"), and so on. Unknown categories return null and the caller decides.
+ * The extra tokens beyond the MapKit JS vocabulary cover synonyms the Server
+ * API may return (e.g. CoffeeShop, GroceryStore).
  */
+const EAT_CATEGORIES = new Set(['bakery', 'cafe', 'restaurant', 'coffeeshop', 'coffee', 'dessert']);
+const DRINK_CATEGORIES = new Set([
+	'brewery',
+	'distillery',
+	'nightlife',
+	'winery',
+	'bar',
+	'pub',
+	'brewpub'
+]);
+const SHOP_CATEGORIES = new Set([
+	'store',
+	'foodmarket',
+	'bookstore',
+	'clothingstore',
+	'mall',
+	'market',
+	'grocerystore'
+]);
+const VISIT_CATEGORIES = new Set([
+	'amusementpark',
+	'aquarium',
+	'beach',
+	'campground',
+	'castle',
+	'fairground',
+	'fortress',
+	'landmark',
+	'library',
+	'marina',
+	'movietheater',
+	'museum',
+	'musicvenue',
+	'nationalmonument',
+	'nationalpark',
+	'park',
+	'planetarium',
+	'stadium',
+	'theater',
+	'zoo',
+	'monument',
+	'garden',
+	'gallery',
+	'observatory'
+]);
+
 export function mapAppleCategory(poiCategory?: string): 'eat' | 'drink' | 'shop' | 'visit' | null {
 	if (!poiCategory) return null;
 	const c = poiCategory.toLowerCase();
-
-	// Drink first so "brewery"/"winery" land here rather than eat/visit.
-	if (['bar', 'pub', 'brewery', 'winery', 'distillery', 'nightlife'].some((n) => c.includes(n))) {
-		return 'drink';
-	}
-	if (
-		['restaurant', 'cafe', 'coffee', 'bakery', 'fastfood', 'food', 'dessert', 'icecream'].some(
-			(n) => c.includes(n)
-		)
-	) {
-		return 'eat';
-	}
-	if (
-		['store', 'shop', 'bookstore', 'clothingstore', 'market', 'mall'].some((n) => c.includes(n))
-	) {
-		return 'shop';
-	}
-	if (
-		[
-			'park',
-			'museum',
-			'landmark',
-			'monument',
-			'aquarium',
-			'zoo',
-			'garden',
-			'beach',
-			'amusement',
-			'stadium',
-			'theater',
-			'gallery',
-			'library',
-			'castle',
-			'fortress',
-			'observatory',
-			'planetarium',
-			'attraction'
-		].some((n) => c.includes(n))
-	) {
-		return 'visit';
-	}
+	if (EAT_CATEGORIES.has(c)) return 'eat';
+	if (DRINK_CATEGORIES.has(c)) return 'drink';
+	if (SHOP_CATEGORIES.has(c)) return 'shop';
+	if (VISIT_CATEGORIES.has(c)) return 'visit';
 	return null;
 }
