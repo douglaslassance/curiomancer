@@ -49,18 +49,16 @@
 -->
 {#snippet placeCard(p: Place)}
 	<article
-		class="bg-card hover:border-foreground/30 flex items-start justify-between gap-3 rounded-xl border p-4 transition-colors"
+		class="bg-card hover:border-foreground/30 flex flex-col gap-3 rounded-xl border p-4 transition-colors"
 	>
-		<a href={`/places/${p.id}`} class="min-w-0 flex-1">
-			<div class="flex items-start justify-between gap-2">
-				<span class="text-sm font-medium hover:underline">{p.name}</span>
+		<div class="min-w-0">
+			<a href={`/places/${p.id}`} class="text-sm font-medium hover:underline">{p.name}</a>
+			<div class="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
 				<Badge variant="secondary" class="capitalize">{p.category}</Badge>
+				<span>{p.neighborhood ? `${p.neighborhood}, ` : ''}{p.city}</span>
 			</div>
-			<p class="text-muted-foreground mt-1 text-xs">
-				{p.neighborhood ? `${p.neighborhood}, ` : ''}{p.city}
-			</p>
-		</a>
-		<div class="shrink-0">
+		</div>
+		<div class="flex justify-end">
 			<RelationToggle placeId={p.id} />
 		</div>
 	</article>

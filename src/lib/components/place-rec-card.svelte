@@ -11,17 +11,17 @@
 <article
 	class="bg-card hover:border-foreground/30 flex flex-col gap-3 rounded-xl border p-4 transition-colors"
 >
-	<div class="flex items-start justify-between gap-2">
-		<div>
-			<h3 class="text-sm font-medium">
-				<a href={`/places/${place.id}`} class="hover:underline">{place.name}</a>
-			</h3>
-			<p class="text-muted-foreground mt-0.5 flex items-center gap-1 text-xs">
+	<div class="min-w-0">
+		<h3 class="text-sm font-medium">
+			<a href={`/places/${place.id}`} class="hover:underline">{place.name}</a>
+		</h3>
+		<div class="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+			<Badge variant="secondary" class="capitalize">{place.category}</Badge>
+			<span class="flex items-center gap-1">
 				<MapPin class="size-3" />
 				{place.neighborhood ?? place.city}
-			</p>
+			</span>
 		</div>
-		<Badge variant="secondary" class="capitalize">{place.category}</Badge>
 	</div>
 	<p class="text-muted-foreground line-clamp-2 text-xs">{place.description}</p>
 	<div class="flex items-center justify-between gap-2">

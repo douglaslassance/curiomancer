@@ -219,25 +219,26 @@
 		<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 			{#each visible as p (p.id)}
 				<article
-					class="bg-card hover:border-foreground/30 flex items-start justify-between gap-3 rounded-xl border p-4 transition-colors"
+					class="bg-card hover:border-foreground/30 flex flex-col gap-3 rounded-xl border p-4 transition-colors"
 				>
-					<a href={`/places/${p.id}`} class="min-w-0 flex-1">
-						<div class="flex items-start justify-between gap-2">
-							<span class="text-sm font-medium hover:underline">{p.name}</span>
+					<div class="min-w-0">
+						<a href={`/places/${p.id}`} class="text-sm font-medium hover:underline">{p.name}</a>
+						<div
+							class="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
+						>
 							<Badge variant="secondary" class="capitalize">{p.category}</Badge>
+							<span class="flex items-center gap-1">
+								<MapPin class="size-3" />
+								{p.neighborhood ? `${p.neighborhood}, ` : ''}{p.city} · {Math.round(p.distanceKm)} km
+							</span>
 						</div>
-						<p class="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
-							<MapPin class="size-3" />
-							{p.neighborhood ? `${p.neighborhood}, ` : ''}{p.city}
-							<span>· {Math.round(p.distanceKm)} km</span>
-						</p>
+					</div>
+					<div class="flex items-center justify-between gap-2">
 						{#if activeFilters.has('recommended') && (data.recommendedScores[p.id] ?? 0) > 0}
-							<div class="mt-2">
-								<MatchBadge score={Math.min(data.recommendedScores[p.id], 1)} />
-							</div>
+							<MatchBadge score={Math.min(data.recommendedScores[p.id], 1)} />
+						{:else}
+							<span></span>
 						{/if}
-					</a>
-					<div class="shrink-0">
 						<RelationToggle placeId={p.id} />
 					</div>
 				</article>
