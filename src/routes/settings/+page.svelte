@@ -324,7 +324,7 @@
 
 					{#if form?.tokenCreated}
 						<div class="bg-muted mt-3 rounded-lg border p-3">
-							<p class="text-xs font-medium">New token - copy it now, it won't be shown again.</p>
+							<p class="text-xs font-medium">New token. Copy it now, it won't be shown again.</p>
 							<div class="mt-2 flex items-center gap-2">
 								<code
 									class="bg-background min-w-0 flex-1 truncate rounded border px-2 py-1 text-xs"
