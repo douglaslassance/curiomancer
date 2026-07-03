@@ -1,8 +1,35 @@
 <script lang="ts">
-	import { MapPin, RefreshCw, Loader2 } from '@lucide/svelte';
+	import {
+		Cloud,
+		CloudDrizzle,
+		CloudFog,
+		CloudLightning,
+		CloudRain,
+		CloudSnow,
+		CloudSun,
+		Loader2,
+		MapPin,
+		RefreshCw,
+		Sun
+	} from '@lucide/svelte';
+	import type { Component } from 'svelte';
 	import type { UserLocation } from '$lib/server/db/schema';
 	import type { Weather } from '$lib/server/weather';
 	import { updateLocation, type LocationUpdateError } from '$lib/location-update';
+
+	// Lucide icon for a WMO weather code (mirrors describeCode in weather.ts).
+	function weatherIcon(code: number): Component {
+		if (code === 0) return Sun;
+		if (code <= 2) return CloudSun;
+		if (code === 3) return Cloud;
+		if (code >= 45 && code <= 48) return CloudFog;
+		if (code >= 51 && code <= 57) return CloudDrizzle;
+		if (code >= 61 && code <= 67) return CloudRain;
+		if (code >= 71 && code <= 77) return CloudSnow;
+		if (code >= 80 && code <= 82) return CloudRain;
+		if (code >= 95) return CloudLightning;
+		return CloudSun;
+	}
 
 	let {
 		location,
@@ -68,8 +95,9 @@
 		</div>
 		<div class="text-muted-foreground text-sm tabular-nums">{localTime}</div>
 		{#if weather}
+			{@const WeatherIcon = weatherIcon(weather.weatherCode)}
 			<div class="text-muted-foreground flex items-center gap-1.5 text-sm">
-				<span aria-hidden="true">{weather.icon}</span>
+				<WeatherIcon class="size-4" />
 				<span>{weather.temperatureC}°C · {weather.description}</span>
 			</div>
 		{/if}

@@ -16,8 +16,6 @@ export type Weather = {
 	weatherCode: number;
 	/** Human label for the WMO weather code. */
 	description: string;
-	/** Emoji glyph for the weather code. */
-	icon: string;
 };
 
 type CacheEntry = { value: Weather; expiresAt: number };
@@ -52,8 +50,7 @@ export async function getCurrentWeather(latitude: number, longitude: number): Pr
 	const value: Weather = {
 		temperatureC: Math.round(t),
 		weatherCode: code,
-		description: describeCode(code),
-		icon: iconForCode(code)
+		description: describeCode(code)
 	};
 	cache.set(key, { value, expiresAt: Date.now() + TTL_MS });
 	return value;
@@ -72,16 +69,4 @@ function describeCode(code: number): string {
 	if (code >= 80 && code <= 82) return 'Rain showers';
 	if (code >= 95) return 'Thunderstorm';
 	return 'Mild';
-}
-
-function iconForCode(code: number): string {
-	if (code === 0) return '☀️';
-	if (code <= 2) return '⛅';
-	if (code === 3) return '☁️';
-	if (code >= 45 && code <= 48) return '🌫️';
-	if (code >= 51 && code <= 67) return '🌧️';
-	if (code >= 71 && code <= 77) return '🌨️';
-	if (code >= 80 && code <= 82) return '🌦️';
-	if (code >= 95) return '⛈️';
-	return '🌥️';
 }
