@@ -85,6 +85,13 @@
       "when": 1782975191227,
       "tag": "0011_brainy_the_watchers",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1783038165895,
+      "tag": "0012_recategorize_places",
+      "breakpoints": true
     }
   ]
 }

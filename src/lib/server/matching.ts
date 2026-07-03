@@ -262,13 +262,13 @@ export function getPeopleWhoSawPlace(userId: string | null, placeId: string, lim
 export async function getRecommendedPlaces(
 	userId: string,
 	city: string,
-	category: 'restaurant' | 'bar' | 'shop',
+	category: 'eat' | 'drink' | 'shop' | 'visit',
 	limit = 8
 ): Promise<RecommendedPlace[]> {
 	const rows = await db.execute<{
 		id: string;
 		name: string;
-		category: 'restaurant' | 'bar' | 'shop';
+		category: 'eat' | 'drink' | 'shop' | 'visit';
 		city: string;
 		neighborhood: string | null;
 		description: string;
@@ -366,13 +366,13 @@ export async function getRecommendedPlaces(
  */
 export async function getPopularPlaces(
 	city: string,
-	category: 'restaurant' | 'bar' | 'shop',
+	category: 'eat' | 'drink' | 'shop' | 'visit',
 	limit = 8
 ): Promise<RecommendedPlace[]> {
 	const rows = await db.execute<{
 		id: string;
 		name: string;
-		category: 'restaurant' | 'bar' | 'shop';
+		category: 'eat' | 'drink' | 'shop' | 'visit';
 		city: string;
 		neighborhood: string | null;
 		description: string;

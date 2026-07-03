@@ -29,7 +29,7 @@ export const place = pgTable(
 			.primaryKey()
 			.$defaultFn(() => crypto.randomUUID()),
 		name: text('name').notNull(),
-		category: text('category', { enum: ['shop', 'bar', 'restaurant'] }).notNull(),
+		category: text('category', { enum: ['eat', 'drink', 'shop', 'visit'] }).notNull(),
 		city: text('city').notNull(),
 		neighborhood: text('neighborhood'),
 		description: text('description').notNull(),

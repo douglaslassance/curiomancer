@@ -47,7 +47,7 @@ type PlaceHint = {
 	query: string;
 	city: 'Los Angeles' | 'Tokyo';
 	/** Override category if Apple's mapping disagrees with us. */
-	category?: 'restaurant' | 'bar' | 'shop';
+	category?: 'eat' | 'drink' | 'shop' | 'visit';
 	neighborhood?: string;
 	description?: string;
 };
@@ -58,55 +58,55 @@ const PLACE_HINTS: PlaceHint[] = [
 		query: 'Bestia Los Angeles',
 		city: 'Los Angeles',
 		neighborhood: 'Arts District',
-		category: 'restaurant'
+		category: 'eat'
 	},
 	{
 		query: 'Sqirl Los Angeles',
 		city: 'Los Angeles',
 		neighborhood: 'Virgil Village',
-		category: 'restaurant'
+		category: 'eat'
 	},
 	{
 		query: 'Gjusta Venice CA',
 		city: 'Los Angeles',
 		neighborhood: 'Venice',
-		category: 'restaurant'
+		category: 'eat'
 	},
 	{
 		query: 'Found Oyster Los Angeles',
 		city: 'Los Angeles',
 		neighborhood: 'East Hollywood',
-		category: 'restaurant'
+		category: 'eat'
 	},
 	{
 		query: 'Cobi Los Angeles',
 		city: 'Los Angeles',
 		neighborhood: 'Sawtelle',
-		category: 'restaurant'
+		category: 'eat'
 	},
 	{
 		query: 'The Varnish Los Angeles',
 		city: 'Los Angeles',
 		neighborhood: 'Downtown',
-		category: 'bar'
+		category: 'drink'
 	},
 	{
 		query: 'Bar Bandini Echo Park',
 		city: 'Los Angeles',
 		neighborhood: 'Echo Park',
-		category: 'bar'
+		category: 'drink'
 	},
 	{
 		query: 'Tabula Rasa Bar Los Angeles',
 		city: 'Los Angeles',
 		neighborhood: 'Thai Town',
-		category: 'bar'
+		category: 'drink'
 	},
 	{
 		query: 'Thunderbolt Los Angeles',
 		city: 'Los Angeles',
 		neighborhood: 'Historic Filipinotown',
-		category: 'bar'
+		category: 'drink'
 	},
 	{
 		query: 'Stories Books and Cafe Echo Park',
@@ -135,18 +135,18 @@ const PLACE_HINTS: PlaceHint[] = [
 
 	// Tokyo
 	{ query: 'Fuglen Tokyo Shibuya', city: 'Tokyo', neighborhood: 'Shibuya', category: 'shop' },
-	{ query: 'Bar Trench Ebisu Tokyo', city: 'Tokyo', neighborhood: 'Ebisu', category: 'bar' },
+	{ query: 'Bar Trench Ebisu Tokyo', city: 'Tokyo', neighborhood: 'Ebisu', category: 'drink' },
 	{
 		query: 'Tsuta ramen Tokyo',
 		city: 'Tokyo',
 		neighborhood: 'Yoyogi-Uehara',
-		category: 'restaurant'
+		category: 'eat'
 	},
 	{
 		query: 'Sushi Saito Roppongi Tokyo',
 		city: 'Tokyo',
 		neighborhood: 'Roppongi',
-		category: 'restaurant'
+		category: 'eat'
 	},
 	{
 		query: 'Cow Books Nakameguro Tokyo',
@@ -158,13 +158,13 @@ const PLACE_HINTS: PlaceHint[] = [
 		query: 'Beard restaurant Meguro Tokyo',
 		city: 'Tokyo',
 		neighborhood: 'Meguro',
-		category: 'restaurant'
+		category: 'eat'
 	},
 	{
 		query: 'Gen Yamamoto Azabu-Juban',
 		city: 'Tokyo',
 		neighborhood: 'Azabu-Juban',
-		category: 'bar'
+		category: 'drink'
 	},
 	{
 		query: 'Coutume Aoyama 5-50-7 Minato Tokyo',
@@ -176,7 +176,7 @@ const PLACE_HINTS: PlaceHint[] = [
 		query: 'Den restaurant Jingumae Shibuya Tokyo',
 		city: 'Tokyo',
 		neighborhood: 'Jingumae',
-		category: 'restaurant'
+		category: 'eat'
 	},
 	{
 		query: 'Bear Pond Espresso Shimokitazawa',
@@ -184,7 +184,7 @@ const PLACE_HINTS: PlaceHint[] = [
 		neighborhood: 'Shimokitazawa',
 		category: 'shop'
 	},
-	{ query: 'SG Club Shibuya Tokyo', city: 'Tokyo', neighborhood: 'Shibuya', category: 'bar' },
+	{ query: 'SG Club Shibuya Tokyo', city: 'Tokyo', neighborhood: 'Shibuya', category: 'drink' },
 	{ query: 'Daikanyama T-Site', city: 'Tokyo', neighborhood: 'Daikanyama', category: 'shop' }
 ];
 
@@ -194,7 +194,7 @@ type CachedPlace = {
 	muid: string;
 	name: string;
 	city: string;
-	category: 'restaurant' | 'bar' | 'shop';
+	category: 'eat' | 'drink' | 'shop' | 'visit';
 	latitude: number;
 	longitude: number;
 	formattedAddress: string;
@@ -222,7 +222,7 @@ function cacheKey(hint: PlaceHint): string {
 function resultToCached(
 	r: AppleSearchResult,
 	city: string,
-	categoryOverride?: 'restaurant' | 'bar' | 'shop'
+	categoryOverride?: 'eat' | 'drink' | 'shop' | 'visit'
 ): CachedPlace | null {
 	const category = categoryOverride ?? mapAppleCategory(r.poiCategory);
 	if (!category) return null;

@@ -12,23 +12,28 @@ import type { Place } from '$lib/server/db/schema';
 // Lucide source paths (24×24 viewBox, stroke-based). Keep in sync with
 // `node_modules/@lucide/svelte/dist/icons/<icon>.svelte` if we ever upgrade.
 const PATHS: Record<Place['category'], string[]> = {
-	restaurant: [
+	// utensils-crossed
+	eat: [
 		'm16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8',
 		'M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15Zm0 0 7 7',
 		'm2.1 21.8 6.4-6.3',
 		'm19 5-7 7'
 	],
-	bar: [
+	// martini
+	drink: [
 		'M8 22h8',
 		'M7 10h10',
 		'M12 15v7',
 		'M12 15a5 5 0 0 0 5-5c0-2-.5-4-2-8H9c-1.5 4-2 6-2 8a5 5 0 0 0 5 5Z'
 	],
+	// shopping-bag
 	shop: [
 		'M16 10a4 4 0 0 1-8 0',
 		'M3.103 6.034h17.794',
 		'M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z'
-	]
+	],
+	// landmark (parks, museums, attractions)
+	visit: ['M3 22h18', 'M6 18v-7', 'M10 18v-7', 'M14 18v-7', 'M18 18v-7', 'M12 2 20 7 4 7Z']
 };
 
 /**

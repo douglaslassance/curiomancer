@@ -10,7 +10,7 @@ type AddPlaceBody = {
 	externalId?: string;
 	source?: 'apple' | 'manual';
 	name?: string;
-	category?: 'restaurant' | 'bar' | 'shop';
+	category?: 'eat' | 'drink' | 'shop' | 'visit';
 	city?: string;
 	neighborhood?: string;
 	description?: string;

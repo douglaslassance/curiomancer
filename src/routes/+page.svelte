@@ -279,23 +279,30 @@
 	<MatchedPeopleRail people={data.matchedPeople} />
 
 	<CategoryRail
-		title="Restaurants"
-		places={data.restaurants}
-		empty={`No restaurants in ${data.location.city} yet.`}
+		title="Eat"
+		places={data.eat}
+		empty={`Nowhere to eat in ${data.location.city} yet.`}
 		showMatch={data.myLikeCount > 0}
 	/>
 
 	<CategoryRail
-		title="Bars"
-		places={data.bars}
-		empty={`No bars in ${data.location.city} yet.`}
+		title="Drink"
+		places={data.drink}
+		empty={`Nowhere to drink in ${data.location.city} yet.`}
 		showMatch={data.myLikeCount > 0}
 	/>
 
 	<CategoryRail
-		title="Shops"
-		places={data.shops}
-		empty={`No shops in ${data.location.city} yet.`}
+		title="Shop"
+		places={data.shop}
+		empty={`Nowhere to shop in ${data.location.city} yet.`}
+		showMatch={data.myLikeCount > 0}
+	/>
+
+	<CategoryRail
+		title="Visit"
+		places={data.visit}
+		empty={`Nowhere to visit in ${data.location.city} yet.`}
 		showMatch={data.myLikeCount > 0}
 	/>
 {/if}

@@ -50,10 +50,11 @@
 	}
 
 	// Place-type toggles (all on by default). Same control as the map's.
-	let categories = $state<Record<'shop' | 'bar' | 'restaurant', boolean>>({
+	let categories = $state<Record<'eat' | 'drink' | 'shop' | 'visit', boolean>>({
+		eat: true,
+		drink: true,
 		shop: true,
-		bar: true,
-		restaurant: true
+		visit: true
 	});
 
 	const likedSet = $derived(new Set(data.likedIds));

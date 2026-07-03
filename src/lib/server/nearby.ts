@@ -44,7 +44,7 @@ export async function getPlacesNearby(
 	const rows = await db.execute<{
 		id: string;
 		name: string;
-		category: 'restaurant' | 'bar' | 'shop';
+		category: 'eat' | 'drink' | 'shop' | 'visit';
 		city: string;
 		neighborhood: string | null;
 		description: string;

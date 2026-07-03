@@ -1,21 +1,22 @@
 <script lang="ts">
-	import { ShoppingBag, Martini, UtensilsCrossed } from '@lucide/svelte';
+	import { ShoppingBag, Martini, UtensilsCrossed, Landmark } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 
-	type Cat = 'shop' | 'bar' | 'restaurant';
+	type Cat = 'eat' | 'drink' | 'shop' | 'visit';
 
 	// Toggle which place types are shown. Shared by the places list and the map
 	// so the "type of place" filter looks and behaves identically in both.
 	let {
-		value = $bindable({ shop: true, bar: true, restaurant: true })
+		value = $bindable({ eat: true, drink: true, shop: true, visit: true })
 	}: {
 		value?: Record<Cat, boolean>;
 	} = $props();
 
 	const CATS: { key: Cat; label: string; icon: Component }[] = [
-		{ key: 'shop', label: 'Shops', icon: ShoppingBag },
-		{ key: 'bar', label: 'Bars', icon: Martini },
-		{ key: 'restaurant', label: 'Restaurants', icon: UtensilsCrossed }
+		{ key: 'eat', label: 'Eat', icon: UtensilsCrossed },
+		{ key: 'drink', label: 'Drink', icon: Martini },
+		{ key: 'shop', label: 'Shop', icon: ShoppingBag },
+		{ key: 'visit', label: 'Visit', icon: Landmark }
 	];
 </script>
 

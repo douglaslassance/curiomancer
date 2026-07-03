@@ -71,9 +71,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		// Recommendation scores are computed per-category by the existing
 		// matching layer. Flatten into a single map placeId → score.
 		Promise.all([
-			getRecommendedPlaces(locals.user.id, loc.city, 'restaurant', 100),
-			getRecommendedPlaces(locals.user.id, loc.city, 'bar', 100),
-			getRecommendedPlaces(locals.user.id, loc.city, 'shop', 100)
+			getRecommendedPlaces(locals.user.id, loc.city, 'eat', 100),
+			getRecommendedPlaces(locals.user.id, loc.city, 'drink', 100),
+			getRecommendedPlaces(locals.user.id, loc.city, 'shop', 100),
+			getRecommendedPlaces(locals.user.id, loc.city, 'visit', 100)
 		])
 	]);
 

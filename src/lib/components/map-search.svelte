@@ -12,7 +12,7 @@
 		address: string;
 		latitude: number;
 		longitude: number;
-		category: 'restaurant' | 'bar' | 'shop' | null;
+		category: 'eat' | 'drink' | 'shop' | 'visit' | null;
 		locality?: string;
 	};
 
@@ -115,7 +115,7 @@
 	async function commit(kind: 'liked' | 'disliked') {
 		if (!selected) return;
 		if (!selected.category) {
-			error = "We don't support this place's category yet (only restaurants, bars, shops).";
+			error = "We don't support this place's type yet (only places to eat, drink, shop, or visit).";
 			return;
 		}
 		savingKind = kind;
@@ -220,7 +220,7 @@
 				<p class="text-muted-foreground mt-2 text-xs">Sign in to like or dislike places.</p>
 			{:else if !selected.category}
 				<p class="text-muted-foreground mt-2 text-xs">
-					This category isn't supported yet - only restaurants, bars, and shops.
+					This type isn't supported yet - only places to eat, drink, shop, or visit.
 				</p>
 			{:else}
 				<div class="mt-3 flex gap-2">

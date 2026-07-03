@@ -38,13 +38,13 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// algorithmic taste-twins and people the user follows. If both pools
 	// are empty (cold-start user with no likes and no follows), fall back
 	// to raw popularity so the dashboard never renders empty rails.
-	const placesFor = async (category: 'restaurant' | 'bar' | 'shop') => {
+	const placesFor = async (category: 'eat' | 'drink' | 'shop' | 'visit') => {
 		const recommended = await getRecommendedPlaces(userId, loc.city, category);
 		if (recommended.length > 0) return recommended;
 		return getPopularPlaces(loc.city, category);
 	};
 
-	const [weather, matchedPeople, restaurants, bars, shops] = await Promise.all([
+	const [weather, matchedPeople, eat, drink, shop, visit] = await Promise.all([
 		getCurrentWeather(loc.latitude, loc.longitude).catch((err) => {
 			console.error('Weather lookup failed:', err);
 			return null as Weather | null;
@@ -52,9 +52,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 		myLikeCount > 0
 			? getMatchedPeopleInCity(userId, loc.city)
 			: Promise.resolve([] as MatchedPerson[]),
-		placesFor('restaurant'),
-		placesFor('bar'),
-		placesFor('shop')
+		placesFor('eat'),
+		placesFor('drink'),
+		placesFor('shop'),
+		placesFor('visit')
 	]);
 
 	return {
@@ -62,9 +63,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 		location: loc,
 		weather,
 		matchedPeople,
-		restaurants: restaurants as RecommendedPlace[],
-		bars: bars as RecommendedPlace[],
-		shops: shops as RecommendedPlace[],
+		eat: eat as RecommendedPlace[],
+		drink: drink as RecommendedPlace[],
+		shop: shop as RecommendedPlace[],
+		visit: visit as RecommendedPlace[],
 		myLikeCount
 	};
 };

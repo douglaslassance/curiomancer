@@ -89,7 +89,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			const shared = await db.execute<{
 				id: string;
 				name: string;
-				category: 'restaurant' | 'bar' | 'shop';
+				category: 'eat' | 'drink' | 'shop' | 'visit';
 				city: string;
 				neighborhood: string | null;
 				description: string;

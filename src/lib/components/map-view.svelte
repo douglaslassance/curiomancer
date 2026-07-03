@@ -60,9 +60,10 @@
 
 	// Place-type toggles (all on by default), shared with the places list.
 	let categories = $state<Record<Place['category'], boolean>>({
+		eat: true,
+		drink: true,
 		shop: true,
-		bar: true,
-		restaurant: true
+		visit: true
 	});
 
 	const FILTER_CHIPS: { key: FilterKey; label: string; color: string }[] = [
@@ -148,7 +149,7 @@
 		name: string;
 		latitude: number;
 		longitude: number;
-		category: 'restaurant' | 'bar' | 'shop' | null;
+		category: 'eat' | 'drink' | 'shop' | 'visit' | null;
 	}) {
 		if (!mapRef || !window.mapkit) return;
 		clearPreviewMarker();
