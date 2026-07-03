@@ -16,9 +16,9 @@
 			anytime from Settings. You can delete your account and associated data whenever you like.
 		</p>
 		<p>
-			This is a living document for an early-stage product. Questions or requests? Reach us at <a
-				href="mailto:hello@curiomancer.com"
-				class="font-medium underline">hello@curiomancer.com</a
+			This is a living document for an early-stage product. Questions or requests? <a
+				href="/contact"
+				class="font-medium underline">Contact us</a
 			>.
 		</p>
 	</div>
