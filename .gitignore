@@ -31,3 +31,6 @@ vite.config.ts.timestamp-*
 # Playwright MCP scratch
 /.playwright-mcp/
 /*.png
+
+# Claude Code local state
+.claude/
