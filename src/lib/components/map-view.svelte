@@ -323,8 +323,9 @@
 	{/if}
 
 	{#if status === 'ready' && showFilters}
-		<!-- Filters: place-type toggles on top, relation toggles below. -->
-		<div class="absolute bottom-4 left-4 z-10 flex flex-col gap-1.5">
+		<!-- Filters: place-type toggles on top, relation toggles below. Raised so
+		     they clear Apple's map attribution/logo at the bottom edge. -->
+		<div class="absolute bottom-[66px] left-4 z-10 flex flex-col gap-1.5">
 			<CategoryFilter bind:value={categories} />
 			<div class="flex flex-wrap gap-1.5">
 				{#each FILTER_CHIPS as chip (chip.key)}
