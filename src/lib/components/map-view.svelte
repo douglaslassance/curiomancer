@@ -5,6 +5,8 @@
 	import PlacePopup from './place-popup.svelte';
 	import MapSearch from './map-search.svelte';
 	import CategoryFilter from './category-filter.svelte';
+	import { Bookmark, Eye, ThumbsDown, ThumbsUp } from '@lucide/svelte';
+	import type { Component } from 'svelte';
 
 	let {
 		places,
@@ -66,11 +68,13 @@
 		visit: true
 	});
 
-	const FILTER_CHIPS: { key: FilterKey; label: string; color: string }[] = [
-		{ key: 'liked', label: 'Liked', color: '#ec4899' },
-		{ key: 'wantToGo', label: 'Want to go', color: '#10b981' },
-		{ key: 'seen', label: 'Been there', color: '#64748b' },
-		{ key: 'disliked', label: 'Disliked', color: '#ef4444' }
+	// Same icon + faded-when-off chip style as the places page. The icon is
+	// tinted to the pin color so the chips double as the map's colour legend.
+	const FILTER_CHIPS: { key: FilterKey; label: string; color: string; icon: Component }[] = [
+		{ key: 'liked', label: 'Liked', color: '#ec4899', icon: ThumbsUp },
+		{ key: 'disliked', label: 'Disliked', color: '#ef4444', icon: ThumbsDown },
+		{ key: 'seen', label: 'Been there', color: '#64748b', icon: Eye },
+		{ key: 'wantToGo', label: 'Want to go', color: '#10b981', icon: Bookmark }
 	];
 
 	const REL_COLOR: Record<Relation, string> = {
@@ -324,6 +328,7 @@
 			<CategoryFilter bind:value={categories} />
 			<div class="flex flex-wrap gap-1.5">
 				{#each FILTER_CHIPS as chip (chip.key)}
+					{@const Icon = chip.icon}
 					<button
 						type="button"
 						onclick={() => (filters[chip.key] = !filters[chip.key])}
@@ -334,7 +339,7 @@
 							? ''
 							: 'opacity-40'}"
 					>
-						<span class="size-2 rounded-full" style="background-color: {chip.color}"></span>
+						<Icon class="size-3.5" style="color: {chip.color}" />
 						{chip.label}
 					</button>
 				{/each}
