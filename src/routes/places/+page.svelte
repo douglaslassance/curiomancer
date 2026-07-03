@@ -41,11 +41,15 @@
 		}, 250);
 	}
 
-	// Multi-toggle relation filters (empty = show everything). Seeded once from
-	// the ?filter= deep-link (e.g. Settings "View liked") for backwards compat.
+	// Multi-toggle relation filters. Default to the useful set - your likes plus
+	// fresh recommendations - with the rest off. A ?filter= deep-link (e.g.
+	// Settings "View liked") overrides the default. Turning all off shows every
+	// place. Seeded once from load data.
 	// svelte-ignore state_referenced_locally
 	let activeFilters = $state<Set<RelFilter>>(
-		data.filter && data.filter !== 'all' ? new Set([data.filter as RelFilter]) : new Set()
+		data.filter && data.filter !== 'all'
+			? new Set([data.filter as RelFilter])
+			: new Set<RelFilter>(['liked', 'recommended'])
 	);
 	function toggleFilter(f: RelFilter) {
 		const next = new Set(activeFilters);
@@ -131,24 +135,24 @@
 {:else}
 	<!-- Controls -->
 	<section class="bg-card mb-4 space-y-4 rounded-xl border p-4">
-		<!-- Place-type toggles -->
-		<CategoryFilter bind:value={categories} />
-
-		<!-- Relation filter toggles (multi-select; none = show all) -->
-		<div class="flex flex-wrap gap-1.5">
-			{#each REL_FILTERS as f (f.value)}
-				<button
-					type="button"
-					class="rounded-full border px-3 py-1 text-xs transition-colors"
-					class:bg-primary={activeFilters.has(f.value)}
-					class:text-primary-foreground={activeFilters.has(f.value)}
-					class:hover:bg-accent={!activeFilters.has(f.value)}
-					aria-pressed={activeFilters.has(f.value)}
-					onclick={() => toggleFilter(f.value)}
-				>
-					{f.label}
-				</button>
-			{/each}
+		<!-- Filters on one line: place types (left), ratings (right). -->
+		<div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+			<CategoryFilter bind:value={categories} />
+			<div class="flex flex-wrap gap-1.5">
+				{#each REL_FILTERS as f (f.value)}
+					<button
+						type="button"
+						class="rounded-full border px-3 py-1 text-xs transition-colors"
+						class:bg-primary={activeFilters.has(f.value)}
+						class:text-primary-foreground={activeFilters.has(f.value)}
+						class:hover:bg-accent={!activeFilters.has(f.value)}
+						aria-pressed={activeFilters.has(f.value)}
+						onclick={() => toggleFilter(f.value)}
+					>
+						{f.label}
+					</button>
+				{/each}
+			</div>
 		</div>
 
 		<!-- Search -->
