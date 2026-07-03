@@ -125,9 +125,7 @@
 					<a href="/pro" class="hover:text-foreground transition-colors">Pro</a>
 					<a href="/terms" class="hover:text-foreground transition-colors">Terms</a>
 					<a href="/privacy" class="hover:text-foreground transition-colors">Privacy</a>
-					<a href="mailto:hello@curiomancer.com" class="hover:text-foreground transition-colors">
-						Contact
-					</a>
+					<a href="/contact" class="hover:text-foreground transition-colors">Contact</a>
 				</nav>
 			</div>
 		</footer>
