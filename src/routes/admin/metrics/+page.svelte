@@ -12,6 +12,22 @@
 	const signups = $derived(data.signups.map((d) => ({ ...d, date: new Date(d.day) })));
 	const subscribers = $derived(data.subscribers.map((d) => ({ ...d, date: new Date(d.day) })));
 	const active = $derived(data.active.map((d) => ({ ...d, date: new Date(d.day) })));
+	// Rate per day per reason, null (not 0) on days with no impressions so
+	// the line gaps instead of misleadingly dropping to the floor.
+	const conversion = $derived(
+		data.conversion.map((d) => ({
+			date: new Date(d.day),
+			twinRate: d.twinImpressions > 0 ? (100 * d.twinConversions) / d.twinImpressions : null,
+			followRate:
+				d.followImpressions > 0 ? (100 * d.followConversions) / d.followImpressions : null,
+			popularRate:
+				d.popularImpressions > 0 ? (100 * d.popularConversions) / d.popularImpressions : null
+		}))
+	);
+
+	function pct(n: number, d: number): string {
+		return d > 0 ? `${Math.round((100 * n) / d)}%` : 'n/a';
+	}
 
 	function money(cents: number): string {
 		return new Intl.NumberFormat('en-US', {
@@ -49,6 +65,12 @@
 		subscribers: { label: 'Subscribers', color: 'var(--chart-1)' }
 	} satisfies Chart.ChartConfig;
 
+	const conversionConfig = {
+		twinRate: { label: 'Twin match', color: 'var(--chart-1)' },
+		followRate: { label: 'Follow boost', color: 'var(--chart-2)' },
+		popularRate: { label: 'Popular fallback', color: 'var(--chart-3)' }
+	} satisfies Chart.ChartConfig;
+
 	const stats = $derived([
 		{ label: 'Total users', value: data.headline.totalUsers.toLocaleString() },
 		{
@@ -57,7 +79,12 @@
 			hint: `${data.headline.wau.toLocaleString()} weekly · ${data.headline.mau.toLocaleString()} monthly`
 		},
 		{ label: 'Subscribers', value: data.headline.subscribers.toLocaleString() },
-		{ label: 'MRR', value: money(data.headline.mrrCents), hint: 'monthly recurring' }
+		{ label: 'MRR', value: money(data.headline.mrrCents), hint: 'monthly recurring' },
+		{
+			label: 'Rec conversion',
+			value: pct(data.conversionTotals.conversions, data.conversionTotals.impressions),
+			hint: `${pct(data.conversionTotals.twinConversions, data.conversionTotals.twinImpressions)} twin, ${pct(data.conversionTotals.followConversions, data.conversionTotals.followImpressions)} follow, ${pct(data.conversionTotals.popularConversions, data.conversionTotals.popularImpressions)} popular`
+		}
 	]);
 </script>
 
@@ -79,7 +106,7 @@
 	</div>
 
 	<!-- Headline stat cards -->
-	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
 		{#each stats as s (s.label)}
 			<Card.Root>
 				<Card.Header class="pb-2">
@@ -188,6 +215,37 @@
 							<Chart.Tooltip labelFormatter={(v: Date) => shortDate(v)} />
 						{/snippet}
 					</AreaChart>
+				</Chart.Container>
+			</Card.Content>
+		</Card.Root>
+
+		<!-- Recommendation conversion -->
+		<Card.Root class="lg:col-span-2">
+			<Card.Header>
+				<Card.Title>Recommendation conversion</Card.Title>
+				<Card.Description
+					>Share of recommended places that turn into a like, by reason</Card.Description
+				>
+			</Card.Header>
+			<Card.Content>
+				<Chart.Container config={conversionConfig} class="h-[220px] w-full">
+					<LineChart
+						data={conversion}
+						x="date"
+						series={[
+							{ key: 'twinRate', label: 'Twin match', color: 'var(--color-twinRate)' },
+							{ key: 'followRate', label: 'Follow boost', color: 'var(--color-followRate)' },
+							{ key: 'popularRate', label: 'Popular fallback', color: 'var(--color-popularRate)' }
+						]}
+						props={{
+							xAxis: { format: shortDate },
+							yAxis: { format: (v: number) => `${v}%` }
+						}}
+					>
+						{#snippet tooltip()}
+							<Chart.Tooltip labelFormatter={(v: Date) => shortDate(v)} />
+						{/snippet}
+					</LineChart>
 				</Chart.Container>
 			</Card.Content>
 		</Card.Root>

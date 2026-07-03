@@ -27,7 +27,7 @@
 
 import { sql } from 'drizzle-orm';
 import { db } from './db';
-import type { Place } from './db/schema';
+import { recommendationImpression, type Place, type RecommendationReason } from './db/schema';
 
 export type MatchedPerson = {
 	id: string;
@@ -44,7 +44,25 @@ export type RecommendedPlace = Place & {
 	score: number;
 	/** How many of your taste-twins liked it. */
 	twinCount: number;
+	/** Why this place was recommended - powers the admin conversion breakdown. */
+	reason: RecommendationReason;
 };
+
+/**
+ * Log the first time each place was recommended to a user, so the admin
+ * dashboard can compute what fraction of recommendations turn into likes.
+ * Unique on (userId, placeId) - duplicate dashboard loads are no-ops.
+ */
+export async function logRecommendationImpressions(
+	userId: string,
+	places: RecommendedPlace[]
+): Promise<void> {
+	if (places.length === 0) return;
+	await db
+		.insert(recommendationImpression)
+		.values(places.map((p) => ({ userId, placeId: p.id, reason: p.reason })))
+		.onConflictDoNothing();
+}
 
 /** How many top twins to draw place/event recommendations from. */
 const TWIN_LIMIT = 20;
@@ -282,6 +300,7 @@ export async function getRecommendedPlaces(
 		created_at: Date;
 		score: number;
 		twin_count: number;
+		via_follow: boolean;
 	}>(sql`
 		WITH my_relations AS (
 			SELECT place_id, kind FROM "place_relation"
@@ -309,12 +328,13 @@ export async function getRecommendedPlaces(
 		),
 		twins AS (
 			-- Algorithmic taste-twins + everyone the viewer follows.
-			-- If someone is both, take the higher weight.
-			SELECT user_id, MAX(score) AS score
+			-- If someone is both, take the higher weight, but remember
+			-- whether a follow contributed at all (for reason attribution).
+			SELECT user_id, MAX(score) AS score, bool_or(via_follow) AS via_follow
 			FROM (
-				SELECT user_id, score FROM algo_twins
+				SELECT user_id, score, false AS via_follow FROM algo_twins
 				UNION ALL
-				SELECT followed_id AS user_id, ${FOLLOW_WEIGHT}::float AS score
+				SELECT followed_id AS user_id, ${FOLLOW_WEIGHT}::float AS score, true AS via_follow
 				FROM "follow"
 				WHERE follower_id = ${userId}
 			) t
@@ -333,7 +353,8 @@ export async function getRecommendedPlaces(
 			p.external_id,
 			p.created_at,
 			SUM(t.score)::float AS score,
-			COUNT(DISTINCT t.user_id)::int AS twin_count
+			COUNT(DISTINCT t.user_id)::int AS twin_count,
+			bool_or(t.via_follow) AS via_follow
 		FROM "place_relation" l
 		JOIN twins t ON t.user_id = l.user_id
 		JOIN place p ON p.id = l.place_id
@@ -359,7 +380,8 @@ export async function getRecommendedPlaces(
 		externalId: r.external_id,
 		createdAt: r.created_at,
 		score: Number(r.score) || 0,
-		twinCount: r.twin_count
+		twinCount: r.twin_count,
+		reason: r.via_follow ? 'follow_boost' : 'twin_match'
 	}));
 }
 
@@ -425,6 +447,7 @@ export async function getPopularPlaces(
 		externalId: r.external_id,
 		createdAt: r.created_at,
 		score: 0,
-		twinCount: r.like_count
+		twinCount: r.like_count,
+		reason: 'popular_fallback'
 	}));
 }

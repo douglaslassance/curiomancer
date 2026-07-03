@@ -6,6 +6,7 @@ import {
 	getMatchedPeopleInCity,
 	getPopularPlaces,
 	getRecommendedPlaces,
+	logRecommendationImpressions,
 	type MatchedPerson,
 	type RecommendedPlace
 } from '$lib/server/matching';
@@ -57,6 +58,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		placesFor('shop'),
 		placesFor('visit')
 	]);
+
+	await logRecommendationImpressions(userId, [...eat, ...drink, ...shop, ...visit]);
 
 	return {
 		signedIn: true as const,

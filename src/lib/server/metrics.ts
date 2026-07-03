@@ -126,6 +126,80 @@ export async function getActiveUserSeries(days: number): Promise<ActivePoint[]> 
 	}));
 }
 
+export type ConversionPoint = {
+	day: string;
+	twinImpressions: number;
+	twinConversions: number;
+	followImpressions: number;
+	followConversions: number;
+	popularImpressions: number;
+	popularConversions: number;
+};
+
+/**
+ * Recommendation-to-like conversion per day, broken down by why the place
+ * was recommended (twin match, follow boost, or popularity fallback).
+ * Powers the admin "how good are our recommendations" chart.
+ *
+ * A conversion is just "does a `liked` row exist for this (user, place)
+ * pair" - `getRecommendedPlaces`/`getPopularPlaces` already exclude places
+ * the user has any prior relation with, so a match necessarily postdates
+ * the impression. Returns raw counts, not rates, since summing counts
+ * across the range and dividing gives the right overall rate - averaging
+ * per-day rates would misweight low-traffic days.
+ */
+export async function getRecommendationConversionSeries(days: number): Promise<ConversionPoint[]> {
+	const rows = await db.execute<{
+		day: string;
+		twin_impressions: number;
+		twin_conversions: number;
+		follow_impressions: number;
+		follow_conversions: number;
+		popular_impressions: number;
+		popular_conversions: number;
+	}>(sql`
+		WITH d AS (
+			SELECT generate_series((CURRENT_DATE - ${days - 1}::int), CURRENT_DATE, interval '1 day')::date AS day
+		)
+		SELECT
+			d.day,
+			COUNT(*) FILTER (WHERE ri.reason = 'twin_match')::int AS twin_impressions,
+			COUNT(*) FILTER (
+				WHERE ri.reason = 'twin_match' AND EXISTS (
+					SELECT 1 FROM "place_relation" pr
+					WHERE pr.user_id = ri.user_id AND pr.place_id = ri.place_id AND pr.kind = 'liked'
+				)
+			)::int AS twin_conversions,
+			COUNT(*) FILTER (WHERE ri.reason = 'follow_boost')::int AS follow_impressions,
+			COUNT(*) FILTER (
+				WHERE ri.reason = 'follow_boost' AND EXISTS (
+					SELECT 1 FROM "place_relation" pr
+					WHERE pr.user_id = ri.user_id AND pr.place_id = ri.place_id AND pr.kind = 'liked'
+				)
+			)::int AS follow_conversions,
+			COUNT(*) FILTER (WHERE ri.reason = 'popular_fallback')::int AS popular_impressions,
+			COUNT(*) FILTER (
+				WHERE ri.reason = 'popular_fallback' AND EXISTS (
+					SELECT 1 FROM "place_relation" pr
+					WHERE pr.user_id = ri.user_id AND pr.place_id = ri.place_id AND pr.kind = 'liked'
+				)
+			)::int AS popular_conversions
+		FROM d
+		LEFT JOIN recommendation_impression ri ON ri.shown_at::date = d.day
+		GROUP BY d.day
+		ORDER BY d.day
+	`);
+	return rows.map((r) => ({
+		day: r.day,
+		twinImpressions: r.twin_impressions,
+		twinConversions: r.twin_conversions,
+		followImpressions: r.follow_impressions,
+		followConversions: r.follow_conversions,
+		popularImpressions: r.popular_impressions,
+		popularConversions: r.popular_conversions
+	}));
+}
+
 /**
  * Record a user as active now. Called from the request hook, throttled there
  * so this is at most one write per user every few minutes.
