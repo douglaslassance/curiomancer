@@ -23,7 +23,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	const radiusKm = Math.max(1, Math.min(500, Number(url.searchParams.get('radius') ?? '') || 30));
 
-	const people = await getPeopleNearby(loc.latitude, loc.longitude, radiusKm, locals.user.id);
+	// Surface genuine taste-twins (signed similarity above 50%), plus anyone the
+	// viewer already follows regardless of match.
+	const people = (
+		await getPeopleNearby(loc.latitude, loc.longitude, radiusKm, locals.user.id)
+	).filter((p) => (p.score !== null && p.score > 0.5) || p.following);
 
 	return {
 		center: { latitude: loc.latitude, longitude: loc.longitude },
