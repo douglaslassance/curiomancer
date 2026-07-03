@@ -53,6 +53,39 @@ export const actions: Actions = {
 		return { nameOk: true, name };
 	},
 
+	updateAvatar: async ({ request, locals }) => {
+		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+
+		const data = await request.formData();
+		const image = data.get('image')?.toString() ?? '';
+		// The client downscales to a small square data URI before posting.
+		if (!image.startsWith('data:image/')) {
+			return fail(400, { avatarError: 'Please choose an image file.' });
+		}
+		if (image.length > 500_000) {
+			return fail(400, { avatarError: 'That image is too large. Try a smaller one.' });
+		}
+
+		try {
+			await auth.api.updateUser({ body: { image }, headers: request.headers });
+		} catch (error) {
+			if (error instanceof APIError) return fail(400, { avatarError: error.message });
+			return fail(500, { avatarError: 'Could not update your photo.' });
+		}
+		return { avatarOk: true };
+	},
+
+	removeAvatar: async ({ request, locals }) => {
+		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+		try {
+			await auth.api.updateUser({ body: { image: '' }, headers: request.headers });
+		} catch (error) {
+			if (error instanceof APIError) return fail(400, { avatarError: error.message });
+			return fail(500, { avatarError: 'Could not remove your photo.' });
+		}
+		return { avatarOk: true };
+	},
+
 	changePassword: async ({ request, locals }) => {
 		if (!locals.user) return fail(401, { message: 'Not signed in.' });
 

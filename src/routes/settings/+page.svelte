@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { enhance } from '$app/forms';
 	import * as Avatar from '$lib/components/ui/avatar';
 	import * as Card from '$lib/components/ui/card';
@@ -9,6 +10,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import {
+		Camera,
 		Copy,
 		KeyRound,
 		Loader2,
@@ -45,6 +47,67 @@
 		}
 	}
 
+	// Avatar upload: downscale the chosen image to a small square data URI in the
+	// browser (keeps it small enough to store on the user row), then submit the
+	// hidden form so the server action persists it.
+	let avatarInput = $state<HTMLInputElement | null>(null);
+	let avatarForm = $state<HTMLFormElement | null>(null);
+	let avatarData = $state('');
+	let avatarBusy = $state(false);
+	let avatarError = $state<string | null>(null);
+
+	function resizeToDataUrl(file: File, size: number): Promise<string> {
+		return new Promise((resolve, reject) => {
+			const img = new Image();
+			const url = URL.createObjectURL(file);
+			img.onload = () => {
+				URL.revokeObjectURL(url);
+				const canvas = document.createElement('canvas');
+				canvas.width = size;
+				canvas.height = size;
+				const ctx = canvas.getContext('2d');
+				if (!ctx) return reject(new Error('no 2d context'));
+				// Cover-crop to a centered square.
+				const scale = Math.max(size / img.width, size / img.height);
+				const w = img.width * scale;
+				const h = img.height * scale;
+				ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+				resolve(canvas.toDataURL('image/jpeg', 0.85));
+			};
+			img.onerror = () => {
+				URL.revokeObjectURL(url);
+				reject(new Error('could not load image'));
+			};
+			img.src = url;
+		});
+	}
+
+	async function onAvatarPick(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+		avatarError = null;
+		if (!file.type.startsWith('image/')) {
+			avatarError = 'Please choose an image file.';
+			return;
+		}
+		avatarBusy = true;
+		try {
+			avatarData = await resizeToDataUrl(file, 256);
+			// Let Svelte flush avatarData into the hidden input before submitting,
+			// otherwise requestSubmit() serializes a stale (empty) value.
+			await tick();
+			avatarForm?.requestSubmit();
+		} catch (err) {
+			console.error('Avatar processing failed:', err);
+			avatarError = 'Could not process that image.';
+			avatarBusy = false;
+		} finally {
+			// Let the same file be re-picked later.
+			input.value = '';
+		}
+	}
+
 	let tokenCopied = $state(false);
 	async function copyToken(token: string) {
 		try {
@@ -69,10 +132,10 @@
 </script>
 
 <svelte:head>
-	<title>Settings - Curiomancer</title>
+	<title>Settings · Curiomancer</title>
 </svelte:head>
 
-<div class="mx-auto max-w-2xl py-4">
+<div class="py-4">
 	<header class="mb-6">
 		<h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
 		<p class="text-muted-foreground mt-1 text-sm">
@@ -83,12 +146,31 @@
 	<Card.Root>
 		<Card.Header>
 			<div class="flex items-center gap-4">
-				<Avatar.Root class="size-14">
-					{#if data.profile.image}
-						<Avatar.Image src={data.profile.image} alt={data.profile.name} />
-					{/if}
-					<Avatar.Fallback class="text-base font-medium">{initials}</Avatar.Fallback>
-				</Avatar.Root>
+				<button
+					type="button"
+					class="group focus-visible:ring-ring relative size-14 shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2"
+					disabled={avatarBusy}
+					onclick={() => avatarInput?.click()}
+					aria-label={data.profile.image ? 'Change photo' : 'Upload photo'}
+				>
+					<Avatar.Root class="size-14">
+						{#if data.profile.image}
+							<Avatar.Image src={data.profile.image} alt={data.profile.name} />
+						{/if}
+						<Avatar.Fallback class="text-base font-medium">{initials}</Avatar.Fallback>
+					</Avatar.Root>
+					<span
+						class="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100 {avatarBusy
+							? 'opacity-100'
+							: ''}"
+					>
+						{#if avatarBusy}
+							<Loader2 class="size-5 animate-spin" />
+						{:else}
+							<Camera class="size-5" />
+						{/if}
+					</span>
+				</button>
 				<div class="min-w-0">
 					<Card.Title class="flex items-center gap-2">
 						{data.profile.name}
@@ -100,6 +182,21 @@
 						<Mail class="size-3" />
 						{data.profile.email}
 					</Card.Description>
+					{#if data.profile.image}
+						<form method="post" action="?/removeAvatar" use:enhance>
+							<button
+								type="submit"
+								class="text-muted-foreground hover:text-destructive mt-1 text-xs underline"
+							>
+								Remove photo
+							</button>
+						</form>
+					{/if}
+					{#if avatarError}
+						<p class="text-destructive mt-1 text-xs">{avatarError}</p>
+					{:else if form?.avatarError}
+						<p class="text-destructive mt-1 text-xs">{form.avatarError}</p>
+					{/if}
 				</div>
 			</div>
 		</Card.Header>
@@ -329,17 +426,27 @@
 				</div>
 			</form>
 
-			<Separator />
-
-			<div class="flex items-start gap-3">
-				<User class="text-muted-foreground mt-0.5 size-4" />
-				<div class="min-w-0 flex-1">
-					<div class="text-sm font-medium">Coming soon</div>
-					<p class="text-muted-foreground text-sm">
-						Avatar upload and account deletion land here next.
-					</p>
-				</div>
-			</div>
+			<!-- Hidden file picker + form carrying the downscaled data URI. -->
+			<input
+				bind:this={avatarInput}
+				type="file"
+				accept="image/*"
+				class="hidden"
+				onchange={onAvatarPick}
+			/>
+			<form
+				method="post"
+				action="?/updateAvatar"
+				bind:this={avatarForm}
+				class="hidden"
+				use:enhance={() =>
+					async ({ update }) => {
+						await update();
+						avatarBusy = false;
+					}}
+			>
+				<input type="hidden" name="image" bind:value={avatarData} />
+			</form>
 		</Card.Content>
 		<Card.Footer>
 			<form method="post" action="/sign-out" use:enhance class="contents">
