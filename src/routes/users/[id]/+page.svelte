@@ -91,7 +91,7 @@
 			name={profile.name}
 			image={profile.image}
 			score={data.viewer && !data.viewer.isSelf ? data.viewer.score : null}
-			size={96}
+			size={112}
 			showPercent
 		/>
 

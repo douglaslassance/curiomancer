@@ -1,5 +1,7 @@
 <script lang="ts">
 	import * as Avatar from '$lib/components/ui/avatar';
+	import { Tween } from 'svelte/motion';
+	import { cubicOut } from 'svelte/easing';
 
 	/**
 	 * An avatar wrapped in a circular progress ring that encodes the taste-match
@@ -25,6 +27,13 @@
 
 	// No score -> no ring, just a plain avatar filling the box.
 	const pct = $derived(score === null ? null : Math.max(0, Math.min(100, Math.round(score * 100))));
+
+	// Animate the ring fill (and the % count-up) from 0 on mount / when it changes.
+	const progress = new Tween(0, { duration: 900, easing: cubicOut });
+	$effect(() => {
+		progress.target = pct ?? 0;
+	});
+	const displayPct = $derived(Math.round(progress.current));
 	const initials = $derived(
 		name
 			.split(/\s+/)
@@ -39,7 +48,7 @@
 	const stroke = $derived(Math.max(2, Math.round(size * 0.08)));
 	const radius = $derived((size - stroke) / 2);
 	const circ = $derived(2 * Math.PI * radius);
-	const dashoffset = $derived(circ * (1 - (pct ?? 0) / 100));
+	const dashoffset = $derived(circ * (1 - progress.current / 100));
 	const center = $derived(size / 2);
 	// Avatar sits inside the ring with a hair of breathing room; fills the box
 	// when there's no ring.
@@ -90,7 +99,7 @@
 		<span
 			class="text-primary-foreground bg-primary ring-background absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums ring-2"
 		>
-			{pct}%
+			{displayPct}%
 		</span>
 	{/if}
 </div>
