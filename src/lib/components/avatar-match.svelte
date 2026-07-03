@@ -10,7 +10,8 @@
 		name,
 		score,
 		image = null,
-		size = 40
+		size = 40,
+		showPercent = false
 	}: {
 		name: string;
 		/** Signed similarity, -1..1, or null when there's no match signal. */
@@ -18,6 +19,8 @@
 		image?: string | null;
 		/** Outer diameter in px (ring included). */
 		size?: number;
+		/** Show the % as a badge on the ring (for larger avatars). */
+		showPercent?: boolean;
 	} = $props();
 
 	// No score -> no ring, just a plain avatar filling the box.
@@ -81,4 +84,13 @@
 			{initials}
 		</Avatar.Fallback>
 	</Avatar.Root>
+
+	{#if pct !== null && showPercent}
+		<!-- % badge sitting on the ring's bottom edge; ring blends it into the bg. -->
+		<span
+			class="text-primary-foreground bg-primary ring-background absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums ring-2"
+		>
+			{pct}%
+		</span>
+	{/if}
 </div>
