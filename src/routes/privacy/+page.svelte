@@ -2,7 +2,7 @@
 	<title>Privacy · Curiomancer</title>
 </svelte:head>
 
-<div class="mx-auto max-w-2xl">
+<div class="mx-auto max-w-5xl">
 	<h1 class="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
 	<p class="text-muted-foreground mt-1 text-sm">Last updated July 2026</p>
 

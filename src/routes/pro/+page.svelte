@@ -21,7 +21,7 @@
 	<title>Curiomancer Pro</title>
 </svelte:head>
 
-<div class="mx-auto max-w-2xl py-10">
+<div class="mx-auto max-w-5xl py-10">
 	<div class="text-center">
 		<span
 			class="bg-primary text-primary-foreground mb-3 inline-block rounded-full px-2 py-0.5 text-xs font-medium"
