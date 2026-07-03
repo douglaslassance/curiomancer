@@ -10,6 +10,25 @@ import { placeRelation, type PlaceRelationKind } from './db/schema';
  * or accept a `kind` argument to operate on dislikes / want-to-go.
  */
 
+/**
+ * Every place the user has a stance on, as a placeId to kind map. One query
+ * instead of four `getPlaceIdsByKind` calls when a caller needs to annotate a
+ * list of places with the viewer's relation (the /api/v1 places and rate
+ * routes lean on this).
+ */
+export async function getRelationMap(
+	userId: string | undefined
+): Promise<Record<string, PlaceRelationKind>> {
+	if (!userId) return {};
+	const rows = await db
+		.select({ placeId: placeRelation.placeId, kind: placeRelation.kind })
+		.from(placeRelation)
+		.where(eq(placeRelation.userId, userId));
+	const map: Record<string, PlaceRelationKind> = {};
+	for (const r of rows) map[r.placeId] = r.kind;
+	return map;
+}
+
 /** All place IDs the user has marked with the given relation. */
 export async function getPlaceIdsByKind(
 	userId: string | undefined,
