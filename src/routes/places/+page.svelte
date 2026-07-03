@@ -7,17 +7,27 @@
 	import RelationToggle from '$lib/components/relation-toggle.svelte';
 	import MatchBadge from '$lib/components/match-badge.svelte';
 	import CategoryFilter from '$lib/components/category-filter.svelte';
-	import { MapPin, Search, Store } from '@lucide/svelte';
+	import {
+		Bookmark,
+		Eye,
+		MapPin,
+		Search,
+		Sparkles,
+		Store,
+		ThumbsDown,
+		ThumbsUp
+	} from '@lucide/svelte';
+	import type { Component } from 'svelte';
 
 	let { data } = $props();
 
 	type RelFilter = 'liked' | 'disliked' | 'seen' | 'want_to_go' | 'recommended';
-	const REL_FILTERS: { value: RelFilter; label: string }[] = [
-		{ value: 'liked', label: 'Liked' },
-		{ value: 'disliked', label: 'Disliked' },
-		{ value: 'seen', label: 'Been there' },
-		{ value: 'want_to_go', label: 'Want to go' },
-		{ value: 'recommended', label: 'Recommended' }
+	const REL_FILTERS: { value: RelFilter; label: string; icon: Component }[] = [
+		{ value: 'liked', label: 'Liked', icon: ThumbsUp },
+		{ value: 'recommended', label: 'Recommended', icon: Sparkles },
+		{ value: 'disliked', label: 'Disliked', icon: ThumbsDown },
+		{ value: 'seen', label: 'Been there', icon: Eye },
+		{ value: 'want_to_go', label: 'Want to go', icon: Bookmark }
 	];
 
 	// In-flight slider position; the URL holds the authoritative value.
@@ -140,15 +150,18 @@
 			<CategoryFilter bind:value={categories} />
 			<div class="flex flex-wrap gap-1.5">
 				{#each REL_FILTERS as f (f.value)}
+					{@const Icon = f.icon}
 					<button
 						type="button"
-						class="rounded-full border px-3 py-1 text-xs transition-colors"
-						class:bg-primary={activeFilters.has(f.value)}
-						class:text-primary-foreground={activeFilters.has(f.value)}
-						class:hover:bg-accent={!activeFilters.has(f.value)}
 						aria-pressed={activeFilters.has(f.value)}
 						onclick={() => toggleFilter(f.value)}
+						class="bg-background/90 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium shadow-sm backdrop-blur-sm transition-opacity {activeFilters.has(
+							f.value
+						)
+							? ''
+							: 'opacity-40'}"
 					>
+						<Icon class="size-3.5" />
 						{f.label}
 					</button>
 				{/each}
