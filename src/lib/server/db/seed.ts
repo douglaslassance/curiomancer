@@ -586,7 +586,9 @@ const personaRows = PERSONAS.map((p) => ({
 	id: crypto.randomUUID() as string,
 	name: p.name,
 	email: p.email,
-	emailVerified: false
+	emailVerified: false,
+	// Deterministic headshot per persona so re-seeding stays stable.
+	image: `https://i.pravatar.cc/300?u=${encodeURIComponent(p.email)}`
 }));
 await db.insert(user).values(personaRows);
 const userIdByEmail = new Map(personaRows.map((u) => [u.email, u.id]));
