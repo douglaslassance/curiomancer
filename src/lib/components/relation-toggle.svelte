@@ -60,7 +60,7 @@
 		aria-label={current === 'liked' ? 'Unlike' : 'Like'}
 		onclick={(e: Event) => press('liked', e)}
 	>
-		<ThumbsUp class="size-4" fill={current === 'liked' ? 'currentColor' : 'none'} />
+		<ThumbsUp class="size-4" />
 	</Button>
 	<Button
 		variant={current === 'seen' ? 'default' : 'outline'}
@@ -71,7 +71,7 @@
 			: 'Been there - you know it, no strong opinion'}
 		onclick={(e: Event) => press('seen', e)}
 	>
-		<Eye class="size-4" fill={current === 'seen' ? 'currentColor' : 'none'} />
+		<Eye class="size-4" />
 	</Button>
 	<Button
 		variant={current === 'disliked' ? 'default' : 'outline'}
@@ -80,7 +80,7 @@
 		aria-label={current === 'disliked' ? 'Remove dislike' : 'Dislike'}
 		onclick={(e: Event) => press('disliked', e)}
 	>
-		<ThumbsDown class="size-4" fill={current === 'disliked' ? 'currentColor' : 'none'} />
+		<ThumbsDown class="size-4" />
 	</Button>
 	<Button
 		variant={current === 'want_to_go' ? 'default' : 'outline'}
@@ -91,6 +91,6 @@
 			: "Want to go - haven't been but interested"}
 		onclick={(e: Event) => press('want_to_go', e)}
 	>
-		<Bookmark class="size-4" fill={current === 'want_to_go' ? 'currentColor' : 'none'} />
+		<Bookmark class="size-4" />
 	</Button>
 </div>
