@@ -1,7 +1,7 @@
 import { db } from './db';
 import { waitlist } from './db/schema';
 
-export type WaitlistResult = { ok: true } | { ok: false; message: string };
+export type WaitlistResult = { ok: true; email: string } | { ok: false; message: string };
 
 /**
  * Validate and upsert a waitlist entry (email + city). Shared by the public
@@ -22,5 +22,5 @@ export async function joinWaitlist(emailRaw: unknown, cityRaw: unknown): Promise
 		.values({ email, city })
 		.onConflictDoUpdate({ target: waitlist.email, set: { city } });
 
-	return { ok: true };
+	return { ok: true, email };
 }

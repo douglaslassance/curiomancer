@@ -1,7 +1,9 @@
 import { fail } from '@sveltejs/kit';
 import { desc, eq } from 'drizzle-orm';
+import { env } from '$env/dynamic/private';
 import { db } from '$lib/server/db';
 import { waitlist } from '$lib/server/db/schema';
+import { sendInviteEmail } from '$lib/server/email';
 import { createInviteReturningCode } from '$lib/server/invites';
 import { joinWaitlist } from '$lib/server/waitlist';
 import type { Actions, PageServerLoad } from './$types';
@@ -41,6 +43,15 @@ export const actions: Actions = {
 			.update(waitlist)
 			.set({ status: 'invited', inviteId: code, invitedAt: new Date() })
 			.where(eq(waitlist.id, id));
+
+		// Best-effort: the invite is already minted and copyable from the admin
+		// table, so a delivery hiccup here shouldn't block the admit action.
+		try {
+			const inviteUrl = `${env.ORIGIN}/sign-up?invite=${encodeURIComponent(code)}`;
+			await sendInviteEmail(entry.email, inviteUrl);
+		} catch (err) {
+			console.error('Invite email failed:', err);
+		}
 
 		return { ok: true };
 	}

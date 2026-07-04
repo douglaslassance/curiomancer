@@ -1,4 +1,5 @@
 import { error, json } from '@sveltejs/kit';
+import { sendWaitlistConfirmationEmail } from '$lib/server/email';
 import { joinWaitlist } from '$lib/server/waitlist';
 import type { RequestHandler } from './$types';
 
@@ -17,6 +18,14 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	const result = await joinWaitlist(body?.email, body?.city);
 	if (!result.ok) throw error(400, result.message);
+
+	// Best-effort: the waitlist entry is already saved, so a delivery hiccup
+	// here shouldn't turn into a 500 for the visitor.
+	try {
+		await sendWaitlistConfirmationEmail(result.email);
+	} catch (err) {
+		console.error('Waitlist confirmation email failed:', err);
+	}
 
 	return json({ ok: true });
 };
