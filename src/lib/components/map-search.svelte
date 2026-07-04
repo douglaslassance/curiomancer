@@ -12,9 +12,9 @@
 	// search result matches rating a saved pin.
 	const RATINGS: { kind: Kind; label: string; icon: Component }[] = [
 		{ kind: 'liked', label: 'Like', icon: ThumbsUp },
+		{ kind: 'want_to_go', label: 'Want to go', icon: Bookmark },
 		{ kind: 'seen', label: 'Been there', icon: Eye },
-		{ kind: 'disliked', label: 'Dislike', icon: ThumbsDown },
-		{ kind: 'want_to_go', label: 'Want to go', icon: Bookmark }
+		{ kind: 'disliked', label: 'Dislike', icon: ThumbsDown }
 	];
 
 	type Hit = {
