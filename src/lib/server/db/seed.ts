@@ -16,6 +16,7 @@ import 'dotenv/config';
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { inArray, or, like, sql as dsql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import {
@@ -29,6 +30,9 @@ import {
 } from './schema.js';
 import { user } from './auth.schema.js';
 import { mapAppleCategory, searchAppleMaps, type AppleSearchResult } from '../maps-search.js';
+
+/** Matches both the current demo domain and the pre-rename "Bond" one. */
+const DEMO_EMAIL_PATTERNS = ['%@demo.curiomancer', '%@demo.bond'];
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('DATABASE_URL is not set');
@@ -549,14 +553,25 @@ for (const hint of PLACE_HINTS) {
 }
 await writeCache(cache);
 
-console.log('Clearing dependent rows…');
-await db.delete(placeRelation);
-await db.delete(userLocation);
+console.log('Clearing previous demo personas and their data…');
+// Scoped to demo persona users only - never touches real accounts or places
+// they've added. `place` is deliberately never deleted; see the upsert below.
+const staleDemoUsers = await db
+	.select({ id: user.id })
+	.from(user)
+	.where(or(...DEMO_EMAIL_PATTERNS.map((p) => like(user.email, p))));
+const staleDemoUserIds = staleDemoUsers.map((u) => u.id);
+if (staleDemoUserIds.length > 0) {
+	await db.delete(placeRelation).where(inArray(placeRelation.userId, staleDemoUserIds));
+	await db.delete(userLocation).where(inArray(userLocation.userId, staleDemoUserIds));
+	await db.delete(user).where(inArray(user.id, staleDemoUserIds));
+}
+// The `event` table has no real-app writer (only this seed populates it), so
+// a full clear is safe here - unlike `place`, `placeRelation`, and
+// `userLocation`, which real users write to.
 await db.delete(event);
-await db.delete(place);
-await sql`DELETE FROM "user" WHERE email LIKE '%@demo.curiomancer'`;
 
-console.log(`Inserting ${resolved.size} places (source=apple)…`);
+console.log(`Upserting ${resolved.size} places (source=apple)…`);
 const placeRows: NewPlace[] = [...resolved.entries()].map(([query, r]) => {
 	const hint = hintByQuery.get(query)!;
 	return {
@@ -571,7 +586,26 @@ const placeRows: NewPlace[] = [...resolved.entries()].map(([query, r]) => {
 		externalId: r.muid
 	};
 });
-const insertedPlaces = await db.insert(place).values(placeRows).returning();
+// Upsert on the (source, externalId) dedupe key instead of delete+insert, so
+// re-running this script reuses (rather than orphans or duplicates) a place
+// row that a real user has already liked via the same Apple Maps POI.
+const insertedPlaces = await db
+	.insert(place)
+	.values(placeRows)
+	.onConflictDoUpdate({
+		target: [place.source, place.externalId],
+		targetWhere: dsql`${place.externalId} is not null`,
+		set: {
+			name: dsql`excluded.name`,
+			category: dsql`excluded.category`,
+			city: dsql`excluded.city`,
+			neighborhood: dsql`excluded.neighborhood`,
+			description: dsql`excluded.description`,
+			latitude: dsql`excluded.latitude`,
+			longitude: dsql`excluded.longitude`
+		}
+	})
+	.returning();
 const placeIdByQuery = new Map<string, string>();
 for (const [query, r] of resolved) {
 	const created = insertedPlaces.find((p) => p.externalId === r.muid);
