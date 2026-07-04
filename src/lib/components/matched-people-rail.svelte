@@ -8,7 +8,7 @@
 
 <section class="mb-10">
 	<header class="mb-3 flex items-baseline justify-between">
-		<h2 class="text-lg font-medium">People</h2>
+		<h2 class="text-lg font-medium">Twins</h2>
 		<span class="text-muted-foreground text-xs"
 			>{people.length} match{people.length === 1 ? '' : 'es'}</span
 		>

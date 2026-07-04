@@ -34,9 +34,9 @@
 		</p>
 		<div class="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
 			<span class="inline-flex items-center gap-1"><ThumbsUp class="size-3" />{s.liked}</span>
-			<span class="inline-flex items-center gap-1"><ThumbsDown class="size-3" />{s.disliked}</span>
-			<span class="inline-flex items-center gap-1"><Eye class="size-3" />{s.seen}</span>
 			<span class="inline-flex items-center gap-1"><Bookmark class="size-3" />{s.want_to_go}</span>
+			<span class="inline-flex items-center gap-1"><Eye class="size-3" />{s.seen}</span>
+			<span class="inline-flex items-center gap-1"><ThumbsDown class="size-3" />{s.disliked}</span>
 		</div>
 	</section>
 

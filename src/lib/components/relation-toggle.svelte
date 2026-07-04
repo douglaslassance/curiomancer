@@ -63,6 +63,17 @@
 		<ThumbsUp class="size-4" />
 	</Button>
 	<Button
+		variant={current === 'want_to_go' ? 'default' : 'outline'}
+		{size}
+		aria-pressed={current === 'want_to_go'}
+		aria-label={current === 'want_to_go'
+			? 'Remove from wishlist'
+			: "Want to go, haven't been but interested"}
+		onclick={(e: Event) => press('want_to_go', e)}
+	>
+		<Bookmark class="size-4" />
+	</Button>
+	<Button
 		variant={current === 'seen' ? 'default' : 'outline'}
 		{size}
 		aria-pressed={current === 'seen'}
@@ -81,16 +92,5 @@
 		onclick={(e: Event) => press('disliked', e)}
 	>
 		<ThumbsDown class="size-4" />
-	</Button>
-	<Button
-		variant={current === 'want_to_go' ? 'default' : 'outline'}
-		{size}
-		aria-pressed={current === 'want_to_go'}
-		aria-label={current === 'want_to_go'
-			? 'Remove from wishlist'
-			: "Want to go, haven't been but interested"}
-		onclick={(e: Event) => press('want_to_go', e)}
-	>
-		<Bookmark class="size-4" />
 	</Button>
 </div>
