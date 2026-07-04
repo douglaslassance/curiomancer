@@ -74,9 +74,9 @@ export async function getInvitesFor(userId: string): Promise<InviteWithRedeemer[
 	`);
 	return rows.map((r) => ({
 		id: r.id,
-		createdAt: r.created_at,
+		createdAt: new Date(r.created_at),
 		redeemedByUserId: r.redeemed_by_user_id,
-		redeemedAt: r.redeemed_at,
+		redeemedAt: r.redeemed_at ? new Date(r.redeemed_at) : null,
 		redeemedByName: r.redeemed_by_name
 	}));
 }
@@ -114,10 +114,10 @@ export async function getAllInvites(): Promise<InviteLedgerRow[]> {
 	`);
 	return rows.map((r) => ({
 		id: r.id,
-		createdAt: r.created_at,
+		createdAt: new Date(r.created_at),
 		createdByName: r.created_by_name,
 		redeemedByUserId: r.redeemed_by_user_id,
-		redeemedAt: r.redeemed_at,
+		redeemedAt: r.redeemed_at ? new Date(r.redeemed_at) : null,
 		redeemedByName: r.redeemed_by_name
 	}));
 }
