@@ -1,10 +1,9 @@
 /**
- * Theme preference store: 'light' | 'dark'.
+ * Theme preference store: 'system' | 'light' | 'dark'.
  *
- * Initial value follows the OS preference. The first toggle locks in an
- * explicit choice that persists across sessions. Subsequent OS changes
- * don't override your stored preference - once you've picked, you've
- * picked. This matches the pattern from douglaslassance.me.
+ * 'system' (the default) follows the OS scheme live - if the user never
+ * picks an explicit theme, flipping the OS between light/dark flips the
+ * app too. Picking 'light' or 'dark' pins it and persists across sessions.
  *
  * The actual class on <html> is set by an inline script in app.html that
  * runs before hydration so we never flash the wrong theme.
@@ -13,47 +12,66 @@ import { browser } from '$app/environment';
 
 const STORAGE_KEY = 'curiomancer:theme';
 
-export type Theme = 'light' | 'dark';
+export type ThemePreference = 'system' | 'light' | 'dark';
+export type ResolvedTheme = 'light' | 'dark';
 
 function systemPrefersDark(): boolean {
 	if (!browser) return false;
 	return window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
-function readInitial(): Theme {
-	if (!browser) return 'light';
+function readInitialPreference(): ThemePreference {
+	if (!browser) return 'system';
 	const raw = localStorage.getItem(STORAGE_KEY);
-	if (raw === 'light' || raw === 'dark') return raw;
-	return systemPrefersDark() ? 'dark' : 'light';
+	if (raw === 'light' || raw === 'dark' || raw === 'system') return raw;
+	return 'system';
 }
 
-function applyToDocument(theme: Theme) {
+function resolve(preference: ThemePreference): ResolvedTheme {
+	return preference === 'system' ? (systemPrefersDark() ? 'dark' : 'light') : preference;
+}
+
+function applyToDocument(resolved: ResolvedTheme) {
 	if (!browser) return;
 	const root = document.documentElement;
-	root.classList.toggle('dark', theme === 'dark');
-	root.style.colorScheme = theme;
+	root.classList.toggle('dark', resolved === 'dark');
+	root.style.colorScheme = resolved;
 }
 
 class ThemeStore {
-	#current = $state<Theme>('light');
+	#preference = $state<ThemePreference>('system');
+	#resolved = $state<ResolvedTheme>('light');
 
 	constructor() {
-		if (browser) this.#current = readInitial();
+		if (!browser) return;
+		this.#preference = readInitialPreference();
+		this.#resolved = resolve(this.#preference);
+
+		// Live-follow the OS while the preference is 'system'; ignored once
+		// an explicit light/dark choice is stored.
+		window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+			if (this.#preference !== 'system') return;
+			this.#resolved = e.matches ? 'dark' : 'light';
+			applyToDocument(this.#resolved);
+		});
 	}
 
-	get current(): Theme {
-		return this.#current;
+	/** The stored preference: 'system' | 'light' | 'dark'. */
+	get preference(): ThemePreference {
+		return this.#preference;
 	}
 
-	toggle() {
-		this.set(this.#current === 'dark' ? 'light' : 'dark');
+	/** The actual scheme in effect right now ('system' resolved to light/dark). */
+	get current(): ResolvedTheme {
+		return this.#resolved;
 	}
 
-	set(next: Theme) {
-		this.#current = next;
+	set(next: ThemePreference) {
+		this.#preference = next;
+		this.#resolved = resolve(next);
 		if (browser) {
 			localStorage.setItem(STORAGE_KEY, next);
-			applyToDocument(next);
+			applyToDocument(this.#resolved);
 		}
 	}
 }

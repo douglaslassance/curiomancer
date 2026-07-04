@@ -21,13 +21,23 @@
 		Mail,
 		MapPin,
 		MessageCircle,
+		Monitor,
+		Moon,
 		RefreshCw,
 		Sparkles,
+		Sun,
 		ThumbsUp,
 		Trash2,
 		User
 	} from '@lucide/svelte';
 	import { updateLocation, type LocationUpdateError } from '$lib/location-update';
+	import { theme, type ThemePreference } from '$lib/theme.svelte';
+
+	const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
+		{ value: 'system', label: 'System', icon: Monitor },
+		{ value: 'light', label: 'Light', icon: Sun },
+		{ value: 'dark', label: 'Dark', icon: Moon }
+	];
 
 	let { data, form } = $props();
 
@@ -205,6 +215,30 @@
 			</div>
 		</Card.Header>
 		<Card.Content class="space-y-4">
+			<Separator />
+
+			<div class="flex items-start gap-3">
+				<Sun class="text-muted-foreground mt-0.5 size-4" />
+				<div class="min-w-0 flex-1">
+					<div class="text-sm font-medium">Theme</div>
+					<div class="mt-2 inline-flex items-center gap-1">
+						{#each THEME_OPTIONS as opt (opt.value)}
+							{@const Icon = opt.icon}
+							<Button
+								type="button"
+								size="sm"
+								variant={theme.preference === opt.value ? 'default' : 'outline'}
+								aria-pressed={theme.preference === opt.value}
+								onclick={() => theme.set(opt.value)}
+							>
+								<Icon class="size-3.5" />
+								{opt.label}
+							</Button>
+						{/each}
+					</div>
+				</div>
+			</div>
+
 			<Separator />
 
 			<div class="flex items-start gap-3">
