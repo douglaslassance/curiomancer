@@ -14,14 +14,14 @@
  */
 import { env } from '$env/dynamic/private';
 
-type Email = { to: string; subject: string; text: string; html: string };
+type Email = { to: string; subject: string; text: string; html: string; replyTo?: string };
 
 type CloudflareEmailResponse = {
 	success: boolean;
 	errors: { code: number; message: string }[];
 };
 
-export async function sendEmail({ to, subject, text, html }: Email): Promise<void> {
+export async function sendEmail({ to, subject, text, html, replyTo }: Email): Promise<void> {
 	if (env.CLOUDFLARE_API_TOKEN && env.CLOUDFLARE_ACCOUNT_ID) {
 		const response = await fetch(
 			`https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/email/sending/send`,
@@ -36,7 +36,8 @@ export async function sendEmail({ to, subject, text, html }: Email): Promise<voi
 					to,
 					subject,
 					text,
-					html
+					html,
+					...(replyTo ? { reply_to: replyTo } : {})
 				})
 			}
 		);
@@ -58,6 +59,14 @@ export async function sendEmail({ to, subject, text, html }: Email): Promise<voi
 			''
 		].join('\n')
 	);
+}
+
+function escapeHtml(value: string): string {
+	return value
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;');
 }
 
 /** Brand colors pulled from src/routes/layout.css, as hex since email clients don't support oklch(). */
@@ -190,6 +199,24 @@ export async function sendInviteEmail(to: string, inviteUrl: string): Promise<vo
 			heading: "You're invited",
 			paragraphs: ["Good news, you're off the waitlist and invited to join Curiomancer."],
 			action: { label: 'Create your account', url: inviteUrl }
+		})
+	});
+}
+
+/** Sent to the team inbox when someone submits the public contact form. */
+export async function sendContactEmail(
+	fromEmail: string,
+	subject: string,
+	message: string
+): Promise<void> {
+	await sendEmail({
+		to: 'hey@curiomancer.com',
+		replyTo: fromEmail,
+		subject: `[Contact] ${subject}`,
+		text: `From: ${fromEmail}\n\n${message}`,
+		html: renderEmailHtml({
+			heading: 'New contact message',
+			paragraphs: [`From: ${escapeHtml(fromEmail)}`, escapeHtml(message).replace(/\n/g, '<br />')]
 		})
 	});
 }
