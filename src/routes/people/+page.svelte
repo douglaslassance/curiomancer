@@ -50,13 +50,6 @@
 	}
 </script>
 
-<header class="mb-6">
-	<h1 class="text-3xl font-semibold tracking-tight">Twins</h1>
-	<p class="text-muted-foreground mt-1 text-sm">
-		Your taste-twins near you, sorted by match. Adjust the radius to widen the net.
-	</p>
-</header>
-
 {#if !data.signedIn}
 	<div class="text-muted-foreground rounded-xl border border-dashed py-12 text-center text-sm">
 		Sign in to see your taste-twins.

@@ -252,13 +252,6 @@
 </script>
 
 <div>
-	<header class="mb-6">
-		<h1 class="text-3xl font-semibold tracking-tight">Rate</h1>
-		<p class="text-muted-foreground mt-1 text-sm">
-			Quickly react to places around you. The more you rate, the sharper your matches get.
-		</p>
-	</header>
-
 	{#if !data.signedIn}
 		<div class="text-muted-foreground rounded-xl border border-dashed py-12 text-center text-sm">
 			Sign in to rate places near you.

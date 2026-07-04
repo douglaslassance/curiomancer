@@ -142,8 +142,7 @@
 
 <div class="py-4">
 	<header class="mb-6">
-		<h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
-		<p class="text-muted-foreground mt-1 text-sm">
+		<p class="text-muted-foreground text-sm">
 			Your account and preferences. More controls land here as the product grows.
 		</p>
 	</header>
