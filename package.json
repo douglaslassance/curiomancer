@@ -64,6 +64,7 @@
 		"node-cron": "^4.5.0",
 		"postgres": "^3.4.9",
 		"posthog-js": "^1.396.6",
-		"posthog-node": "^5.39.4"
+		"posthog-node": "^5.39.4",
+		"resend": "^6.17.1"
 	}
 }
