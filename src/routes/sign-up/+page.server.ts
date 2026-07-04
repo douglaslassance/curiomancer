@@ -124,6 +124,9 @@ export const actions: Actions = {
 			});
 		}
 
-		throw redirect(302, '/');
+		// requireEmailVerification means signUpEmail doesn't create a session,
+		// so there's nothing to redirect into yet - show a "check your email"
+		// state instead.
+		return { verifyEmailSent: true, email };
 	}
 };

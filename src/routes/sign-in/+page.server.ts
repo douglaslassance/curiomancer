@@ -25,10 +25,13 @@ export const actions: Actions = {
 			userId = result?.user?.id ?? null;
 		} catch (error) {
 			if (error instanceof APIError) {
-				return fail(400, {
-					email,
-					message: error.message || 'Sign-in failed.'
-				});
+				// better-auth resends the verification email on this attempt
+				// (emailVerification.sendOnSignIn), so this doubles as "resend".
+				const message =
+					error.message === 'Email not verified'
+						? 'Check your email to verify your account first - we just sent you a fresh link.'
+						: error.message || 'Sign-in failed.';
+				return fail(400, { email, message });
 			}
 			return fail(500, { email, message: 'Unexpected error. Try again.' });
 		}

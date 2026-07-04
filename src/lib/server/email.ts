@@ -140,6 +140,26 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
 	});
 }
 
+/** Verification email sent on sign-up (and re-sent on sign-in attempts while unverified). */
+export async function sendVerificationEmail(to: string, verifyUrl: string): Promise<void> {
+	await sendEmail({
+		to,
+		subject: 'Verify your Curiomancer email',
+		text:
+			'Confirm this is your email address to finish setting up your Curiomancer account.\n\n' +
+			`Verify it here:\n${verifyUrl}\n\n` +
+			"If you didn't create this account, you can safely ignore this email.",
+		html: renderEmailHtml({
+			heading: 'Verify your email',
+			paragraphs: [
+				'Confirm this is your email address to finish setting up your Curiomancer account.',
+				"If you didn't create this account, you can safely ignore this email."
+			],
+			action: { label: 'Verify email', url: verifyUrl }
+		})
+	});
+}
+
 /** Sent when someone joins the waitlist through the public splash form. */
 export async function sendWaitlistConfirmationEmail(to: string): Promise<void> {
 	await sendEmail({

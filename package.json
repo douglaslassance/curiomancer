@@ -16,6 +16,7 @@
 		"db:seed:demo": "tsx src/lib/server/db/seed.ts",
 		"metrics:snapshot": "tsx scripts/metrics-snapshot.ts",
 		"seed:metrics:demo": "tsx scripts/seed-metrics-demo.ts",
+		"backfill:email-verified": "tsx scripts/backfill-email-verified.ts",
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"auth:schema": "better-auth generate --config src/lib/server/auth.ts --output src/lib/server/db/auth.schema.ts --yes"
