@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { userLocation } from '$lib/server/db/schema';
-import { getPeopleNearby, type NearbyPerson } from '$lib/server/nearby';
+import { getPeopleNearby, MAX_RADIUS_KM, type NearbyPerson } from '$lib/server/nearby';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -21,7 +21,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		return { center: null, radiusKm: 30, people: [] as NearbyPerson[], signedIn: true as const };
 	}
 
-	const radiusKm = Math.max(1, Math.min(500, Number(url.searchParams.get('radius') ?? '') || 30));
+	const radiusKm = Math.max(
+		5,
+		Math.min(MAX_RADIUS_KM, Number(url.searchParams.get('radius') ?? '') || 30)
+	);
 
 	// Surface genuine taste-twins: signed similarity above 50%.
 	const people = (

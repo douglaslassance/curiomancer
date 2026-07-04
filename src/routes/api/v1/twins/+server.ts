@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { requireApiUser } from '$lib/server/api-auth';
 import { getUserLocation } from '$lib/server/current-location';
-import { getPeopleNearby } from '$lib/server/nearby';
+import { getPeopleNearby, MAX_RADIUS_KM } from '$lib/server/nearby';
 import type { RequestHandler } from './$types';
 
 /**
@@ -11,14 +11,17 @@ import type { RequestHandler } from './$types';
  * Mirrors the /people page load. Returns an empty list (not an error) when
  * the viewer has no saved location, so the client can prompt for one.
  *
- *   query: ?radius=<1..500 km, default 30>
+ *   query: ?radius=<5..20016 km, default 30>
  *   returns: { center, radiusKm, people }
  */
 export const GET: RequestHandler = async ({ request, url }) => {
 	const userId = await requireApiUser(request);
 
 	const loc = await getUserLocation(userId);
-	const radiusKm = Math.max(1, Math.min(500, Number(url.searchParams.get('radius') ?? '') || 30));
+	const radiusKm = Math.max(
+		5,
+		Math.min(MAX_RADIUS_KM, Number(url.searchParams.get('radius') ?? '') || 30)
+	);
 
 	if (!loc) {
 		return json({ center: null, radiusKm, people: [] });

@@ -28,6 +28,24 @@
 import { sql } from 'drizzle-orm';
 import { db } from './db';
 import { recommendationImpression, type Place, type RecommendationReason } from './db/schema';
+import { haversineKm } from './nearby';
+
+/**
+ * Where to look for candidate places: an exact city match (what /places and
+ * /map use - they already have their own radius-based nearby query, so this
+ * just scopes recommendations to "the same city"), or a real distance
+ * radius around a point (what the home dashboard uses, so a recommendation
+ * a few km over a city line isn't invisible just because of an address field).
+ */
+export type PlaceScope =
+	| { kind: 'city'; city: string }
+	| { kind: 'radius'; latitude: number; longitude: number; radiusKm: number };
+
+function placeScopeClause(scope: PlaceScope) {
+	return scope.kind === 'city'
+		? sql`p.city = ${scope.city}`
+		: sql`${haversineKm(scope.latitude, scope.longitude, 'p.latitude', 'p.longitude')} <= ${scope.radiusKm}`;
+}
 
 export type MatchedPerson = {
 	id: string;
@@ -262,10 +280,11 @@ export async function getSharedTwins(
 }
 
 /**
- * Top N places in `city` of `category` that the user's top-K taste twins
- * liked, scored by sum of similarity weight, excluding places the user
- * already has a relation with (liked, disliked, or want-to-go - we don't
- * re-recommend places you've already taken a position on).
+ * Top N places within `scope` (a city or a lat/lng radius) of `category`
+ * that the user's top-K taste twins liked, scored by sum of similarity
+ * weight, excluding places the user already has a relation with (liked,
+ * disliked, or want-to-go - we don't re-recommend places you've already
+ * taken a position on).
  *
  * A twin's negative score subtracts from recommendation weight, so a place
  * loved by someone who agrees with you AND hated by someone else with the
@@ -273,7 +292,7 @@ export async function getSharedTwins(
  */
 export async function getRecommendedPlaces(
 	userId: string,
-	city: string,
+	scope: PlaceScope,
 	category: 'eat' | 'drink' | 'shop' | 'visit',
 	limit = 8
 ): Promise<RecommendedPlace[]> {
@@ -338,7 +357,7 @@ export async function getRecommendedPlaces(
 		FROM "place_relation" l
 		JOIN twins t ON t.user_id = l.user_id
 		JOIN place p ON p.id = l.place_id
-		WHERE p.city = ${city}
+		WHERE ${placeScopeClause(scope)}
 		  AND p.category = ${category}
 		  AND l.kind = 'liked'
 		  AND p.id NOT IN (SELECT place_id FROM all_my_relations)
@@ -358,7 +377,7 @@ export async function getRecommendedPlaces(
 		longitude: r.longitude,
 		source: r.source,
 		externalId: r.external_id,
-		createdAt: r.created_at,
+		createdAt: new Date(r.created_at),
 		score: Number(r.score) || 0,
 		twinCount: r.twin_count,
 		reason: 'twin_match' as const
@@ -366,12 +385,12 @@ export async function getRecommendedPlaces(
 }
 
 /**
- * Fallback when the user has no signal yet (cold start): top places in
- * the city by raw like count. Same shape so the UI doesn't branch.
+ * Fallback when the user has no signal yet (cold start): top places within
+ * `scope` by raw like count. Same shape so the UI doesn't branch.
  */
 export async function getPopularPlaces(
 	userId: string,
-	city: string,
+	scope: PlaceScope,
 	category: 'eat' | 'drink' | 'shop' | 'visit',
 	limit = 8
 ): Promise<RecommendedPlace[]> {
@@ -404,7 +423,7 @@ export async function getPopularPlaces(
 			COUNT(l.id) FILTER (WHERE l.kind = 'liked')::int AS like_count
 		FROM place p
 		LEFT JOIN "place_relation" l ON l.place_id = p.id
-		WHERE p.city = ${city}
+		WHERE ${placeScopeClause(scope)}
 		  AND p.category = ${category}
 		  AND p.id NOT IN (
 		  	SELECT place_id FROM "place_relation" WHERE user_id = ${userId}
@@ -425,7 +444,7 @@ export async function getPopularPlaces(
 		longitude: r.longitude,
 		source: r.source,
 		externalId: r.external_id,
-		createdAt: r.created_at,
+		createdAt: new Date(r.created_at),
 		score: 0,
 		twinCount: r.like_count,
 		reason: 'popular_fallback'

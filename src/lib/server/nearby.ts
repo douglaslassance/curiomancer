@@ -31,6 +31,13 @@ export const haversineKm = (lat: number, lng: number, latCol: string, lngCol: st
 		)
 	`);
 
+/**
+ * Antipodal distance (pi * 6371) rounded up - the farthest any two points on
+ * Earth can be from each other. A radius clamp at this value can never
+ * exclude anywhere on the planet, whatever the search center.
+ */
+export const MAX_RADIUS_KM = 20016;
+
 export type NearbyPlace = Place & {
 	distanceKm: number;
 };
@@ -76,7 +83,7 @@ export async function getPlacesNearby(
 		longitude: r.longitude,
 		source: r.source,
 		externalId: r.external_id,
-		createdAt: r.created_at,
+		createdAt: new Date(r.created_at),
 		distanceKm: Number(r.distance_km) || 0
 	}));
 }

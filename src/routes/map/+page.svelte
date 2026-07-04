@@ -22,6 +22,7 @@
 		wantToGoIds={data.wantToGoIds ?? []}
 		dislikedIds={data.dislikedIds ?? []}
 		seenIds={data.seenIds ?? []}
+		recommendedScores={data.recommendedScores ?? {}}
 		{signedIn}
 		{selectPlaceId}
 		showFilters={signedIn}

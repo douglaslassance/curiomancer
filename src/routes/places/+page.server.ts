@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { userLocation } from '$lib/server/db/schema';
 import { getPlaceIdsByKind } from '$lib/server/likes';
-import { getPlacesNearby, type NearbyPlace } from '$lib/server/nearby';
+import { getPlacesNearby, MAX_RADIUS_KM, type NearbyPlace } from '$lib/server/nearby';
 import { getRecommendedPlaces } from '$lib/server/matching';
 import type { PageServerLoad } from './$types';
 
@@ -59,7 +59,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		};
 	}
 
-	const radiusKm = Math.max(1, Math.min(500, Number(url.searchParams.get('radius') ?? '') || 30));
+	const radiusKm = Math.max(
+		5,
+		Math.min(MAX_RADIUS_KM, Number(url.searchParams.get('radius') ?? '') || 30)
+	);
 	const filter = parseFilter(url.searchParams.get('filter'));
 
 	const [allNearby, liked, disliked, seen, wantToGo, recsByCategory] = await Promise.all([
@@ -71,10 +74,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		// Recommendation scores are computed per-category by the existing
 		// matching layer. Flatten into a single map placeId → score.
 		Promise.all([
-			getRecommendedPlaces(locals.user.id, loc.city, 'eat', 100),
-			getRecommendedPlaces(locals.user.id, loc.city, 'drink', 100),
-			getRecommendedPlaces(locals.user.id, loc.city, 'shop', 100),
-			getRecommendedPlaces(locals.user.id, loc.city, 'visit', 100)
+			getRecommendedPlaces(locals.user.id, { kind: 'city', city: loc.city }, 'eat', 100),
+			getRecommendedPlaces(locals.user.id, { kind: 'city', city: loc.city }, 'drink', 100),
+			getRecommendedPlaces(locals.user.id, { kind: 'city', city: loc.city }, 'shop', 100),
+			getRecommendedPlaces(locals.user.id, { kind: 'city', city: loc.city }, 'visit', 100)
 		])
 	]);
 

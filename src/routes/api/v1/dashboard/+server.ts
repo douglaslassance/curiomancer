@@ -39,10 +39,18 @@ export const GET: RequestHandler = async ({ request }) => {
 			.where(eq(placeRelation.userId, userId))
 	).length;
 
+	// Radius-scoped (not an exact city match) so a place just across a city
+	// line isn't invisible just because of an address field.
+	const scope = {
+		kind: 'radius' as const,
+		latitude: loc.latitude,
+		longitude: loc.longitude,
+		radiusKm: 30
+	};
 	const placesFor = async (category: 'eat' | 'drink' | 'shop' | 'visit') => {
-		const recommended = await getRecommendedPlaces(userId, loc.city, category);
+		const recommended = await getRecommendedPlaces(userId, scope, category);
 		if (recommended.length > 0) return recommended;
-		return getPopularPlaces(userId, loc.city, category);
+		return getPopularPlaces(userId, scope, category);
 	};
 
 	const [weather, matchedPeople, eat, drink, shop, visit] = await Promise.all([

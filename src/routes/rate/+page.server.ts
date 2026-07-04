@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { userLocation } from '$lib/server/db/schema';
 import { getPlaceIdsByKind } from '$lib/server/likes';
-import { getPlacesNearby, type NearbyPlace } from '$lib/server/nearby';
+import { getPlacesNearby, MAX_RADIUS_KM, type NearbyPlace } from '$lib/server/nearby';
 import type { PageServerLoad } from './$types';
 
 // Quick-rate flow: hand the client every place near the viewer plus the ids
@@ -35,7 +35,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	if (!loc) return { ...empty, signedIn: true as const };
 
-	const radiusKm = Math.max(1, Math.min(500, Number(url.searchParams.get('radius') ?? '') || 30));
+	const radiusKm = Math.max(
+		5,
+		Math.min(MAX_RADIUS_KM, Number(url.searchParams.get('radius') ?? '') || 30)
+	);
 
 	const [allNearby, liked, disliked, seen, wantToGo] = await Promise.all([
 		getPlacesNearby(loc.latitude, loc.longitude, radiusKm),

@@ -5,8 +5,14 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Badge } from '$lib/components/ui/badge';
 	import RelationToggle from '$lib/components/relation-toggle.svelte';
-	import MatchBadge from '$lib/components/match-badge.svelte';
 	import CategoryFilter from '$lib/components/category-filter.svelte';
+	import { categoryLabel } from '$lib/place-category';
+	import {
+		formatRadiusKm,
+		positionToRadiusKm,
+		radiusKmToPosition,
+		RADIUS_POSITION_MAX
+	} from '$lib/radius-scale';
 	import {
 		Bookmark,
 		Eye,
@@ -25,28 +31,31 @@
 	const REL_FILTERS: { value: RelFilter; label: string; icon: Component }[] = [
 		{ value: 'recommended', label: 'Recommended', icon: Sparkles },
 		{ value: 'liked', label: 'Liked', icon: ThumbsUp },
-		{ value: 'disliked', label: 'Disliked', icon: ThumbsDown },
+		{ value: 'want_to_go', label: 'Want to go', icon: Bookmark },
 		{ value: 'seen', label: 'Been there', icon: Eye },
-		{ value: 'want_to_go', label: 'Want to go', icon: Bookmark }
+		{ value: 'disliked', label: 'Disliked', icon: ThumbsDown }
 	];
 
-	// In-flight slider position; the URL holds the authoritative value.
+	// In-flight slider position (linear); the URL holds the authoritative km
+	// value, reached through the non-linear position<->km mapping below.
 	// svelte-ignore state_referenced_locally
 	// eslint-disable-next-line svelte/prefer-writable-derived
-	let localRadius = $state(data.radiusKm);
+	let localPosition = $state(radiusKmToPosition(data.radiusKm));
+	const localRadius = $derived(positionToRadiusKm(localPosition));
 	let query = $state('');
 	let debounceId: ReturnType<typeof setTimeout> | null = null;
 
 	$effect(() => {
-		localRadius = data.radiusKm;
+		localPosition = radiusKmToPosition(data.radiusKm);
 	});
 
-	function onRadiusChange(value: number) {
-		localRadius = value;
+	function onRadiusChange(position: number) {
+		localPosition = position;
+		const km = positionToRadiusKm(position);
 		if (debounceId) clearTimeout(debounceId);
 		debounceId = setTimeout(() => {
 			const u = new URL(page.url);
-			u.searchParams.set('radius', String(value));
+			u.searchParams.set('radius', String(km));
 			goto(u, { replaceState: true, keepFocus: true, noScroll: true });
 		}, 250);
 	}
@@ -127,13 +136,6 @@
 	});
 </script>
 
-<header class="mb-6">
-	<h1 class="text-3xl font-semibold tracking-tight">Places</h1>
-	<p class="text-muted-foreground mt-1 text-sm">
-		Everything Curiomancer knows about within your radius. Filter, search, and react.
-	</p>
-</header>
-
 {#if !data.signedIn}
 	<div class="text-muted-foreground rounded-xl border border-dashed py-12 text-center text-sm">
 		Sign in to filter places by your taste.
@@ -184,15 +186,15 @@
 		<div>
 			<div class="mb-2 flex items-baseline justify-between">
 				<label for="radius" class="text-sm font-medium">Radius</label>
-				<span class="text-muted-foreground tabular-nums text-sm">{localRadius} km</span>
+				<span class="text-muted-foreground tabular-nums text-sm">{formatRadiusKm(localRadius)}</span>
 			</div>
 			<Slider
 				type="single"
 				id="radius"
-				value={localRadius}
+				value={localPosition}
 				onValueChange={onRadiusChange}
-				min={1}
-				max={500}
+				min={0}
+				max={RADIUS_POSITION_MAX}
 				step={1}
 			/>
 		</div>
@@ -208,7 +210,7 @@
 				{:else if query}
 					No matches for "{query}".
 				{:else}
-					Nothing here yet within {data.radiusKm} km.
+					Nothing here yet within {formatRadiusKm(data.radiusKm)}.
 				{/if}
 			</p>
 		</div>
@@ -226,19 +228,14 @@
 						<div
 							class="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
 						>
-							<Badge variant="secondary" class="capitalize">{p.category}</Badge>
+							<Badge variant="secondary">{categoryLabel(p.category)}</Badge>
 							<span class="flex items-center gap-1">
 								<MapPin class="size-3" />
 								{p.neighborhood ? `${p.neighborhood}, ` : ''}{p.city} · {Math.round(p.distanceKm)} km
 							</span>
 						</div>
 					</div>
-					<div class="flex items-center justify-between gap-2">
-						{#if activeFilters.has('recommended') && (data.recommendedScores[p.id] ?? 0) > 0}
-							<MatchBadge score={Math.min(data.recommendedScores[p.id], 1)} />
-						{:else}
-							<span></span>
-						{/if}
+					<div class="flex items-center justify-end gap-2">
 						<RelationToggle placeId={p.id} />
 					</div>
 				</article>

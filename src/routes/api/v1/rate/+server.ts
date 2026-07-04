@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { requireApiUser } from '$lib/server/api-auth';
 import { getUserLocation } from '$lib/server/current-location';
-import { getPlacesNearby } from '$lib/server/nearby';
+import { getPlacesNearby, MAX_RADIUS_KM } from '$lib/server/nearby';
 import { getRelationMap } from '$lib/server/likes';
 import type { RequestHandler } from './$types';
 
@@ -14,14 +14,17 @@ import type { RequestHandler } from './$types';
  * of Apple-sourced places we already hold, so a client pulling fresh POIs from
  * Apple can skip re-surfacing them.
  *
- *   query: ?radius=<1..500 km, default 30>
+ *   query: ?radius=<5..20016 km, default 30>
  *   returns: { center, city, radiusKm, places, knownExternalIds }
  */
 export const GET: RequestHandler = async ({ request, url }) => {
 	const userId = await requireApiUser(request);
 
 	const loc = await getUserLocation(userId);
-	const radiusKm = Math.max(1, Math.min(500, Number(url.searchParams.get('radius') ?? '') || 30));
+	const radiusKm = Math.max(
+		5,
+		Math.min(MAX_RADIUS_KM, Number(url.searchParams.get('radius') ?? '') || 30)
+	);
 
 	if (!loc) {
 		return json({ center: null, city: null, radiusKm, places: [], knownExternalIds: [] });

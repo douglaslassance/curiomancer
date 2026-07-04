@@ -5,7 +5,7 @@
 	import PlacePopup from './place-popup.svelte';
 	import MapSearch from './map-search.svelte';
 	import CategoryFilter from './category-filter.svelte';
-	import { Bookmark, Eye, ThumbsDown, ThumbsUp } from '@lucide/svelte';
+	import { Bookmark, Eye, Sparkles, ThumbsDown, ThumbsUp } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 
 	let {
@@ -15,10 +15,10 @@
 		wantToGoIds = [],
 		dislikedIds = [],
 		seenIds = [],
+		recommendedScores = {},
 		signedIn = false,
 		showSearch = true,
 		showFilters = false,
-		showPlaceSocial = true,
 		selectPlaceId = null,
 		zoom = 12
 	}: {
@@ -28,15 +28,15 @@
 		wantToGoIds?: string[];
 		dislikedIds?: string[];
 		seenIds?: string[];
+		/** placeId -> score, for places with no relation yet that a twin liked. */
+		recommendedScores?: Record<string, number>;
 		signedIn?: boolean;
 		/** Deep-link: fly to and open this place's popup once the map is ready. */
 		selectPlaceId?: string | null;
 		/** Show the search overlay. Off for read-only maps (e.g. another user's map). */
 		showSearch?: boolean;
-		/** Show relation filter chips (liked/want-to-go/seen/disliked). */
+		/** Show relation filter chips (recommended/liked/want-to-go/seen/disliked). */
 		showFilters?: boolean;
-		/** Show the viewer-relative taste-twin proof in the place popup. */
-		showPlaceSocial?: boolean;
 		zoom?: number;
 	} = $props();
 
@@ -50,13 +50,20 @@
 	const dislikedSet = $derived(new Set(dislikedIds));
 	const seenSet = $derived(new Set(seenIds));
 
-	type Relation = 'liked' | 'wantToGo' | 'disliked' | 'seen' | 'other';
+	// A place is "recommended" when the viewer has no relation to it yet (checked
+	// via relationOf's precedence below) and it has a positive recommendation score.
+	function isRecommended(id: string): boolean {
+		return (recommendedScores[id] ?? 0) > 0;
+	}
+
+	type Relation = 'liked' | 'wantToGo' | 'disliked' | 'seen' | 'recommended' | 'other';
 	type FilterKey = Exclude<Relation, 'other'>;
 
 	// Which relation categories are shown. Seen and disliked default off so the
 	// map stays uncluttered; the filter chips let the user reveal them. Neutral
 	// ("other") discovery pins are always shown - they're the base layer.
 	let filters = $state<Record<FilterKey, boolean>>({
+		recommended: true,
 		liked: true,
 		wantToGo: true,
 		disliked: false,
@@ -74,10 +81,11 @@
 	// Same icon + faded-when-off chip style as the places page. The icon is
 	// tinted to the pin color so the chips double as the map's colour legend.
 	const FILTER_CHIPS: { key: FilterKey; label: string; color: string; icon: Component }[] = [
+		{ key: 'recommended', label: 'Recommended', color: '#f59e0b', icon: Sparkles },
 		{ key: 'liked', label: 'Liked', color: '#ec4899', icon: ThumbsUp },
-		{ key: 'disliked', label: 'Disliked', color: '#ef4444', icon: ThumbsDown },
+		{ key: 'wantToGo', label: 'Want to go', color: '#10b981', icon: Bookmark },
 		{ key: 'seen', label: 'Been there', color: '#64748b', icon: Eye },
-		{ key: 'wantToGo', label: 'Want to go', color: '#10b981', icon: Bookmark }
+		{ key: 'disliked', label: 'Disliked', color: '#ef4444', icon: ThumbsDown }
 	];
 
 	const REL_COLOR: Record<Relation, string> = {
@@ -85,6 +93,7 @@
 		wantToGo: '#10b981', // emerald-500
 		disliked: '#ef4444', // red-500
 		seen: '#64748b', // slate-500
+		recommended: '#f59e0b', // amber-500
 		other: '#9ca3af' // gray-400
 	};
 
@@ -93,6 +102,7 @@
 		if (wantToGoSet.has(id)) return 'wantToGo';
 		if (dislikedSet.has(id)) return 'disliked';
 		if (seenSet.has(id)) return 'seen';
+		if (isRecommended(id)) return 'recommended';
 		return 'other';
 	}
 
@@ -402,10 +412,6 @@
 	{/if}
 
 	{#if selectedPlace}
-		<PlacePopup
-			placeId={selectedPlace.id}
-			showSocial={showPlaceSocial}
-			onClose={() => (selectedPlace = null)}
-		/>
+		<PlacePopup placeId={selectedPlace.id} onClose={() => (selectedPlace = null)} />
 	{/if}
 </div>
