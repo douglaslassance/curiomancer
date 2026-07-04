@@ -90,10 +90,6 @@ export type NearbyPerson = {
 	/** -1..+1; null if viewer has no signal to compare against. */
 	score: number | null;
 	sharedCount: number;
-	/** Whether the viewer follows this person. */
-	following: boolean;
-	/** Whether this person follows the viewer. */
-	followedBy: boolean;
 };
 
 /**
@@ -114,8 +110,6 @@ export async function getPeopleNearby(
 		distance_km: number;
 		shared_count: number | null;
 		score: number | null;
-		following: boolean;
-		followed_by: boolean;
 	}>(sql`
 		WITH viewer_relations AS (
 			SELECT place_id, kind FROM "place_relation"
@@ -129,6 +123,11 @@ export async function getPeopleNearby(
 			FROM user_location ul
 			WHERE ${haversineKm(lat, lng, 'ul.latitude', 'ul.longitude')} <= ${radiusKm}
 			  AND (${viewerUserId}::text IS NULL OR ul.user_id <> ${viewerUserId ?? ''})
+			  AND (${viewerUserId}::text IS NULL OR ul.user_id NOT IN (
+			  	SELECT blocked_id FROM "block" WHERE blocker_id = ${viewerUserId ?? ''}
+			  	UNION
+			  	SELECT blocker_id FROM "block" WHERE blocked_id = ${viewerUserId ?? ''}
+			  ))
 		),
 		pair_stats AS (
 			SELECT
@@ -152,14 +151,10 @@ export async function getPeopleNearby(
 			CASE
 				WHEN (SELECT COUNT(*) FROM viewer_relations) = 0 THEN NULL
 				ELSE ps.score
-			END AS score,
-			(f_out.follower_id IS NOT NULL) AS following,
-			(f_in.follower_id IS NOT NULL) AS followed_by
+			END AS score
 		FROM nearby_users nu
 		JOIN "user" u ON u.id = nu.user_id
 		LEFT JOIN pair_stats ps ON ps.user_id = nu.user_id
-		LEFT JOIN "follow" f_out ON f_out.follower_id = ${viewerUserId ?? ''} AND f_out.followed_id = u.id
-		LEFT JOIN "follow" f_in ON f_in.follower_id = u.id AND f_in.followed_id = ${viewerUserId ?? ''}
 		ORDER BY score DESC NULLS LAST, distance_km ASC
 	`);
 
@@ -170,8 +165,6 @@ export async function getPeopleNearby(
 		city: r.city,
 		distanceKm: Number(r.distance_km) || 0,
 		score: r.score === null ? null : Number(r.score),
-		sharedCount: r.shared_count ?? 0,
-		following: r.following,
-		followedBy: r.followed_by
+		sharedCount: r.shared_count ?? 0
 	}));
 }

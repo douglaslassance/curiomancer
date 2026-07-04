@@ -4,10 +4,16 @@
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import favicon from '$lib/assets/favicon.svg';
-	import { MapPin, Map as MapIcon, Store, Users, Shield, Star } from '@lucide/svelte';
+	import {
+		MapPin,
+		Map as MapIcon,
+		MessageCircle,
+		Users,
+		Shield,
+		SlidersHorizontal,
+		User
+	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
-	import ThemeToggle from '$lib/components/theme-toggle.svelte';
-	import UserMenu from '$lib/components/user-menu.svelte';
 	import { relations } from '$lib/relations.svelte';
 	import posthog from 'posthog-js';
 
@@ -17,6 +23,13 @@
 	// behind them. Hide it there; show it on every normal page.
 	const hideFooter = $derived(page.url.pathname.endsWith('/map'));
 	const year = new Date().getFullYear();
+
+	// Highlights the nav item for the current section - pages no longer repeat
+	// their own title, so this is the only "you are here" signal. Prefix match
+	// so nested routes (e.g. /admin/users) keep their tab highlighted.
+	function isActive(href: string): boolean {
+		return page.url.pathname === href || page.url.pathname.startsWith(`${href}/`);
+	}
 
 	// Plain closure variable (NOT $state) - used only for memoization across
 	// effect runs. Making it reactive would cause the effect to re-trigger
@@ -89,32 +102,62 @@
 			</a>
 			<nav class="flex items-center gap-1">
 				{#if data.user}
-					<Button href="/map" variant="ghost" size="sm">
+					<Button
+						href="/map"
+						variant={isActive('/map') ? 'secondary' : 'ghost'}
+						size="sm"
+						aria-current={isActive('/map') ? 'page' : undefined}
+					>
 						<MapIcon class="size-4" />
-						Map
-					</Button>
-					<Button href="/places" variant="ghost" size="sm">
-						<Store class="size-4" />
 						Places
 					</Button>
-					<Button href="/people" variant="ghost" size="sm">
+					<Button
+						href="/people"
+						variant={isActive('/people') ? 'secondary' : 'ghost'}
+						size="sm"
+						aria-current={isActive('/people') ? 'page' : undefined}
+					>
 						<Users class="size-4" />
 						Twins
 					</Button>
-					<Button href="/rate" variant="ghost" size="sm">
-						<Star class="size-4" />
-						Rate
+					<Button
+						href="/rate"
+						variant={isActive('/rate') ? 'secondary' : 'ghost'}
+						size="sm"
+						aria-current={isActive('/rate') ? 'page' : undefined}
+					>
+						<SlidersHorizontal class="size-4" />
+						Tune
+					</Button>
+					<Button
+						href="/messages"
+						variant={isActive('/messages') ? 'secondary' : 'ghost'}
+						size="sm"
+						aria-current={isActive('/messages') ? 'page' : undefined}
+					>
+						<MessageCircle class="size-4" />
+						Messages
 					</Button>
 					{#if data.user.role === 'admin'}
-						<Button href="/admin" variant="ghost" size="sm">
+						<Button
+							href="/admin"
+							variant={isActive('/admin') ? 'secondary' : 'ghost'}
+							size="sm"
+							aria-current={isActive('/admin') ? 'page' : undefined}
+						>
 							<Shield class="size-4" />
 							Admin
 						</Button>
 					{/if}
-				{/if}
-				<ThemeToggle />
-				{#if data.user}
-					<UserMenu user={data.user} />
+					<Button
+						href="/settings"
+						variant={isActive('/settings') ? 'secondary' : 'ghost'}
+						size="sm"
+						aria-current={isActive('/settings') ? 'page' : undefined}
+					>
+						<User class="size-4" />
+						Settings
+					</Button>
 				{:else}
 					<Button href="/sign-in" variant="outline" size="sm">Sign in</Button>
 				{/if}

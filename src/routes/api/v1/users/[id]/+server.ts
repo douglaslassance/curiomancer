@@ -1,8 +1,7 @@
 import { asc, eq, getTableColumns } from 'drizzle-orm';
 import { error, json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
-import { follow, place, placeRelation, user, userLocation } from '$lib/server/db/schema';
-import { isFollowing } from '$lib/server/follows';
+import { place, placeRelation, user, userLocation } from '$lib/server/db/schema';
 import { getPairScore } from '$lib/server/matching';
 import { requireApiUser } from '$lib/server/api-auth';
 import type { RequestHandler } from './$types';
@@ -17,7 +16,7 @@ import type { RequestHandler } from './$types';
  * user's email, role, or exact coordinates - only city / country / timezone,
  * matching what the web profile page exposes publicly.
  *
- *   returns: { profile, location, likedPlaces, following, followers, viewer }
+ *   returns: { profile, location, likedPlaces, viewer }
  */
 export const GET: RequestHandler = async ({ request, params }) => {
 	const viewerId = await requireApiUser(request);
@@ -40,49 +39,18 @@ export const GET: RequestHandler = async ({ request, params }) => {
 		.where(eq(userLocation.userId, params.id))
 		.limit(1);
 
-	const [likedPlaces, following, followers] = await Promise.all([
-		db
-			.select(getTableColumns(place))
-			.from(place)
-			.innerJoin(placeRelation, eq(placeRelation.placeId, place.id))
-			.where(eq(placeRelation.userId, params.id))
-			.orderBy(asc(place.city), asc(place.name)),
-		db
-			.select({ id: user.id, name: user.name, image: user.image })
-			.from(follow)
-			.innerJoin(user, eq(user.id, follow.followedId))
-			.where(eq(follow.followerId, params.id))
-			.orderBy(asc(user.name)),
-		db
-			.select({ id: user.id, name: user.name, image: user.image })
-			.from(follow)
-			.innerJoin(user, eq(user.id, follow.followerId))
-			.where(eq(follow.followedId, params.id))
-			.orderBy(asc(user.name))
-	]);
+	const likedPlaces = await db
+		.select(getTableColumns(place))
+		.from(place)
+		.innerJoin(placeRelation, eq(placeRelation.placeId, place.id))
+		.where(eq(placeRelation.userId, params.id))
+		.orderBy(asc(place.city), asc(place.name));
 
 	// Viewer-relative similarity, unless the viewer is looking at themselves.
 	const isSelf = viewerId === params.id;
-	let viewer: {
-		isSelf: boolean;
-		score: number | null;
-		sharedCount: number;
-		following: boolean;
-	};
-	if (isSelf) {
-		viewer = { isSelf: true, score: null, sharedCount: 0, following: false };
-	} else {
-		const [viewerFollows, pair] = await Promise.all([
-			isFollowing(viewerId, params.id),
-			getPairScore(viewerId, params.id)
-		]);
-		viewer = {
-			isSelf: false,
-			score: pair.score,
-			sharedCount: pair.sharedCount,
-			following: viewerFollows
-		};
-	}
+	const viewer = isSelf
+		? { isSelf: true, score: null, sharedCount: 0 }
+		: { isSelf: false, ...(await getPairScore(viewerId, params.id)) };
 
-	return json({ profile, location: location ?? null, likedPlaces, following, followers, viewer });
+	return json({ profile, location: location ?? null, likedPlaces, viewer });
 };

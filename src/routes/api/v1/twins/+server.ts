@@ -7,10 +7,9 @@ import type { RequestHandler } from './$types';
 /**
  * GET /api/v1/twins
  *
- * Taste-twins: people near the viewer whose signed similarity clears 50%, plus
- * anyone the viewer already follows regardless of match. Mirrors the /people
- * page load. Returns an empty list (not an error) when the viewer has no saved
- * location, so the client can prompt for one.
+ * Taste-twins: people near the viewer whose signed similarity clears 50%.
+ * Mirrors the /people page load. Returns an empty list (not an error) when
+ * the viewer has no saved location, so the client can prompt for one.
  *
  *   query: ?radius=<1..500 km, default 30>
  *   returns: { center, radiusKm, people }
@@ -26,7 +25,7 @@ export const GET: RequestHandler = async ({ request, url }) => {
 	}
 
 	const people = (await getPeopleNearby(loc.latitude, loc.longitude, radiusKm, userId)).filter(
-		(p) => (p.score !== null && p.score > 0.5) || p.following
+		(p) => p.score !== null && p.score > 0.5
 	);
 
 	return json({

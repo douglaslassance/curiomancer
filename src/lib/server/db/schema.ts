@@ -203,30 +203,82 @@ export const invite = pgTable('invite', {
 export type Invite = typeof invite.$inferSelect;
 
 /**
- * Directed follow edges. Following someone treats them as a trusted
- * taste source: their liked places are boosted into your dashboard
- * recommendations regardless of algorithmic taste-similarity. Composite
- * PK on the pair prevents duplicates; the CHECK prevents self-follows.
+ * Directed block: `blockerId` no longer wants to see or be seen by
+ * `blockedId`. Effects are symmetric even though only one side created the
+ * row - both parties disappear from each other's twins/nearby/profile/
+ * messaging surfaces, and blocked users are excluded from each other's
+ * recommendation pool. Composite PK prevents duplicates; the CHECK
+ * prevents self-blocks.
  */
-export const follow = pgTable(
-	'follow',
+export const block = pgTable(
+	'block',
 	{
-		followerId: text('follower_id')
+		blockerId: text('blocker_id')
 			.notNull()
 			.references(() => user.id, { onDelete: 'cascade' }),
-		followedId: text('followed_id')
+		blockedId: text('blocked_id')
 			.notNull()
 			.references(() => user.id, { onDelete: 'cascade' }),
 		createdAt: timestamp('created_at').notNull().defaultNow()
 	},
 	(t) => [
-		primaryKey({ columns: [t.followerId, t.followedId] }),
-		check('follow_no_self', sql`${t.followerId} <> ${t.followedId}`),
-		index('follow_followed_idx').on(t.followedId)
+		primaryKey({ columns: [t.blockerId, t.blockedId] }),
+		check('block_no_self', sql`${t.blockerId} <> ${t.blockedId}`),
+		index('block_blocked_idx').on(t.blockedId)
 	]
 );
 
-export type Follow = typeof follow.$inferSelect;
+export type Block = typeof block.$inferSelect;
+
+/**
+ * A 1:1 conversation between two users. `userAId` is always the
+ * lexicographically smaller of the pair's ids (enforced by the CHECK) so a
+ * given pair maps to exactly one row no matter who started it - finding an
+ * existing conversation is a single lookup, not an OR across both orderings.
+ * Callers must sort the pair before insert/lookup ($lib/server/messages.ts).
+ */
+export const conversation = pgTable(
+	'conversation',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userAId: text('user_a_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		userBId: text('user_b_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		createdAt: timestamp('created_at').notNull().defaultNow()
+	},
+	(t) => [
+		uniqueIndex('conversation_pair_idx').on(t.userAId, t.userBId),
+		check('conversation_ordered_pair', sql`${t.userAId} < ${t.userBId}`)
+	]
+);
+
+export type Conversation = typeof conversation.$inferSelect;
+
+/** One message in a conversation. Plain text only for this first version. */
+export const message = pgTable(
+	'message',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		conversationId: text('conversation_id')
+			.notNull()
+			.references(() => conversation.id, { onDelete: 'cascade' }),
+		senderId: text('sender_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		body: text('body').notNull(),
+		createdAt: timestamp('created_at').notNull().defaultNow()
+	},
+	(t) => [index('message_conversation_created_idx').on(t.conversationId, t.createdAt)]
+);
+
+export type Message = typeof message.$inferSelect;
 
 /**
  * Personal access tokens for the public API. Lets a user pull their own

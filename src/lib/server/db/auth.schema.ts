@@ -12,7 +12,8 @@ export const user = pgTable('user', {
 		.defaultNow()
 		.$onUpdate(() => /* @__PURE__ */ new Date())
 		.notNull(),
-	role: text('role').default('user')
+	role: text('role').default('user'),
+	messageable: boolean('messageable').default(true)
 });
 
 export const session = pgTable(

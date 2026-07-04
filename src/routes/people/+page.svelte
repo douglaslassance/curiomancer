@@ -2,35 +2,18 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { Slider } from '$lib/components/ui/slider';
+	import { Input } from '$lib/components/ui/input';
 	import AvatarMatch from '$lib/components/avatar-match.svelte';
-	import { UserCheck, UserPlus, Users } from '@lucide/svelte';
-	import type { Component } from 'svelte';
+	import { Search, Users } from '@lucide/svelte';
 
 	let { data } = $props();
 
-	type RelFilter = 'following' | 'followers';
-	const REL_FILTERS: { value: RelFilter; label: string; icon: Component }[] = [
-		{ value: 'following', label: 'Following', icon: UserCheck },
-		{ value: 'followers', label: 'Followers', icon: UserPlus }
-	];
-
-	// Multi-toggle, OR'd - same idea as the Places page's relation filters.
-	// No toggles means show everyone nearby.
-	let activeFilters = $state<Set<RelFilter>>(new Set());
-	function toggleFilter(f: RelFilter) {
-		const next = new Set(activeFilters);
-		if (next.has(f)) next.delete(f);
-		else next.add(f);
-		activeFilters = next;
-	}
+	let query = $state('');
 
 	const visible = $derived.by(() => {
-		if (activeFilters.size === 0) return data.people;
-		return data.people.filter(
-			(p) =>
-				(activeFilters.has('following') && p.following) ||
-				(activeFilters.has('followers') && p.followedBy)
-		);
+		const q = query.trim().toLowerCase();
+		if (!q) return data.people;
+		return data.people.filter((p) => p.name.toLowerCase().includes(q));
 	});
 
 	// Radius input is bound to the URL so the page is shareable / refreshable
@@ -76,23 +59,16 @@
 {:else}
 	<!-- Controls -->
 	<section class="bg-card mb-6 space-y-4 rounded-xl border p-4">
-		<div class="flex flex-wrap gap-1.5">
-			{#each REL_FILTERS as f (f.value)}
-				{@const Icon = f.icon}
-				<button
-					type="button"
-					aria-pressed={activeFilters.has(f.value)}
-					onclick={() => toggleFilter(f.value)}
-					class="bg-background/90 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium shadow-sm backdrop-blur-sm transition-opacity {activeFilters.has(
-						f.value
-					)
-						? ''
-						: 'opacity-40'}"
-				>
-					<Icon class="size-3.5" />
-					{f.label}
-				</button>
-			{/each}
+		<!-- Search -->
+		<div class="relative">
+			<Search class="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
+			<Input
+				type="search"
+				placeholder="Search people…"
+				value={query}
+				oninput={(e) => (query = e.currentTarget.value)}
+				class="pl-9"
+			/>
 		</div>
 
 		<div>
@@ -121,7 +97,7 @@
 	{:else if visible.length === 0}
 		<div class="text-muted-foreground rounded-xl border border-dashed py-12 text-center text-sm">
 			<Users class="mx-auto size-6 opacity-60" />
-			<p class="mt-2">No twins match your filters.</p>
+			<p class="mt-2">No matches for "{query}".</p>
 		</div>
 	{:else}
 		<p class="text-muted-foreground mb-3 text-xs">

@@ -2,37 +2,45 @@ import { error } from '@sveltejs/kit';
 import { asc, eq, getTableColumns, sql } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import {
-	follow,
 	placeRelation,
 	place,
 	user,
 	userLocation,
-	type Place
+	type Place,
+	type PlaceRelationKind
 } from '$lib/server/db/schema';
-import { isFollowing } from '$lib/server/follows';
+import { isBlocked } from '$lib/server/blocks';
 import { getPairScore } from '$lib/server/matching';
-import type { PageServerLoad } from './$types';
+import type { LayoutServerLoad } from './$types';
+
+export type SharedPlace = Place & { kind: PlaceRelationKind };
 
 /**
- * Public profile for a Curiomancer user.
- *
- * v1 shows what they like + where they are. Public to everyone (signed in
- * or not). When a viewer is signed in we also compute their Jaccard
- * similarity + the subset of places both have liked, so the page is the
- * natural answer to "why is this person in my matches?"
+ * Public profile for a Curiomancer user - shared across the Likes (default),
+ * Want to go, Disliked, and Twins tabs. Public to everyone (signed in or
+ * not), except a blocked pair: blocking is mutual, so the profile 404s for
+ * whichever side is involved, same as if the account didn't exist. When a
+ * viewer is signed in we also compute their Jaccard similarity + every place
+ * where you both landed on the same stance, so the page is the natural
+ * answer to "why is this person in my matches?"
  */
-export const load: PageServerLoad = async ({ params, locals }) => {
+export const load: LayoutServerLoad = async ({ params, locals }) => {
 	const [profile] = await db
 		.select({
 			id: user.id,
 			name: user.name,
 			image: user.image,
-			createdAt: user.createdAt
+			createdAt: user.createdAt,
+			messageable: user.messageable
 		})
 		.from(user)
 		.where(eq(user.id, params.id))
 		.limit(1);
 	if (!profile) throw error(404, 'User not found');
+
+	if (locals.user && locals.user.id !== params.id) {
+		if (await isBlocked(locals.user.id, params.id)) throw error(404, 'User not found');
+	}
 
 	const [location] = await db
 		.select({
@@ -44,48 +52,32 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		.where(eq(userLocation.userId, params.id))
 		.limit(1);
 
-	const likedPlaces = await db
-		.select(getTableColumns(place))
+	// Despite the name, this covers all four relation kinds, not just liked -
+	// the per-kind tabs (Likes/Want to go/Disliked) filter it client-side.
+	const likedPlaces: SharedPlace[] = await db
+		.select({ ...getTableColumns(place), kind: placeRelation.kind })
 		.from(place)
 		.innerJoin(placeRelation, eq(placeRelation.placeId, place.id))
 		.where(eq(placeRelation.userId, params.id))
 		.orderBy(asc(place.city), asc(place.name));
-
-	const [following, followers] = await Promise.all([
-		db
-			.select({ id: user.id, name: user.name, image: user.image })
-			.from(follow)
-			.innerJoin(user, eq(user.id, follow.followedId))
-			.where(eq(follow.followerId, params.id))
-			.orderBy(asc(user.name)),
-		db
-			.select({ id: user.id, name: user.name, image: user.image })
-			.from(follow)
-			.innerJoin(user, eq(user.id, follow.followerId))
-			.where(eq(follow.followedId, params.id))
-			.orderBy(asc(user.name))
-	]);
 
 	// Compute similarity with the viewer (if signed in and not viewing self).
 	let viewer: {
 		isSelf: boolean;
 		score: number | null;
 		sharedCount: number;
-		sharedPlaces: Place[];
-		following: boolean;
+		sharedPlaces: SharedPlace[];
 	} | null = null;
 
 	if (locals.user) {
 		const isSelf = locals.user.id === params.id;
 		if (!isSelf) {
 			// Score comes from the shared matching helper so it can't disagree
-			// with the people list. `shared` is the places both actually like
-			// (the "You both like" set), which is a different thing from the
-			// score's liked+disliked overlap - so we still query it separately.
-			const [viewerFollows, pair] = await Promise.all([
-				isFollowing(locals.user.id, params.id),
-				getPairScore(locals.user.id, params.id)
-			]);
+			// with the people list. `shared` is every place where both of you
+			// landed on the SAME kind (both liked, both disliked, both seen,
+			// both want-to-go) - a different thing from the score's liked+
+			// disliked overlap, so we still query it separately.
+			const pair = await getPairScore(locals.user.id, params.id);
 			const shared = await db.execute<{
 				id: string;
 				name: string;
@@ -98,11 +90,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 				source: 'apple' | 'seed' | 'manual';
 				external_id: string | null;
 				created_at: Date;
+				kind: PlaceRelationKind;
 			}>(sql`
-				SELECT p.*
+				SELECT p.*, mine.kind AS kind
 				FROM place p
-				JOIN "place_relation" mine ON mine.place_id = p.id AND mine.user_id = ${locals.user.id} AND mine.kind = 'liked'
-				JOIN "place_relation" theirs ON theirs.place_id = p.id AND theirs.user_id = ${params.id} AND theirs.kind = 'liked'
+				JOIN "place_relation" mine ON mine.place_id = p.id AND mine.user_id = ${locals.user.id}
+				JOIN "place_relation" theirs ON theirs.place_id = p.id AND theirs.user_id = ${params.id} AND theirs.kind = mine.kind
 				ORDER BY p.city, p.name
 			`);
 
@@ -121,14 +114,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 					longitude: r.longitude,
 					source: r.source,
 					externalId: r.external_id,
-					createdAt: r.created_at
-				})),
-				following: viewerFollows
+					createdAt: new Date(r.created_at),
+					kind: r.kind
+				}))
 			};
 		} else {
-			viewer = { isSelf: true, score: null, sharedCount: 0, sharedPlaces: [], following: false };
+			viewer = { isSelf: true, score: null, sharedCount: 0, sharedPlaces: [] };
 		}
 	}
 
-	return { profile, location, likedPlaces, following, followers, viewer };
+	return { profile, location, likedPlaces, viewer };
 };

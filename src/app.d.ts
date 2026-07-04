@@ -5,6 +5,7 @@ import type { User, Session } from 'better-auth/minimal';
 // locals.user / data.user automatically sees role.
 type CuriomancerUser = User & {
 	role?: 'user' | 'admin';
+	messageable?: boolean;
 };
 
 // See https://svelte.dev/docs/kit/types#app.d.ts

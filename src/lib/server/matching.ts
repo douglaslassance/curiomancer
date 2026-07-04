@@ -68,15 +68,6 @@ export async function logRecommendationImpressions(
 const TWIN_LIMIT = 20;
 
 /**
- * Weight given to a followed user in the recommendation pool, regardless
- * of their algorithmic taste-similarity. Set well above realistic Jaccard
- * scores (which top out around 0.5) so a single followed person liking a
- * place lifts it above algorithmic-only suggestions. If a followee is
- * also a strong algorithmic twin, MAX() with their natural score wins.
- */
-const FOLLOW_WEIGHT = 10;
-
-/**
  * SQL fragment that, joined twice (alias `mine` for the viewer, `theirs`
  * for the candidate), produces `agreement` (+1/-1) for each overlapping
  * place. Encapsulated so we can drop dislikes into more queries later.
@@ -175,7 +166,9 @@ export async function getMatchedPeopleInCity(
 		JOIN user_location ul ON ul.user_id = ps.user_id
 		WHERE ul.city = ${city}
 		  AND u.id NOT IN (
-		  	SELECT followed_id FROM "follow" WHERE follower_id = ${userId}
+		  	SELECT blocked_id FROM "block" WHERE blocker_id = ${userId}
+		  	UNION
+		  	SELECT blocker_id FROM "block" WHERE blocked_id = ${userId}
 		  )
 		ORDER BY ps.score DESC, ps.shared_count DESC
 		LIMIT ${limit}
@@ -191,42 +184,51 @@ export async function getMatchedPeopleInCity(
 }
 
 /**
- * Everyone with `relationKind` on `placeId`, ranked by their signed
- * similarity to `userId`. Powers the popup's social proof: who that shares
- * your taste likes (or dislikes) this place.
+ * Taste-twins shared between two specific users A and B - someone who's a
+ * positive algorithmic match to BOTH, ranked by the weaker of their two
+ * scores (so a person who's a strong twin to A but only a weak one to B
+ * doesn't rank as if they were a strong shared twin). Not city-scoped -
+ * this is "who do we both match with," not "who's nearby."
  */
-async function getPeopleWithRelationToPlace(
-	userId: string | null,
-	placeId: string,
-	relationKind: 'liked' | 'disliked' | 'seen',
-	limit = 24
+export async function getSharedTwins(
+	userIdA: string,
+	userIdB: string,
+	limit = 12
 ): Promise<MatchedPerson[]> {
 	const rows = await db.execute<{
 		id: string;
 		name: string;
 		image: string | null;
 		shared_count: number;
-		score: number | null;
+		score: number;
 	}>(sql`
-		WITH my_relations AS (
+		WITH a_rel AS (
 			SELECT place_id, kind FROM "place_relation"
-			WHERE user_id = ${userId ?? ''} AND kind IN ('liked', 'disliked')
+			WHERE user_id = ${userIdA} AND kind IN ('liked', 'disliked')
 		),
-		raters AS (
-			SELECT user_id, created_at
-			FROM "place_relation"
-			WHERE place_id = ${placeId}
-			  AND kind = ${relationKind}
-			  AND (${userId}::text IS NULL OR user_id <> ${userId ?? ''})
+		b_rel AS (
+			SELECT place_id, kind FROM "place_relation"
+			WHERE user_id = ${userIdB} AND kind IN ('liked', 'disliked')
 		),
-		pair_stats AS (
+		a_scores AS (
 			SELECT
 				theirs.user_id,
 				COUNT(*)::int AS shared_count,
-				SUM(${AGREEMENT_EXPR})::float / NULLIF(COUNT(*), 0)::float AS score
+				SUM(${AGREEMENT_EXPR})::float / COUNT(*)::float AS score
 			FROM "place_relation" theirs
-			JOIN my_relations mine ON mine.place_id = theirs.place_id
-			WHERE theirs.user_id IN (SELECT user_id FROM raters)
+			JOIN a_rel mine ON mine.place_id = theirs.place_id
+			WHERE theirs.user_id NOT IN (${userIdA}, ${userIdB})
+			  AND theirs.kind IN ('liked', 'disliked')
+			GROUP BY theirs.user_id
+		),
+		b_scores AS (
+			SELECT
+				theirs.user_id,
+				COUNT(*)::int AS shared_count,
+				SUM(${AGREEMENT_EXPR})::float / COUNT(*)::float AS score
+			FROM "place_relation" theirs
+			JOIN b_rel mine ON mine.place_id = theirs.place_id
+			WHERE theirs.user_id NOT IN (${userIdA}, ${userIdB})
 			  AND theirs.kind IN ('liked', 'disliked')
 			GROUP BY theirs.user_id
 		)
@@ -234,15 +236,19 @@ async function getPeopleWithRelationToPlace(
 			u.id,
 			u.name,
 			u.image,
-			COALESCE(ps.shared_count, 0) AS shared_count,
-			CASE
-				WHEN (SELECT COUNT(*) FROM my_relations) = 0 THEN NULL
-				ELSE ps.score
-			END AS score
-		FROM raters r
-		JOIN "user" u ON u.id = r.user_id
-		LEFT JOIN pair_stats ps ON ps.user_id = r.user_id
-		ORDER BY score DESC NULLS LAST, r.created_at DESC
+			(a.shared_count + b.shared_count) AS shared_count,
+			LEAST(a.score, b.score) AS score
+		FROM a_scores a
+		JOIN b_scores b ON b.user_id = a.user_id
+		JOIN "user" u ON u.id = a.user_id
+		WHERE a.score > 0
+		  AND b.score > 0
+		  AND u.id NOT IN (
+		  	SELECT blocked_id FROM "block" WHERE blocker_id IN (${userIdA}, ${userIdB})
+		  	UNION
+		  	SELECT blocker_id FROM "block" WHERE blocked_id IN (${userIdA}, ${userIdB})
+		  )
+		ORDER BY score DESC, shared_count DESC
 		LIMIT ${limit}
 	`);
 
@@ -253,21 +259,6 @@ async function getPeopleWithRelationToPlace(
 		sharedCount: r.shared_count,
 		score: Number(r.score) || 0
 	}));
-}
-
-/** People who liked `placeId`, ranked by similarity to `userId`. */
-export function getPeopleWhoLikedPlace(userId: string | null, placeId: string, limit = 24) {
-	return getPeopleWithRelationToPlace(userId, placeId, 'liked', limit);
-}
-
-/** People who disliked `placeId`, ranked by similarity to `userId`. */
-export function getPeopleWhoDislikedPlace(userId: string | null, placeId: string, limit = 24) {
-	return getPeopleWithRelationToPlace(userId, placeId, 'disliked', limit);
-}
-
-/** People who marked `placeId` as seen, ranked by similarity to `userId`. */
-export function getPeopleWhoSawPlace(userId: string | null, placeId: string, limit = 24) {
-	return getPeopleWithRelationToPlace(userId, placeId, 'seen', limit);
 }
 
 /**
@@ -300,7 +291,6 @@ export async function getRecommendedPlaces(
 		created_at: Date;
 		score: number;
 		twin_count: number;
-		via_follow: boolean;
 	}>(sql`
 		WITH my_relations AS (
 			SELECT place_id, kind FROM "place_relation"
@@ -317,28 +307,19 @@ export async function getRecommendedPlaces(
 			JOIN my_relations mine ON mine.place_id = theirs.place_id
 			WHERE theirs.user_id <> ${userId}
 			  AND theirs.kind IN ('liked', 'disliked')
+			  AND theirs.user_id NOT IN (
+			  	SELECT blocked_id FROM "block" WHERE blocker_id = ${userId}
+			  	UNION
+			  	SELECT blocker_id FROM "block" WHERE blocked_id = ${userId}
+			  )
 			GROUP BY theirs.user_id
 		),
-		algo_twins AS (
+		twins AS (
 			SELECT user_id, score
 			FROM pair_stats
 			WHERE score > 0
 			ORDER BY score DESC
 			LIMIT ${TWIN_LIMIT}
-		),
-		twins AS (
-			-- Algorithmic taste-twins + everyone the viewer follows.
-			-- If someone is both, take the higher weight, but remember
-			-- whether a follow contributed at all (for reason attribution).
-			SELECT user_id, MAX(score) AS score, bool_or(via_follow) AS via_follow
-			FROM (
-				SELECT user_id, score, false AS via_follow FROM algo_twins
-				UNION ALL
-				SELECT followed_id AS user_id, ${FOLLOW_WEIGHT}::float AS score, true AS via_follow
-				FROM "follow"
-				WHERE follower_id = ${userId}
-			) t
-			GROUP BY user_id
 		)
 		SELECT
 			p.id,
@@ -353,8 +334,7 @@ export async function getRecommendedPlaces(
 			p.external_id,
 			p.created_at,
 			SUM(t.score)::float AS score,
-			COUNT(DISTINCT t.user_id)::int AS twin_count,
-			bool_or(t.via_follow) AS via_follow
+			COUNT(DISTINCT t.user_id)::int AS twin_count
 		FROM "place_relation" l
 		JOIN twins t ON t.user_id = l.user_id
 		JOIN place p ON p.id = l.place_id
@@ -381,7 +361,7 @@ export async function getRecommendedPlaces(
 		createdAt: r.created_at,
 		score: Number(r.score) || 0,
 		twinCount: r.twin_count,
-		reason: r.via_follow ? 'follow_boost' : 'twin_match'
+		reason: 'twin_match' as const
 	}));
 }
 

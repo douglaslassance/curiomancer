@@ -37,11 +37,8 @@ export const auth = betterAuth({
 	},
 	user: {
 		additionalFields: {
-			/**
-			 * 'user' (default) or 'admin'. The first admin is created via
-			 * /setup; subsequent promotions happen through the /admin panel.
-			 */
-			role: { type: 'string', defaultValue: 'user', input: false }
+			/** Whether other users can start a chat with them. Set from Settings. */
+			messageable: { type: 'boolean', defaultValue: true }
 		}
 	},
 	databaseHooks: {

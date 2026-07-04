@@ -6,10 +6,12 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
+	import { Switch } from '$lib/components/ui/switch';
 	import InviteCard from '$lib/components/invite-card.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import {
+		Ban,
 		Camera,
 		Copy,
 		KeyRound,
@@ -18,6 +20,7 @@
 		LogOut,
 		Mail,
 		MapPin,
+		MessageCircle,
 		RefreshCw,
 		Sparkles,
 		ThumbsUp,
@@ -129,6 +132,8 @@
 	);
 
 	const invitesRemaining = $derived(data.invites.filter((i) => i.redeemedByUserId === null).length);
+	const messageable = $derived(form?.messageable ?? data.profile.messageable);
+	let messageableForm: HTMLFormElement | undefined;
 </script>
 
 <svelte:head>
@@ -204,6 +209,32 @@
 			<Separator />
 
 			<div class="flex items-start gap-3">
+				<MessageCircle class="text-muted-foreground mt-0.5 size-4" />
+				<div class="min-w-0 flex-1">
+					<div class="flex items-center justify-between gap-2">
+						<div class="text-sm font-medium">Allow messages</div>
+						<form
+							method="post"
+							action="?/updateMessageable"
+							use:enhance
+							bind:this={messageableForm}
+						>
+							<input type="hidden" name="messageable" value={(!messageable).toString()} />
+							<Switch checked={messageable} onCheckedChange={() => messageableForm?.requestSubmit()} />
+						</form>
+					</div>
+					<p class="text-muted-foreground mt-1 text-sm">
+						When on, other Curiomancer users can start a chat with you from your profile.
+					</p>
+					{#if form?.messageableError}
+						<p class="text-destructive mt-1 text-xs">{form.messageableError}</p>
+					{/if}
+				</div>
+			</div>
+
+			<Separator />
+
+			<div class="flex items-start gap-3">
 				<MapPin class="text-muted-foreground mt-0.5 size-4" />
 				<div class="min-w-0 flex-1">
 					<div class="flex items-center justify-between gap-2">
@@ -254,6 +285,45 @@
 						You've liked {data.likeCount} place{data.likeCount === 1 ? '' : 's'}.
 						<a href="/places?filter=liked" class="underline">View</a>
 					</p>
+				</div>
+			</div>
+
+			<Separator />
+
+			<!-- Blocked users -->
+			<div class="flex items-start gap-3">
+				<Ban class="text-muted-foreground mt-0.5 size-4" />
+				<div class="min-w-0 flex-1">
+					<div class="text-sm font-medium">Blocked</div>
+					<p class="text-muted-foreground mt-1 text-sm">
+						Blocked people can't see your profile, message you, or show up in your twins - and you
+						won't show up in theirs.
+					</p>
+					{#if data.blockedUsers.length > 0}
+						<div class="mt-3 space-y-2">
+							{#each data.blockedUsers as blocked (blocked.id)}
+								<div class="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
+									<div class="flex min-w-0 items-center gap-2">
+										<Avatar.Root class="size-6">
+											{#if blocked.image}
+												<Avatar.Image src={blocked.image} alt={blocked.name} />
+											{/if}
+											<Avatar.Fallback class="text-[10px] font-medium">
+												{blocked.name.slice(0, 1).toUpperCase()}
+											</Avatar.Fallback>
+										</Avatar.Root>
+										<span class="truncate text-sm">{blocked.name}</span>
+									</div>
+									<form method="post" action="?/unblockUser" use:enhance>
+										<input type="hidden" name="id" value={blocked.id} />
+										<Button type="submit" size="sm" variant="ghost">Unblock</Button>
+									</form>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<p class="text-muted-foreground mt-2 text-xs">You haven't blocked anyone.</p>
+					{/if}
 				</div>
 			</div>
 

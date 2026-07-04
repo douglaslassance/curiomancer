@@ -6,20 +6,22 @@ import { db } from '$lib/server/db';
 import { placeRelation, userLocation } from '$lib/server/db/schema';
 import { getInvitesFor } from '$lib/server/invites';
 import { createApiToken, listApiTokens, revokeApiToken } from '$lib/server/api-tokens';
+import { listBlockedUsers, unblockUser } from '$lib/server/blocks';
 import { getPostHogClient } from '$lib/server/posthog';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) throw redirect(302, '/sign-in?next=/settings');
 
-	const [[location], likes, invites, apiTokens] = await Promise.all([
+	const [[location], likes, invites, apiTokens, blockedUsers] = await Promise.all([
 		db.select().from(userLocation).where(eq(userLocation.userId, locals.user.id)).limit(1),
 		db
 			.select({ id: placeRelation.id })
 			.from(placeRelation)
 			.where(eq(placeRelation.userId, locals.user.id)),
 		getInvitesFor(locals.user.id),
-		listApiTokens(locals.user.id)
+		listApiTokens(locals.user.id),
+		listBlockedUsers(locals.user.id)
 	]);
 
 	return {
@@ -27,12 +29,14 @@ export const load: PageServerLoad = async ({ locals }) => {
 			name: locals.user.name,
 			email: locals.user.email,
 			image: locals.user.image ?? null,
-			role: locals.user.role ?? 'user'
+			role: locals.user.role ?? 'user',
+			messageable: locals.user.messageable ?? true
 		},
 		location: location ?? null,
 		likeCount: likes.length,
 		invites,
-		apiTokens
+		apiTokens,
+		blockedUsers
 	};
 };
 
@@ -145,5 +149,29 @@ export const actions: Actions = {
 		const id = data.get('id')?.toString() ?? '';
 		if (id) await revokeApiToken(locals.user.id, id);
 		return { tokenRevoked: true };
+	},
+
+	updateMessageable: async ({ request, locals }) => {
+		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+
+		const data = await request.formData();
+		const messageable = data.get('messageable') === 'true';
+
+		try {
+			await auth.api.updateUser({ body: { messageable }, headers: request.headers });
+		} catch (error) {
+			if (error instanceof APIError) return fail(400, { messageableError: error.message });
+			return fail(500, { messageableError: 'Could not update this setting.' });
+		}
+		return { messageableOk: true, messageable };
+	},
+
+	unblockUser: async ({ request, locals }) => {
+		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+
+		const data = await request.formData();
+		const id = data.get('id')?.toString() ?? '';
+		if (id) await unblockUser(locals.user.id, id);
+		return { unblocked: true };
 	}
 };
