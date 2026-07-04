@@ -130,16 +130,14 @@ export type ConversionPoint = {
 	day: string;
 	twinImpressions: number;
 	twinConversions: number;
-	followImpressions: number;
-	followConversions: number;
 	popularImpressions: number;
 	popularConversions: number;
 };
 
 /**
  * Recommendation-to-like conversion per day, broken down by why the place
- * was recommended (twin match, follow boost, or popularity fallback).
- * Powers the admin "how good are our recommendations" chart.
+ * was recommended (twin match, or popularity fallback). Powers the admin
+ * "how good are our recommendations" chart.
  *
  * A conversion is just "does a `liked` row exist for this (user, place)
  * pair" - `getRecommendedPlaces`/`getPopularPlaces` already exclude places
@@ -153,8 +151,6 @@ export async function getRecommendationConversionSeries(days: number): Promise<C
 		day: string;
 		twin_impressions: number;
 		twin_conversions: number;
-		follow_impressions: number;
-		follow_conversions: number;
 		popular_impressions: number;
 		popular_conversions: number;
 	}>(sql`
@@ -170,13 +166,6 @@ export async function getRecommendationConversionSeries(days: number): Promise<C
 					WHERE pr.user_id = ri.user_id AND pr.place_id = ri.place_id AND pr.kind = 'liked'
 				)
 			)::int AS twin_conversions,
-			COUNT(*) FILTER (WHERE ri.reason = 'follow_boost')::int AS follow_impressions,
-			COUNT(*) FILTER (
-				WHERE ri.reason = 'follow_boost' AND EXISTS (
-					SELECT 1 FROM "place_relation" pr
-					WHERE pr.user_id = ri.user_id AND pr.place_id = ri.place_id AND pr.kind = 'liked'
-				)
-			)::int AS follow_conversions,
 			COUNT(*) FILTER (WHERE ri.reason = 'popular_fallback')::int AS popular_impressions,
 			COUNT(*) FILTER (
 				WHERE ri.reason = 'popular_fallback' AND EXISTS (
@@ -193,8 +182,6 @@ export async function getRecommendationConversionSeries(days: number): Promise<C
 		day: r.day,
 		twinImpressions: r.twin_impressions,
 		twinConversions: r.twin_conversions,
-		followImpressions: r.follow_impressions,
-		followConversions: r.follow_conversions,
 		popularImpressions: r.popular_impressions,
 		popularConversions: r.popular_conversions
 	}));

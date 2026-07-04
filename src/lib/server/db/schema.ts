@@ -99,9 +99,9 @@ export type PlaceRelationKind = PlaceRelation['kind'];
  * Records the first time a place was surfaced to a user as a recommendation
  * (dashboard rails, not search/browse). Unique on (userId, placeId) - we
  * track first exposure, not every render, so repeat dashboard loads don't
- * inflate impression counts. `reason` captures why it was recommended:
- * an algorithmic taste-twin liked it, a followed user liked it, or (cold
- * start) it was popular in the city with no personalization involved.
+ * inflate impression counts. `reason` captures why it was recommended: an
+ * algorithmic taste-twin liked it, or (cold start) it was popular in the
+ * city with no personalization involved.
  *
  * Because recommendation queries already exclude places the user has any
  * relation with, a later `liked` row for the same pair necessarily postdates
@@ -120,7 +120,7 @@ export const recommendationImpression = pgTable(
 		placeId: text('place_id')
 			.notNull()
 			.references(() => place.id, { onDelete: 'cascade' }),
-		reason: text('reason', { enum: ['twin_match', 'follow_boost', 'popular_fallback'] }).notNull(),
+		reason: text('reason', { enum: ['twin_match', 'popular_fallback'] }).notNull(),
 		shownAt: timestamp('shown_at').notNull().defaultNow()
 	},
 	(t) => [uniqueIndex('recommendation_impression_user_place_idx').on(t.userId, t.placeId)]

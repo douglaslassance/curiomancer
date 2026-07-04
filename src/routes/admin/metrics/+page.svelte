@@ -18,8 +18,6 @@
 		data.conversion.map((d) => ({
 			date: new Date(d.day),
 			twinRate: d.twinImpressions > 0 ? (100 * d.twinConversions) / d.twinImpressions : null,
-			followRate:
-				d.followImpressions > 0 ? (100 * d.followConversions) / d.followImpressions : null,
 			popularRate:
 				d.popularImpressions > 0 ? (100 * d.popularConversions) / d.popularImpressions : null
 		}))
@@ -67,7 +65,6 @@
 
 	const conversionConfig = {
 		twinRate: { label: 'Twin match', color: 'var(--chart-1)' },
-		followRate: { label: 'Follow boost', color: 'var(--chart-2)' },
 		popularRate: { label: 'Popular fallback', color: 'var(--chart-3)' }
 	} satisfies Chart.ChartConfig;
 
@@ -83,7 +80,7 @@
 		{
 			label: 'Rec conversion',
 			value: pct(data.conversionTotals.conversions, data.conversionTotals.impressions),
-			hint: `${pct(data.conversionTotals.twinConversions, data.conversionTotals.twinImpressions)} twin, ${pct(data.conversionTotals.followConversions, data.conversionTotals.followImpressions)} follow, ${pct(data.conversionTotals.popularConversions, data.conversionTotals.popularImpressions)} popular`
+			hint: `${pct(data.conversionTotals.twinConversions, data.conversionTotals.twinImpressions)} twin, ${pct(data.conversionTotals.popularConversions, data.conversionTotals.popularImpressions)} popular`
 		}
 	]);
 </script>
@@ -234,7 +231,6 @@
 						x="date"
 						series={[
 							{ key: 'twinRate', label: 'Twin match', color: 'var(--color-twinRate)' },
-							{ key: 'followRate', label: 'Follow boost', color: 'var(--color-followRate)' },
 							{ key: 'popularRate', label: 'Popular fallback', color: 'var(--color-popularRate)' }
 						]}
 						props={{
