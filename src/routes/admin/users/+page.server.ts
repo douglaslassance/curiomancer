@@ -1,6 +1,9 @@
+import { fail, redirect } from '@sveltejs/kit';
 import { sql } from 'drizzle-orm';
+import { dev } from '$app/environment';
 import { db } from '$lib/server/db';
-import type { PageServerLoad } from './$types';
+import { auth } from '$lib/server/auth';
+import type { Actions, PageServerLoad } from './$types';
 
 export type AdminUserRow = {
 	id: string;
@@ -49,7 +52,7 @@ export const load: PageServerLoad = async () => {
 		name: r.name,
 		email: r.email,
 		role: r.role,
-		createdAt: r.created_at,
+		createdAt: new Date(r.created_at),
 		city: r.city,
 		likes: r.likes,
 		dislikes: r.dislikes,
@@ -57,5 +60,28 @@ export const load: PageServerLoad = async () => {
 		referredByName: r.referred_by_name
 	}));
 
-	return { users };
+	// Impersonation is a real auth-bypass, so the button only renders (and the
+	// action only runs) in dev - never in a deployed build.
+	return { users, canImpersonate: dev };
+};
+
+export const actions: Actions = {
+	impersonate: async ({ request, locals }) => {
+		if (!dev) return fail(403, { message: 'Impersonation is only available in development.' });
+		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+
+		const data = await request.formData();
+		const userId = data.get('userId')?.toString() ?? '';
+		if (!userId) return fail(400, { message: 'Missing user id.' });
+		if (userId === locals.user.id) return fail(400, { message: "You can't impersonate yourself." });
+
+		try {
+			await auth.api.impersonateUser({ body: { userId }, headers: request.headers });
+		} catch (err) {
+			return fail(400, {
+				message: err instanceof Error ? err.message : 'Could not impersonate that user.'
+			});
+		}
+		throw redirect(303, '/');
+	}
 };

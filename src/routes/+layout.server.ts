@@ -3,9 +3,11 @@ import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
 	const user = locals.user ?? null;
+	const impersonating = !!locals.session?.impersonatedBy;
 	if (!user) {
 		return {
 			user: null,
+			impersonating,
 			likedIds: [] as string[],
 			dislikedIds: [] as string[],
 			seenIds: [] as string[],
@@ -20,6 +22,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	]);
 	return {
 		user,
+		impersonating,
 		likedIds: [...liked],
 		dislikedIds: [...disliked],
 		seenIds: [...seen],

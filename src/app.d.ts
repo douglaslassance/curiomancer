@@ -8,13 +8,20 @@ type CuriomancerUser = User & {
 	messageable?: boolean;
 };
 
+// Set when the admin plugin's impersonateUser created this session - the id
+// of the admin who's impersonating. Used to show a "stop impersonating"
+// banner; see src/routes/+layout.svelte.
+type CuriomancerSession = Session & {
+	impersonatedBy?: string | null;
+};
+
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
 declare global {
 	namespace App {
 		interface Locals {
 			user?: CuriomancerUser;
-			session?: Session;
+			session?: CuriomancerSession;
 		}
 
 		// interface Error {}

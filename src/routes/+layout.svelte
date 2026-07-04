@@ -11,13 +11,27 @@
 		Users,
 		Shield,
 		SlidersHorizontal,
-		User
+		User,
+		VenetianMask
 	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { relations } from '$lib/relations.svelte';
 	import posthog from 'posthog-js';
 
 	let { data, children } = $props();
+
+	// Ends an impersonation session (started from /admin/users, dev-only) and
+	// restores the original admin's session. Full navigation rather than
+	// invalidateAll() - the session cookie itself changed server-side.
+	async function stopImpersonating() {
+		try {
+			const res = await fetch('/api/admin/stop-impersonating', { method: 'POST' });
+			if (!res.ok) throw new Error(await res.text().catch(() => `Status ${res.status}`));
+			location.href = '/admin/users';
+		} catch (err) {
+			console.error('Stop impersonating failed:', err);
+		}
+	}
 
 	// The map routes are full-bleed (fixed overlay), so a footer would sit
 	// behind them. Hide it there; show it on every normal page.
@@ -89,6 +103,17 @@
 </svelte:head>
 
 <div class="bg-background text-foreground flex min-h-screen flex-col">
+	{#if data.impersonating}
+		<div
+			class="flex items-center justify-center gap-3 bg-amber-500 px-4 py-1.5 text-xs font-medium text-black"
+		>
+			<VenetianMask class="size-3.5" />
+			Impersonating {data.user?.name} - actions here affect their account.
+			<button type="button" class="underline" onclick={stopImpersonating}>
+				Stop impersonating
+			</button>
+		</div>
+	{/if}
 	<header class="border-border/60 sticky top-0 z-10 border-b backdrop-blur">
 		<div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
 			<a href="/" class="flex items-center gap-2 font-semibold tracking-tight">

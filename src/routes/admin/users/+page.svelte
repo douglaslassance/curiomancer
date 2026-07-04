@@ -1,13 +1,19 @@
 <script lang="ts">
+	import { page } from '$app/state';
+	import { enhance } from '$app/forms';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import { Loader2, ThumbsDown, ThumbsUp, VenetianMask } from '@lucide/svelte';
 
-	let { data } = $props();
+	let { data, form } = $props();
 
 	const dateFmt = new Intl.DateTimeFormat('en-US', {
 		year: 'numeric',
 		month: 'short',
 		day: 'numeric'
 	});
+
+	let impersonatingId = $state<string | null>(null);
 </script>
 
 <svelte:head>
@@ -22,10 +28,17 @@
 				<th class="px-4 py-3 font-medium">Email</th>
 				<th class="px-4 py-3 font-medium">Joined</th>
 				<th class="px-4 py-3 font-medium">City</th>
-				<th class="px-4 py-3 text-right font-medium">👍</th>
-				<th class="px-4 py-3 text-right font-medium">👎</th>
+				<th class="px-4 py-3 text-right font-medium">
+					<ThumbsUp class="ml-auto size-3.5" />
+				</th>
+				<th class="px-4 py-3 text-right font-medium">
+					<ThumbsDown class="ml-auto size-3.5" />
+				</th>
 				<th class="px-4 py-3 text-right font-medium">Invites left</th>
 				<th class="px-4 py-3 font-medium">Referred by</th>
+				{#if data.canImpersonate}
+					<th class="px-4 py-3 text-right font-medium">Dev</th>
+				{/if}
 			</tr>
 		</thead>
 		<tbody>
@@ -46,10 +59,50 @@
 					<td class="px-4 py-3 text-right tabular-nums">{u.dislikes}</td>
 					<td class="px-4 py-3 text-right tabular-nums">{u.invitesRemaining}</td>
 					<td class="text-muted-foreground px-4 py-3 text-xs">{u.referredByName ?? '-'}</td>
+					{#if data.canImpersonate}
+						<td class="px-4 py-3 text-right">
+							{#if u.id !== page.data.user?.id}
+								<form
+									method="post"
+									action="?/impersonate"
+									use:enhance={() => {
+										impersonatingId = u.id;
+										return async ({ result, update }) => {
+											if (result.type !== 'redirect') impersonatingId = null;
+											await update();
+										};
+									}}
+								>
+									<input type="hidden" name="userId" value={u.id} />
+									<Button
+										type="submit"
+										size="sm"
+										variant="outline"
+										disabled={impersonatingId === u.id}
+									>
+										{#if impersonatingId === u.id}
+											<Loader2 class="size-3.5 animate-spin" />
+										{:else}
+											<VenetianMask class="size-3.5" />
+										{/if}
+										Impersonate
+									</Button>
+								</form>
+							{/if}
+						</td>
+					{/if}
 				</tr>
 			{:else}
-				<tr><td colspan="8" class="text-muted-foreground py-8 text-center">No users.</td></tr>
+				<tr>
+					<td colspan={data.canImpersonate ? 9 : 8} class="text-muted-foreground py-8 text-center">
+						No users.
+					</td>
+				</tr>
 			{/each}
 		</tbody>
 	</table>
 </div>
+
+{#if form?.message}
+	<p class="text-destructive mt-3 text-sm">{form.message}</p>
+{/if}

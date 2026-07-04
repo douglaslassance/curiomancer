@@ -1,4 +1,5 @@
 import { betterAuth } from 'better-auth/minimal';
+import { admin } from 'better-auth/plugins';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { env } from '$env/dynamic/private';
@@ -51,6 +52,11 @@ export const auth = betterAuth({
 		}
 	},
 	plugins: [
+		// Owns `role` (defaultRole 'user' / adminRoles ['admin'] - matches our
+		// existing convention exactly) plus impersonateUser/stopImpersonating,
+		// used from /admin/users in dev only. The first admin is still created
+		// via /setup; subsequent promotions happen through the /admin panel.
+		admin(),
 		sveltekitCookies(getRequestEvent) // must remain last
 	]
 });
