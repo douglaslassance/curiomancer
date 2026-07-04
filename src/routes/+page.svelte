@@ -276,33 +276,29 @@
 	<!-- --- Dashboard ------------------------------------------------------- -->
 	<DashboardHeader location={data.location} weather={data.weather} />
 
-	<MatchedPeopleRail people={data.matchedPeople} />
-
 	<CategoryRail
-		title="Eat"
+		title="Recommended Eat"
 		places={data.eat}
 		empty={`Nowhere to eat in ${data.location.city} yet.`}
-		showMatch={data.myLikeCount > 0}
 	/>
 
 	<CategoryRail
-		title="Drink"
+		title="Recommended Drink"
 		places={data.drink}
 		empty={`Nowhere to drink in ${data.location.city} yet.`}
-		showMatch={data.myLikeCount > 0}
 	/>
 
 	<CategoryRail
-		title="Shop"
+		title="Recommended Shop"
 		places={data.shop}
 		empty={`Nowhere to shop in ${data.location.city} yet.`}
-		showMatch={data.myLikeCount > 0}
 	/>
 
 	<CategoryRail
-		title="Visit"
+		title="Recommended Experience"
 		places={data.visit}
 		empty={`Nowhere to visit in ${data.location.city} yet.`}
-		showMatch={data.myLikeCount > 0}
 	/>
+
+	<MatchedPeopleRail people={data.matchedPeople} />
 {/if}

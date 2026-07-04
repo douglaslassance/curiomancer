@@ -5,13 +5,11 @@
 	let {
 		title,
 		places,
-		empty,
-		showMatch = true
+		empty
 	}: {
 		title: string;
 		places: RecommendedPlace[];
 		empty: string;
-		showMatch?: boolean;
 	} = $props();
 </script>
 
@@ -27,7 +25,7 @@
 	{:else}
 		<div class="grid gap-3 sm:grid-cols-2">
 			{#each places as place (place.id)}
-				<PlaceRecCard {place} {showMatch} />
+				<PlaceRecCard {place} />
 			{/each}
 		</div>
 	{/if}
