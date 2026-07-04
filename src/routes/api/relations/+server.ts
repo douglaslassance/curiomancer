@@ -1,5 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import { setRelation } from '$lib/server/likes';
+import { getPostHogClient } from '$lib/server/posthog';
 import type { PlaceRelationKind } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
 
@@ -32,5 +33,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	const result = await setRelation(locals.user.id, placeId, kind as PlaceRelationKind);
+
+	const posthog = getPostHogClient();
+	posthog.capture({
+		distinctId: locals.user.id,
+		event: 'place_rated',
+		properties: { place_id: placeId, kind: result }
+	});
+
 	return json({ placeId, kind: result });
 };

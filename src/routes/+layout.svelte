@@ -1,6 +1,7 @@
 <script lang="ts">
 	import './layout.css';
 	import { invalidateAll } from '$app/navigation';
+	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import favicon from '$lib/assets/favicon.svg';
 	import { MapPin, Map as MapIcon, Store, Users, Shield, Star } from '@lucide/svelte';
@@ -8,6 +9,7 @@
 	import ThemeToggle from '$lib/components/theme-toggle.svelte';
 	import UserMenu from '$lib/components/user-menu.svelte';
 	import { relations } from '$lib/relations.svelte';
+	import posthog from 'posthog-js';
 
 	let { data, children } = $props();
 
@@ -20,6 +22,18 @@
 	// effect runs. Making it reactive would cause the effect to re-trigger
 	// itself on every assignment, looping forever.
 	let lastUserId: string | null = null;
+
+	$effect(() => {
+		if (!browser) return;
+		if (data.user) {
+			posthog.identify(data.user.id, {
+				name: data.user.name,
+				email: data.user.email
+			});
+		} else {
+			posthog.reset();
+		}
+	});
 
 	// Sync the client-side relations store with the server's view.
 	// On a fresh sign-in, drain any anonymous localStorage likes into the DB.

@@ -9,6 +9,10 @@ const config = {
 	kit: {
 		adapter: adapter(),
 
+		paths: {
+			relative: false
+		},
+
 		typescript: {
 			config: (config) => ({
 				...config,

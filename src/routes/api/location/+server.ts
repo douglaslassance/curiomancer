@@ -2,6 +2,7 @@ import { error, json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { userLocation } from '$lib/server/db/schema';
 import { reverseGeocode } from '$lib/server/location';
+import { getPostHogClient } from '$lib/server/posthog';
 import type { RequestHandler } from './$types';
 
 /**
@@ -61,6 +62,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				updatedAt: row.updatedAt
 			}
 		});
+
+	const posthog = getPostHogClient();
+	posthog.capture({
+		distinctId: locals.user.id,
+		event: 'location_updated',
+		properties: { city: row.city, country_code: row.countryCode }
+	});
 
 	return json({ city: row.city, countryCode: row.countryCode, timezone: row.timezone });
 };

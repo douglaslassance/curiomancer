@@ -5,6 +5,7 @@ import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { user } from '$lib/server/db/schema';
 import { findRedeemableInvite, redeemInvite } from '$lib/server/invites';
+import { getPostHogClient } from '$lib/server/posthog';
 import type { Actions, PageServerLoad } from './$types';
 
 /**
@@ -112,6 +113,15 @@ export const actions: Actions = {
 					message: 'That invite was just used by someone else. Try another.'
 				});
 			}
+		}
+
+		if (newUserId) {
+			const posthog = getPostHogClient();
+			posthog.capture({
+				distinctId: newUserId,
+				event: 'user_signed_up',
+				properties: { invite_code: code ?? null }
+			});
 		}
 
 		throw redirect(302, '/');

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import posthog from 'posthog-js';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Bookmark, Eye, Loader2, MapPin, ThumbsDown, ThumbsUp } from '@lucide/svelte';
@@ -237,6 +238,12 @@
 
 	function skip() {
 		if (current) {
+			posthog.capture('place_skipped', {
+				place_id: current.placeId,
+				place_name: current.name,
+				place_category: current.category,
+				distance_km: Math.round(current.distanceKm)
+			});
 			index += 1;
 			maybePrefetch();
 		}

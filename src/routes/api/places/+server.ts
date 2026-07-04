@@ -3,6 +3,7 @@ import { error, json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { place } from '$lib/server/db/schema';
 import { setRelation } from '$lib/server/likes';
+import { getPostHogClient } from '$lib/server/posthog';
 import type { PlaceRelationKind } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
 
@@ -77,6 +78,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 
 	await setRelation(locals.user.id, placeId, kind);
+
+	const posthog = getPostHogClient();
+	posthog.capture({
+		distinctId: locals.user.id,
+		event: 'place_added',
+		properties: {
+			place_id: placeId,
+			place_name: name,
+			place_category: category,
+			place_city: city,
+			place_source: source,
+			kind
+		}
+	});
 
 	return json({ placeId, kind });
 };
