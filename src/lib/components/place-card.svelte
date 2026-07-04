@@ -14,7 +14,7 @@
 		<div class="flex items-start justify-between gap-3">
 			<div>
 				<Card.Title>
-					<a href={`/places/${place.id}`} class="hover:underline">{place.name}</a>
+					<a href={`/map?place=${place.id}`} class="hover:underline">{place.name}</a>
 				</Card.Title>
 				<Card.Description class="mt-1 flex items-center gap-1 text-xs">
 					<MapPin class="size-3" />

@@ -96,9 +96,7 @@
 		<!-- Header -->
 		<div class="pr-6">
 			<div class="flex items-start gap-2">
-				<h3 class="flex-1 text-sm font-semibold">
-					<a href={`/places/${context.place.id}`} class="hover:underline">{context.place.name}</a>
-				</h3>
+				<h3 class="flex-1 text-sm font-semibold">{context.place.name}</h3>
 				<Badge variant="secondary">{categoryLabel(context.place.category)}</Badge>
 			</div>
 			<p class="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
