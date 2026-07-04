@@ -4,6 +4,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { invalidateAll } from '$app/navigation';
 	import { mapAppleCategoryClient } from '$lib/map-category';
+	import { categoryLabel } from '$lib/place-category';
 	import type { Component } from 'svelte';
 
 	type Kind = 'liked' | 'seen' | 'disliked' | 'want_to_go';
@@ -228,7 +229,7 @@
 						<div class="flex items-center gap-2">
 							<span class="truncate text-sm font-medium">{hit.name}</span>
 							{#if hit.category}
-								<Badge variant="secondary" class="text-[10px] capitalize">{hit.category}</Badge>
+								<Badge variant="secondary" class="text-[10px]">{categoryLabel(hit.category)}</Badge>
 							{/if}
 						</div>
 						<p class="text-muted-foreground mt-0.5 truncate text-xs">{hit.address}</p>
@@ -249,7 +250,7 @@
 					<div class="flex items-center gap-2">
 						<span class="truncate text-sm font-medium">{selected.name}</span>
 						{#if selected.category}
-							<Badge variant="secondary" class="text-[10px] capitalize">{selected.category}</Badge>
+							<Badge variant="secondary" class="text-[10px]">{categoryLabel(selected.category)}</Badge>
 						{/if}
 					</div>
 					<p class="text-muted-foreground mt-0.5 truncate text-xs">{selected.address}</p>

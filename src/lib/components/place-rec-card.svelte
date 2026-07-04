@@ -3,6 +3,7 @@
 	import { MapPin } from '@lucide/svelte';
 	import RelationToggle from './relation-toggle.svelte';
 	import MatchBadge from './match-badge.svelte';
+	import { categoryLabel } from '$lib/place-category';
 	import type { RecommendedPlace } from '$lib/server/matching';
 
 	let { place, showMatch = true }: { place: RecommendedPlace; showMatch?: boolean } = $props();
@@ -16,7 +17,7 @@
 			<a href={`/places/${place.id}`} class="hover:underline">{place.name}</a>
 		</h3>
 		<div class="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-			<Badge variant="secondary" class="capitalize">{place.category}</Badge>
+			<Badge variant="secondary">{categoryLabel(place.category)}</Badge>
 			<span class="flex items-center gap-1">
 				<MapPin class="size-3" />
 				{place.neighborhood ?? place.city}

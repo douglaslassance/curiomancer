@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { ShoppingBag, Martini, UtensilsCrossed, Landmark } from '@lucide/svelte';
+	import { categoryLabel } from '$lib/place-category';
 	import type { Component } from 'svelte';
 
 	type Cat = 'eat' | 'drink' | 'shop' | 'visit';
@@ -13,10 +14,10 @@
 	} = $props();
 
 	const CATS: { key: Cat; label: string; icon: Component }[] = [
-		{ key: 'eat', label: 'Eat', icon: UtensilsCrossed },
-		{ key: 'drink', label: 'Drink', icon: Martini },
-		{ key: 'shop', label: 'Shop', icon: ShoppingBag },
-		{ key: 'visit', label: 'Visit', icon: Landmark }
+		{ key: 'eat', label: categoryLabel('eat'), icon: UtensilsCrossed },
+		{ key: 'drink', label: categoryLabel('drink'), icon: Martini },
+		{ key: 'shop', label: categoryLabel('shop'), icon: ShoppingBag },
+		{ key: 'visit', label: categoryLabel('visit'), icon: Landmark }
 	];
 </script>
 

@@ -8,6 +8,7 @@
 	import { googleMapsUrl, googleDirectionsUrl } from '$lib/maps-link';
 	import { relations } from '$lib/relations.svelte';
 	import { page } from '$app/state';
+	import { categoryLabel } from '$lib/place-category';
 
 	let {
 		placeId,
@@ -98,7 +99,7 @@
 				<h3 class="flex-1 text-sm font-semibold">
 					<a href={`/places/${context.place.id}`} class="hover:underline">{context.place.name}</a>
 				</h3>
-				<Badge variant="secondary" class="capitalize">{context.place.category}</Badge>
+				<Badge variant="secondary">{categoryLabel(context.place.category)}</Badge>
 			</div>
 			<p class="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
 				<MapPin class="size-3" />

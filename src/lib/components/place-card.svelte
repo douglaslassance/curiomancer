@@ -3,6 +3,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { MapPin } from '@lucide/svelte';
 	import RelationToggle from './relation-toggle.svelte';
+	import { categoryLabel } from '$lib/place-category';
 	import type { Place } from '$lib/server/db/schema';
 
 	let { place }: { place: Place } = $props();
@@ -20,7 +21,7 @@
 					{place.neighborhood ? `${place.neighborhood}, ` : ''}{place.city}
 				</Card.Description>
 			</div>
-			<Badge variant="secondary" class="capitalize">{place.category}</Badge>
+			<Badge variant="secondary">{categoryLabel(place.category)}</Badge>
 		</div>
 	</Card.Header>
 	<Card.Content>

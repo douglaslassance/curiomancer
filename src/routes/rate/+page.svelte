@@ -7,6 +7,7 @@
 	import { relations, type Kind } from '$lib/relations.svelte';
 	import { ensureMapKit } from '$lib/mapkit-client';
 	import { mapAppleCategoryClient } from '$lib/map-category';
+	import { categoryLabel } from '$lib/place-category';
 	import type { Component } from 'svelte';
 
 	let { data } = $props();
@@ -289,7 +290,7 @@
 						{current.name}
 					{/if}
 				</h2>
-				<Badge variant="secondary" class="capitalize">{current.category}</Badge>
+				<Badge variant="secondary">{categoryLabel(current.category)}</Badge>
 			</div>
 			<p class="text-muted-foreground mt-2 flex items-center gap-1 text-sm">
 				<MapPin class="size-4" />
