@@ -1,45 +1,21 @@
 /**
  * Transactional email.
  *
- * Delivery goes through Resend when RESEND_API_KEY is set; otherwise emails are
+ * Delivery is intentionally pluggable. No provider is wired yet, so emails are
  * logged to the server console, which is fine for local/test builds where you
- * grab the link straight from the logs. Every caller goes through `sendEmail`,
- * so that's the only place provider details live.
- *
- * Env:
- * - RESEND_API_KEY: enables real delivery. When absent, falls back to console.
- * - EMAIL_FROM: verified sender, e.g. "Curiomancer <hey@curiomancer.me>".
- *   Defaults to Resend's shared onboarding@resend.dev, which needs no domain
- *   setup but (in test mode) only delivers to your own Resend account address.
+ * grab the link straight from the logs. To send real email, fill in a provider
+ * branch in `sendEmail`; every caller already goes through it, so that's the
+ * only place that changes.
  */
-import { env } from '$env/dynamic/private';
-import { Resend } from 'resend';
+type Email = { to: string; subject: string; text: string };
 
-type Email = { to: string; subject: string; text: string; replyTo?: string };
-
-const DEFAULT_FROM = 'Curiomancer <onboarding@resend.dev>';
-
-export async function sendEmail({ to, subject, text, replyTo }: Email): Promise<void> {
-	if (env.RESEND_API_KEY) {
-		const resend = new Resend(env.RESEND_API_KEY);
-		const { error } = await resend.emails.send({
-			from: env.EMAIL_FROM || DEFAULT_FROM,
-			to,
-			subject,
-			text,
-			...(replyTo ? { replyTo } : {})
-		});
-		if (error) throw new Error(`Resend delivery failed: ${error.message}`);
-		return;
-	}
-
+export async function sendEmail({ to, subject, text }: Email): Promise<void> {
 	console.log(
 		[
 			'',
 			'[email] no provider configured, logging instead of sending',
 			`  to:      ${to}`,
 			`  subject: ${subject}`,
-			...(replyTo ? [`  reply-to: ${replyTo}`] : []),
 			...text.split('\n').map((line) => `  ${line}`),
 			''
 		].join('\n')
