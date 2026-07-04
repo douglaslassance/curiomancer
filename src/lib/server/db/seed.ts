@@ -16,14 +16,17 @@ import 'dotenv/config';
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { inArray, or, like, sql as dsql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import {
 	event,
+	invite,
 	placeRelation,
 	place,
 	userLocation,
+	waitlist,
 	type NewEvent,
 	type NewPlace,
 	type NewUserLocation
@@ -541,6 +544,42 @@ const PERSONAS: Persona[] = [
 	}
 ];
 
+// --- Invites & waitlist -----------------------------------------------------
+//
+// Gives the admin panel's Users/Invites/Waitlist tabs something to show.
+// Each persona gets 3 invites (mirrors createInvitesFor's real default). A
+// few form simple invite chains (A invited B) so the admin ledger shows
+// redemptions and "referredByName" isn't blank for everyone; the rest sit
+// unredeemed. Two waitlist entries are pre-admitted (status 'invited') to
+// exercise that path too, minted from a spare invite rather than a chain slot.
+
+const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I, mirrors $lib/server/invites.ts
+function generateDemoInviteCode(): string {
+	const bytes = randomBytes(12);
+	let raw = '';
+	for (let i = 0; i < 12; i++) raw += INVITE_ALPHABET[bytes[i] % INVITE_ALPHABET.length];
+	return [raw.slice(0, 4), raw.slice(4, 8), raw.slice(8, 12)].join('-');
+}
+
+/** `from` invited `to` - one of `from`'s 3 invite slots is redeemed by `to`. */
+const INVITE_CHAINS: { from: string; to: string }[] = [
+	{ from: 'maya@demo.curiomancer', to: 'sam@demo.curiomancer' },
+	{ from: 'sam@demo.curiomancer', to: 'leo@demo.curiomancer' },
+	{ from: 'leo@demo.curiomancer', to: 'yuki@demo.curiomancer' },
+	{ from: 'aiden@demo.curiomancer', to: 'camille@demo.curiomancer' },
+	{ from: 'camille@demo.curiomancer', to: 'marcus@demo.curiomancer' },
+	{ from: 'marcus@demo.curiomancer', to: 'priya@demo.curiomancer' },
+	{ from: 'priya@demo.curiomancer', to: 'theo@demo.curiomancer' }
+];
+
+const WAITLIST_ENTRIES: { email: string; city: string; status: 'pending' | 'invited' }[] = [
+	{ email: 'jordan@demo.curiomancer', city: 'Los Angeles', status: 'pending' },
+	{ email: 'ren@demo.curiomancer', city: 'Tokyo', status: 'pending' },
+	{ email: 'noa@demo.curiomancer', city: 'Los Angeles', status: 'pending' },
+	{ email: 'kenji@demo.curiomancer', city: 'Tokyo', status: 'invited' },
+	{ email: 'ivy@demo.curiomancer', city: 'Los Angeles', status: 'invited' }
+];
+
 // --- Run -------------------------------------------------------------------
 
 console.log('Resolving places via Apple Maps (with cache)…');
@@ -564,12 +603,19 @@ const staleDemoUserIds = staleDemoUsers.map((u) => u.id);
 if (staleDemoUserIds.length > 0) {
 	await db.delete(placeRelation).where(inArray(placeRelation.userId, staleDemoUserIds));
 	await db.delete(userLocation).where(inArray(userLocation.userId, staleDemoUserIds));
+	// Invites CREATED by a stale persona cascade-delete with them (FK ON
+	// DELETE CASCADE on created_by_user_id); invites they REDEEMED just lose
+	// that reference (ON DELETE SET NULL), which is fine to leave as-is.
 	await db.delete(user).where(inArray(user.id, staleDemoUserIds));
 }
 // The `event` table has no real-app writer (only this seed populates it), so
 // a full clear is safe here - unlike `place`, `placeRelation`, and
 // `userLocation`, which real users write to.
 await db.delete(event);
+// Waitlist rows aren't tied to a user id (they're just an email + city), so
+// unlike invites they don't cascade away with the personas above - clear
+// them explicitly by the same demo email pattern.
+await db.delete(waitlist).where(or(...DEMO_EMAIL_PATTERNS.map((p) => like(waitlist.email, p))));
 
 console.log(`Upserting ${resolved.size} places (source=apple)…`);
 const placeRows: NewPlace[] = [...resolved.entries()].map(([query, r]) => {
@@ -651,7 +697,47 @@ const likeRows = PERSONAS.flatMap((p) =>
 );
 if (likeRows.length > 0) await db.insert(placeRelation).values(likeRows);
 
+console.log(`Minting ${PERSONAS.length * 3} invites (3 per persona, some redeemed)…`);
+const redeemedToByFrom = new Map(INVITE_CHAINS.map((c) => [c.from, c.to]));
+const inviteRows = PERSONAS.flatMap((p) => {
+	const creatorId = userIdByEmail.get(p.email)!;
+	const redeemedToEmail = redeemedToByFrom.get(p.email);
+	const redeemedToId = redeemedToEmail ? userIdByEmail.get(redeemedToEmail) : undefined;
+	return Array.from({ length: 3 }, (_, i) => ({
+		id: generateDemoInviteCode(),
+		createdByUserId: creatorId,
+		// Only the first slot is ever the redeemed one, so each persona still
+		// has invitesRemaining left over to show in the admin panel.
+		redeemedByUserId: i === 0 && redeemedToId ? redeemedToId : null,
+		redeemedAt: i === 0 && redeemedToId ? at(-3, 0) : null
+	}));
+});
+await db.insert(invite).values(inviteRows);
+
+console.log(`Seeding ${WAITLIST_ENTRIES.length} waitlist entries…`);
+// Waitlist admits are minted from a spare persona's invite pool rather than
+// one of the chain slots above, so they don't collide with the redemptions
+// already wired up there.
+const admitterId = userIdByEmail.get(PERSONAS[0].email)!;
+const extraInviteRows: (typeof invite.$inferInsert)[] = [];
+const waitlistRows = WAITLIST_ENTRIES.map((w) => {
+	if (w.status === 'pending') return { email: w.email, city: w.city, status: w.status };
+	const code = generateDemoInviteCode();
+	extraInviteRows.push({ id: code, createdByUserId: admitterId });
+	return {
+		email: w.email,
+		city: w.city,
+		status: w.status,
+		inviteId: code,
+		invitedAt: at(-1, 0)
+	};
+});
+if (extraInviteRows.length > 0) await db.insert(invite).values(extraInviteRows);
+await db.insert(waitlist).values(waitlistRows);
+
 console.log(
-	`Done - ${resolved.size} places, ${EVENTS.length} events, ${PERSONAS.length} personas, ${likeRows.length} likes.`
+	`Done - ${resolved.size} places, ${EVENTS.length} events, ${PERSONAS.length} personas, ` +
+		`${likeRows.length} likes, ${inviteRows.length + extraInviteRows.length} invites, ` +
+		`${waitlistRows.length} waitlist entries.`
 );
 await sql.end();
