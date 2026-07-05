@@ -57,7 +57,7 @@
 >
 	<div class="flex flex-col gap-3 sm:flex-row sm:items-end">
 		<div class="flex-1 space-y-1.5">
-			<Label for="wl-email" class="text-xs">Email</Label>
+			<Label for="wl-email">Email</Label>
 			<Input
 				id="wl-email"
 				name="email"
@@ -67,7 +67,7 @@
 			/>
 		</div>
 		<div class="flex-1 space-y-1.5">
-			<Label for="wl-city" class="text-xs">City</Label>
+			<Label for="wl-city">City</Label>
 			<CityInput id="wl-city" bind:value={city} placeholder="City" />
 		</div>
 		<Button type="submit">
