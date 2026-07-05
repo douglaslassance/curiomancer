@@ -126,7 +126,7 @@
 
 {#if !data.signedIn}
 	<!-- --- Anonymous splash ----------------------------------------------- -->
-	<section class="pt-12 text-center">
+	<section class="pt-20 text-center">
 		<h1 class="text-balance text-4xl font-semibold tracking-tight md:text-5xl">
 			Let your taste guide you
 		</h1>
@@ -144,9 +144,8 @@
 					<h2 class="text-base font-medium">Recommendations that travel</h2>
 				</div>
 				<p class="text-muted-foreground mt-2 text-sm">
-					Love a handful of spots back home? Whether you land in Tokyo or pull off the highway in
-					the middle of nowhere, Curiomancer surfaces the places your taste-twins love, right where
-					the big apps leave you guessing.
+					Whether you land in Tokyo or a backroad town, Curiomancer surfaces the places your
+					taste-twins love, right where the big apps leave you guessing.
 				</p>
 			</Card.Content>
 		</Card.Root>
