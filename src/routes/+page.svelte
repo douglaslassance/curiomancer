@@ -126,7 +126,7 @@
 
 {#if !data.signedIn}
 	<!-- --- Anonymous splash ----------------------------------------------- -->
-	<section class="pt-20 text-center">
+	<section class="pt-24 text-center">
 		<h1 class="text-balance text-4xl font-semibold tracking-tight md:text-5xl">
 			Let your taste guide you
 		</h1>
