@@ -16,6 +16,7 @@
 	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { relations } from '$lib/relations.svelte';
+	import { theme } from '$lib/theme.svelte';
 	import posthog from 'posthog-js';
 
 	let { data, children } = $props();
@@ -62,6 +63,12 @@
 		}
 	});
 
+	// The stored theme preference only applies while signed in; signed-out
+	// visitors always see the system scheme (see theme.svelte.ts).
+	$effect(() => {
+		theme.setLoggedIn(!!data.user);
+	});
+
 	// Sync the client-side relations store with the server's view.
 	// On a fresh sign-in, drain any anonymous localStorage likes into the DB.
 	$effect(() => {
@@ -100,6 +107,25 @@
 <svelte:head>
 	<link rel="icon" href={favicon} />
 	<title>Curiomancer · taste-matched places</title>
+	{#if !data.user}
+		<!--
+			The no-flash script in app.html can't know auth state, so it may apply
+			a stored preference left over from a previous signed-in session. Signed
+			out visitors should always get the system scheme, so re-correct here
+			before paint using data known from the server render.
+		-->
+		<script>
+			(function () {
+				try {
+					var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+					document.documentElement.classList.toggle('dark', dark);
+					document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+				} catch (_) {
+					/* ignore */
+				}
+			})();
+		</script>
+	{/if}
 </svelte:head>
 
 <div class="bg-background text-foreground flex min-h-screen flex-col">

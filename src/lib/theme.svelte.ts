@@ -5,6 +5,14 @@
  * picks an explicit theme, flipping the OS between light/dark flips the
  * app too. Picking 'light' or 'dark' pins it and persists across sessions.
  *
+ * The preference is only picked up (via /settings) while signed in.
+ * Signed-out visitors - the marketing page, sign-in/up, etc. - always get
+ * 'system' regardless of what's stored, so a stored preference from a
+ * previous session never leaks into the logged-out experience. See
+ * `setLoggedIn` and the matching correction script in +layout.svelte's
+ * <svelte:head>, which re-applies 'system' before hydration for anonymous
+ * requests (the inline script in app.html can't know auth state).
+ *
  * The actual class on <html> is set by an inline script in app.html that
  * runs before hydration so we never flash the wrong theme.
  */
@@ -41,6 +49,7 @@ function applyToDocument(resolved: ResolvedTheme) {
 class ThemeStore {
 	#preference = $state<ThemePreference>('system');
 	#resolved = $state<ResolvedTheme>('light');
+	#loggedIn = $state(false);
 
 	constructor() {
 		if (!browser) return;
@@ -52,7 +61,7 @@ class ThemeStore {
 		window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
 			if (this.#preference !== 'system') return;
 			this.#resolved = e.matches ? 'dark' : 'light';
-			applyToDocument(this.#resolved);
+			applyToDocument(this.current);
 		});
 	}
 
@@ -61,9 +70,19 @@ class ThemeStore {
 		return this.#preference;
 	}
 
-	/** The actual scheme in effect right now ('system' resolved to light/dark). */
+	/**
+	 * The actual scheme in effect right now. Forced to the system scheme
+	 * while signed out, no matter what preference is stored.
+	 */
 	get current(): ResolvedTheme {
-		return this.#resolved;
+		return this.#loggedIn ? this.#resolved : resolve('system');
+	}
+
+	/** Called from the root layout whenever auth state changes. */
+	setLoggedIn(loggedIn: boolean) {
+		if (this.#loggedIn === loggedIn) return;
+		this.#loggedIn = loggedIn;
+		applyToDocument(this.current);
 	}
 
 	set(next: ThemePreference) {
@@ -71,7 +90,7 @@ class ThemeStore {
 		this.#resolved = resolve(next);
 		if (browser) {
 			localStorage.setItem(STORAGE_KEY, next);
-			applyToDocument(this.#resolved);
+			applyToDocument(this.current);
 		}
 	}
 }
