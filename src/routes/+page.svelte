@@ -161,25 +161,25 @@
 				</p>
 			</Card.Content>
 		</Card.Root>
-		<Card.Root>
-			<Card.Content>
-				<div class="flex items-center justify-between gap-2">
+		<div class="relative">
+			<Card.Root class="h-full">
+				<Card.Content>
 					<div class="flex items-center gap-2">
 						<MessageCircle class="text-primary size-5" />
 						<h2 class="text-base font-medium">Expand your network</h2>
 					</div>
-					<span
-						class="bg-primary text-primary-foreground shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
-					>
-						Subscriber
-					</span>
-				</div>
-				<p class="text-muted-foreground mt-2 text-sm">
-					Reach the people who think like you. Message your taste-twins and trade the spots that
-					never make a list.
-				</p>
-			</Card.Content>
-		</Card.Root>
+					<p class="text-muted-foreground mt-2 text-sm">
+						Reach the people who think like you. Message your taste-twins and trade the spots that
+						never make a list.
+					</p>
+				</Card.Content>
+			</Card.Root>
+			<span
+				class="bg-primary text-primary-foreground absolute -top-2 -right-2 rounded-full px-2 py-0.5 text-xs font-medium"
+			>
+				Subscriber
+			</span>
+		</div>
 	</section>
 
 	<section class="pb-16 text-center">
