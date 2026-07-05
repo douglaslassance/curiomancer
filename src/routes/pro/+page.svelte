@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import { ArrowRight, Check, MessageCircle, Sparkles, Users } from '@lucide/svelte';
+	import { ArrowRight, MessageCircle, Sparkles, Users } from '@lucide/svelte';
 	import { page } from '$app/state';
 
 	const signedIn = $derived(!!page.data.user);
@@ -11,9 +11,9 @@
 	let checkoutNote = $state(false);
 
 	const perks = [
-		'Message your taste-twins directly',
-		'Trade the spots that never make a public list',
-		'Priority access to new cities and features'
+		{ icon: MessageCircle, label: 'Message your taste-twins directly' },
+		{ icon: Users, label: 'Trade the spots that never make a public list' },
+		{ icon: Sparkles, label: 'Priority access to new cities and features' }
 	];
 </script>
 
@@ -24,7 +24,7 @@
 <div class="mx-auto max-w-5xl py-10">
 	<div class="text-center">
 		<span
-			class="bg-primary text-primary-foreground mb-3 inline-block rounded-full px-2 py-0.5 text-xs font-medium"
+			class="bg-primary text-primary-foreground mb-3 inline-block rounded-full px-2 py-0.5 text-xs font-medium uppercase"
 		>
 			Pro
 		</span>
@@ -41,10 +41,11 @@
 		</div>
 
 		<ul class="mt-5 space-y-3">
-			{#each perks as perk (perk)}
+			{#each perks as perk (perk.label)}
+				{@const Icon = perk.icon}
 				<li class="flex items-start gap-2 text-sm">
-					<Check class="text-primary mt-0.5 size-4 shrink-0" />
-					<span>{perk}</span>
+					<Icon class="text-primary mt-0.5 size-4 shrink-0" />
+					<span>{perk.label}</span>
 				</li>
 			{/each}
 		</ul>
@@ -66,21 +67,6 @@
 					<ArrowRight class="size-4" />
 				</Button>
 			{/if}
-		</div>
-	</div>
-
-	<div class="text-muted-foreground mt-8 grid gap-4 sm:grid-cols-3">
-		<div class="flex flex-col items-center gap-1.5 text-center text-xs">
-			<MessageCircle class="size-5" />
-			<span>Direct messages</span>
-		</div>
-		<div class="flex flex-col items-center gap-1.5 text-center text-xs">
-			<Users class="size-5" />
-			<span>Build your circle</span>
-		</div>
-		<div class="flex flex-col items-center gap-1.5 text-center text-xs">
-			<Sparkles class="size-5" />
-			<span>Early features</span>
 		</div>
 	</div>
 </div>
