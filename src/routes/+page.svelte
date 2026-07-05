@@ -9,8 +9,7 @@
 		Loader2,
 		Luggage,
 		MessageCircle,
-		ShieldCheck,
-		Sparkles
+		ShieldCheck
 	} from '@lucide/svelte';
 	import DashboardHeader from '$lib/components/dashboard-header.svelte';
 	import LocationPrompt from '$lib/components/location-prompt.svelte';
@@ -127,7 +126,7 @@
 
 {#if !data.signedIn}
 	<!-- --- Anonymous splash ----------------------------------------------- -->
-	<section class="py-12 text-center">
+	<section class="pt-12 text-center">
 		<h1 class="text-balance text-4xl font-semibold tracking-tight md:text-5xl">
 			Let your taste guide you
 		</h1>
@@ -135,15 +134,61 @@
 			Curiomancer cross-references your taste to surface the places and people worth your time,
 			wherever you are or wherever you go.
 		</p>
+	</section>
+
+	<section class="grid gap-4 py-10 md:grid-cols-3">
+		<Card.Root>
+			<Card.Content>
+				<div class="flex items-center gap-2">
+					<Luggage class="text-primary size-5" />
+					<h2 class="text-base font-medium">Recommendations that travel</h2>
+				</div>
+				<p class="text-muted-foreground mt-2 text-sm">
+					Love a handful of spots back home? Whether you land in Tokyo or pull off the highway in
+					the middle of nowhere, Curiomancer surfaces the places your taste-twins love, right where
+					the big apps leave you guessing.
+				</p>
+			</Card.Content>
+		</Card.Root>
+		<Card.Root>
+			<Card.Content>
+				<div class="flex items-center gap-2">
+					<ShieldCheck class="text-primary size-5" />
+					<h2 class="text-base font-medium">No data trap</h2>
+				</div>
+				<p class="text-muted-foreground mt-2 text-sm">
+					Your taste belongs to you, available through our open API to connect with the other
+					services you use.
+				</p>
+			</Card.Content>
+		</Card.Root>
+		<Card.Root class="relative">
+			<Card.Content>
+				<span
+					class="bg-primary text-primary-foreground absolute right-4 top-4 rounded-full px-2 py-0.5 text-xs font-medium"
+				>
+					Subscriber
+				</span>
+				<div class="flex items-center gap-2">
+					<MessageCircle class="text-primary size-5" />
+					<h2 class="text-base font-medium">Expand your network</h2>
+				</div>
+				<p class="text-muted-foreground mt-2 text-sm">
+					Reach the people who think like you. Message your taste-twins and trade the spots that
+					never make a list.
+				</p>
+			</Card.Content>
+		</Card.Root>
+	</section>
+
+	<section class="pb-16 text-center">
 		{#if joinStatus === 'done'}
-			<div
-				class="text-foreground mx-auto mt-8 flex max-w-md items-center justify-center gap-2 text-sm"
-			>
+			<div class="text-foreground mx-auto flex max-w-md items-center justify-center gap-2 text-sm">
 				<Check class="text-primary size-5 shrink-0" />
 				<p>You're on the list. We'll email you an invite when your area is ready.</p>
 			</div>
 		{:else}
-			<form onsubmit={joinWaitlist} class="mx-auto mt-8 max-w-md space-y-3">
+			<form onsubmit={joinWaitlist} class="mx-auto max-w-md space-y-3">
 				<Input
 					name="email"
 					type="email"
@@ -218,63 +263,6 @@
 				Already have an invite? <a href="/sign-in" class="underline">Sign in</a>
 			</p>
 		{/if}
-	</section>
-
-	<section class="grid gap-4 pb-10 md:grid-cols-2">
-		<Card.Root>
-			<Card.Content>
-				<div class="flex items-center gap-2">
-					<Luggage class="text-primary size-5" />
-					<h2 class="text-base font-medium">Recommendations that travel</h2>
-				</div>
-				<p class="text-muted-foreground mt-2 text-sm">
-					Love a handful of spots back home? Whether you land in Tokyo or pull off the highway in
-					the middle of nowhere, Curiomancer surfaces the places your taste-twins love, right where
-					the big apps leave you guessing.
-				</p>
-			</Card.Content>
-		</Card.Root>
-		<Card.Root>
-			<Card.Content>
-				<div class="flex items-center gap-2">
-					<Sparkles class="text-primary size-5" />
-					<h2 class="text-base font-medium">Nothing but taste</h2>
-				</div>
-				<p class="text-muted-foreground mt-2 text-sm">
-					No ads, no engagement bait, no pay-to-rank. What you see is decided by one thing only: how
-					much your taste overlaps with other people's.
-				</p>
-			</Card.Content>
-		</Card.Root>
-		<Card.Root>
-			<Card.Content>
-				<div class="flex items-center gap-2">
-					<ShieldCheck class="text-primary size-5" />
-					<h2 class="text-base font-medium">No data trap</h2>
-				</div>
-				<p class="text-muted-foreground mt-2 text-sm">
-					Your taste belongs to you, available through our open API to connect with the other
-					services you use.
-				</p>
-			</Card.Content>
-		</Card.Root>
-		<Card.Root class="relative">
-			<Card.Content>
-				<span
-					class="bg-primary text-primary-foreground absolute right-4 top-4 rounded-full px-2 py-0.5 text-xs font-medium"
-				>
-					Subscriber
-				</span>
-				<div class="flex items-center gap-2">
-					<MessageCircle class="text-primary size-5" />
-					<h2 class="text-base font-medium">Expand your network</h2>
-				</div>
-				<p class="text-muted-foreground mt-2 text-sm">
-					Reach the people who think like you. Message your taste-twins and trade the spots that
-					never make a list.
-				</p>
-			</Card.Content>
-		</Card.Root>
 	</section>
 {:else if !data.location}
 	<!-- --- Signed-in but no location yet ----------------------------------- -->
