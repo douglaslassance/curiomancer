@@ -126,145 +126,149 @@
 
 {#if !data.signedIn}
 	<!-- --- Anonymous splash ----------------------------------------------- -->
-	<section class="pt-24 text-center">
-		<h1 class="text-balance text-4xl font-semibold tracking-tight md:text-5xl">
-			Let your taste guide you
-		</h1>
-		<p class="text-muted-foreground mx-auto mt-4 max-w-xl text-balance text-lg">
-			Curiomancer cross-references your taste to surface the places and people worth your time,
-			wherever you are or wherever you go.
-		</p>
-	</section>
+	<div class="flex flex-1 flex-col justify-center gap-10">
+		<section class="text-center">
+			<h1 class="text-balance text-4xl font-semibold tracking-tight md:text-5xl">
+				Let your taste guide you
+			</h1>
+			<p class="text-muted-foreground mx-auto mt-4 max-w-xl text-balance text-lg">
+				Curiomancer cross-references your taste to surface the places and people worth your time,
+				wherever you are or wherever you go.
+			</p>
+		</section>
 
-	<section class="grid gap-4 py-10 md:grid-cols-3">
-		<Card.Root>
-			<Card.Content>
-				<div class="flex items-center gap-2">
-					<Luggage class="text-primary size-5" />
-					<h2 class="text-base font-medium">Recommendations that travel</h2>
-				</div>
-				<p class="text-muted-foreground mt-2 text-sm">
-					Whether you land in Tokyo or a backroad town, Curiomancer surfaces the places your
-					taste-twins love, right where the big apps leave you guessing.
-				</p>
-			</Card.Content>
-		</Card.Root>
-		<Card.Root>
-			<Card.Content>
-				<div class="flex items-center gap-2">
-					<ShieldCheck class="text-primary size-5" />
-					<h2 class="text-base font-medium">No data trap</h2>
-				</div>
-				<p class="text-muted-foreground mt-2 text-sm">
-					Your taste belongs to you, available through our open API to connect with the other
-					services you use.
-				</p>
-			</Card.Content>
-		</Card.Root>
-		<div class="relative">
-			<Card.Root class="h-full">
+		<section class="grid gap-4 md:grid-cols-3">
+			<Card.Root>
 				<Card.Content>
 					<div class="flex items-center gap-2">
-						<MessageCircle class="text-primary size-5" />
-						<h2 class="text-base font-medium">Expand your network</h2>
+						<Luggage class="text-primary size-5" />
+						<h2 class="text-base font-medium">Recommendations that travel</h2>
 					</div>
 					<p class="text-muted-foreground mt-2 text-sm">
-						Reach the people who think like you. Message your taste-twins and trade the spots that
-						never make a list.
+						Whether you land in Tokyo or a backroad town, Curiomancer surfaces the places your
+						taste-twins love, right where the big apps leave you guessing.
 					</p>
 				</Card.Content>
 			</Card.Root>
-			<span
-				class="bg-primary text-primary-foreground absolute -top-2 -right-2 rounded-full px-2 py-0.5 text-xs font-medium"
-			>
-				Subscriber
-			</span>
-		</div>
-	</section>
-
-	<section class="pb-16 text-center">
-		{#if joinStatus === 'done'}
-			<div class="text-foreground mx-auto flex max-w-md items-center justify-center gap-2 text-sm">
-				<Check class="text-primary size-5 shrink-0" />
-				<p>You're on the list. We'll email you an invite when your area is ready.</p>
-			</div>
-		{:else}
-			<form onsubmit={joinWaitlist} class="mx-auto max-w-md space-y-3">
-				<Input
-					name="email"
-					type="email"
-					placeholder="you@example.com"
-					bind:value={email}
-					required
-					class="h-11"
-				/>
-				<div class="flex gap-2">
-					<div class="relative flex-1">
-						<Input
-							name="city"
-							type="text"
-							placeholder="Your city"
-							bind:value={city}
-							required
-							autocomplete="off"
-							oninput={onCityInput}
-							onblur={() => setTimeout(() => (showSuggestions = false), 150)}
-							class="h-11 w-full"
-						/>
-						{#if showSuggestions}
-							<ul
-								class="bg-popover absolute inset-x-0 z-20 mt-1 overflow-hidden rounded-md border text-left shadow-md"
-							>
-								{#each citySuggestions as s (s.title + s.subtitle)}
-									<li>
-										<button
-											type="button"
-											class="hover:bg-accent block w-full px-3 py-2 text-left text-sm"
-											onclick={() => pickSuggestion(s)}
-										>
-											<span class="font-medium">{s.title}</span>
-											{#if s.subtitle}<span class="text-muted-foreground">
-													· {s.subtitle}</span
-												>{/if}
-										</button>
-									</li>
-								{/each}
-							</ul>
-						{/if}
+			<Card.Root>
+				<Card.Content>
+					<div class="flex items-center gap-2">
+						<ShieldCheck class="text-primary size-5" />
+						<h2 class="text-base font-medium">No data trap</h2>
 					</div>
-					<Button
-						type="button"
-						variant="outline"
-						class="h-11"
-						onclick={detectLocation}
-						disabled={detecting}
-					>
-						{#if detecting}
-							<Loader2 class="size-4 animate-spin" />
-						{:else}
-							<LocateFixed class="size-4" />
-						{/if}
-						Detect
-					</Button>
+					<p class="text-muted-foreground mt-2 text-sm">
+						Your taste belongs to you, available through our open API to connect with the other
+						services you use.
+					</p>
+				</Card.Content>
+			</Card.Root>
+			<div class="relative">
+				<Card.Root class="h-full">
+					<Card.Content>
+						<div class="flex items-center gap-2">
+							<MessageCircle class="text-primary size-5" />
+							<h2 class="text-base font-medium">Expand your network</h2>
+						</div>
+						<p class="text-muted-foreground mt-2 text-sm">
+							Reach the people who think like you. Message your taste-twins and trade the spots that
+							never make a list.
+						</p>
+					</Card.Content>
+				</Card.Root>
+				<span
+					class="bg-primary text-primary-foreground absolute -top-2 -right-2 rounded-full px-2 py-0.5 text-xs font-medium"
+				>
+					Subscriber
+				</span>
+			</div>
+		</section>
+
+		<section class="text-center">
+			{#if joinStatus === 'done'}
+				<div
+					class="text-foreground mx-auto flex max-w-md items-center justify-center gap-2 text-sm"
+				>
+					<Check class="text-primary size-5 shrink-0" />
+					<p>You're on the list. We'll email you an invite when your area is ready.</p>
 				</div>
-				<Button type="submit" size="lg" class="h-11 w-full" disabled={!canSubmit}>
-					{#if joinStatus === 'working'}
-						<Loader2 class="size-4 animate-spin" />
-						Joining…
-					{:else}
-						Join the waitlist
-						<ArrowRight class="size-4" />
-					{/if}
-				</Button>
-			</form>
-			{#if joinError}
-				<p class="text-destructive mt-3 text-sm">{joinError}</p>
+			{:else}
+				<form onsubmit={joinWaitlist} class="mx-auto max-w-md space-y-3">
+					<Input
+						name="email"
+						type="email"
+						placeholder="you@example.com"
+						bind:value={email}
+						required
+						class="h-11"
+					/>
+					<div class="flex gap-2">
+						<div class="relative flex-1">
+							<Input
+								name="city"
+								type="text"
+								placeholder="Your city"
+								bind:value={city}
+								required
+								autocomplete="off"
+								oninput={onCityInput}
+								onblur={() => setTimeout(() => (showSuggestions = false), 150)}
+								class="h-11 w-full"
+							/>
+							{#if showSuggestions}
+								<ul
+									class="bg-popover absolute inset-x-0 z-20 mt-1 overflow-hidden rounded-md border text-left shadow-md"
+								>
+									{#each citySuggestions as s (s.title + s.subtitle)}
+										<li>
+											<button
+												type="button"
+												class="hover:bg-accent block w-full px-3 py-2 text-left text-sm"
+												onclick={() => pickSuggestion(s)}
+											>
+												<span class="font-medium">{s.title}</span>
+												{#if s.subtitle}<span class="text-muted-foreground">
+														· {s.subtitle}</span
+													>{/if}
+											</button>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
+						<Button
+							type="button"
+							variant="outline"
+							class="h-11"
+							onclick={detectLocation}
+							disabled={detecting}
+						>
+							{#if detecting}
+								<Loader2 class="size-4 animate-spin" />
+							{:else}
+								<LocateFixed class="size-4" />
+							{/if}
+							Detect
+						</Button>
+					</div>
+					<Button type="submit" size="lg" class="h-11 w-full" disabled={!canSubmit}>
+						{#if joinStatus === 'working'}
+							<Loader2 class="size-4 animate-spin" />
+							Joining…
+						{:else}
+							Join the waitlist
+							<ArrowRight class="size-4" />
+						{/if}
+					</Button>
+				</form>
+				{#if joinError}
+					<p class="text-destructive mt-3 text-sm">{joinError}</p>
+				{/if}
+				<p class="text-muted-foreground mt-3 text-sm">
+					Already have an invite? <a href="/sign-in" class="underline">Sign in</a>
+				</p>
 			{/if}
-			<p class="text-muted-foreground mt-3 text-sm">
-				Already have an invite? <a href="/sign-in" class="underline">Sign in</a>
-			</p>
-		{/if}
-	</section>
+		</section>
+	</div>
 {:else if !data.location}
 	<!-- --- Signed-in but no location yet ----------------------------------- -->
 	<div class="py-12">
