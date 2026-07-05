@@ -223,7 +223,7 @@
 		<div class="bg-card rounded-xl border p-6">
 			<div class="flex items-center gap-2">
 				<Luggage class="text-primary size-5" />
-				<h2 class="text-lg font-medium">Recommendations that travel</h2>
+				<h2 class="text-base font-medium">Recommendations that travel</h2>
 			</div>
 			<p class="text-muted-foreground mt-2 text-sm">
 				Love a handful of spots back home? Whether you land in Tokyo or pull off the highway in the
@@ -234,7 +234,7 @@
 		<div class="bg-card rounded-xl border p-6">
 			<div class="flex items-center gap-2">
 				<Sparkles class="text-primary size-5" />
-				<h2 class="text-lg font-medium">Nothing but taste</h2>
+				<h2 class="text-base font-medium">Nothing but taste</h2>
 			</div>
 			<p class="text-muted-foreground mt-2 text-sm">
 				No ads, no engagement bait, no pay-to-rank. What you see is decided by one thing only: how
@@ -244,7 +244,7 @@
 		<div class="bg-card rounded-xl border p-6">
 			<div class="flex items-center gap-2">
 				<ShieldCheck class="text-primary size-5" />
-				<h2 class="text-lg font-medium">No data trap</h2>
+				<h2 class="text-base font-medium">No data trap</h2>
 			</div>
 			<p class="text-muted-foreground mt-2 text-sm">
 				Your taste belongs to you, available through our open API to connect with the other services
@@ -259,7 +259,7 @@
 			</span>
 			<div class="flex items-center gap-2">
 				<MessageCircle class="text-primary size-5" />
-				<h2 class="text-lg font-medium">Expand your network</h2>
+				<h2 class="text-base font-medium">Expand your network</h2>
 			</div>
 			<p class="text-muted-foreground mt-2 text-sm">
 				Reach the people who think like you. Message your taste-twins and trade the spots that never
