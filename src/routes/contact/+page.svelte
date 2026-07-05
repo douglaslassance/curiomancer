@@ -15,11 +15,10 @@
 </svelte:head>
 
 <div class="mx-auto max-w-5xl">
-	<Card.Root>
-		<Card.Header>
-			<Card.Title>Contact</Card.Title>
-			<Card.Description>Questions, feedback, or bugs? Send us a note.</Card.Description>
-		</Card.Header>
+	<h1 class="text-3xl font-semibold tracking-tight">Contact</h1>
+	<p class="text-muted-foreground mt-1 text-sm">Questions, feedback, or bugs? Send us a note.</p>
+
+	<Card.Root class="mt-6">
 		<Card.Content>
 			{#if form?.success}
 				<p class="text-sm text-emerald-600 dark:text-emerald-500">
