@@ -140,7 +140,7 @@
 			</button>
 		</div>
 	{/if}
-	<header class="border-border/60 sticky top-0 z-10 border-b backdrop-blur">
+	<header class="border-border/60 bg-background sticky top-0 z-10 border-b">
 		<div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
 			<a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
 				<MapPin class="size-5" />
