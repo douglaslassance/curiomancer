@@ -263,7 +263,7 @@
 				<span
 					class="bg-primary text-primary-foreground absolute right-4 top-4 rounded-full px-2 py-0.5 text-xs font-medium"
 				>
-					Pro
+					Subscriber
 				</span>
 				<div class="flex items-center gap-2">
 					<MessageCircle class="text-primary size-5" />
