@@ -140,7 +140,7 @@
 			</button>
 		</div>
 	{/if}
-	<header class="border-border/60 bg-background sticky top-0 z-10 border-b">
+	<header class="bg-background sticky top-0 z-10">
 		<div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
 			<a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
 				<MapPin class="size-5" />
@@ -221,13 +221,13 @@
 	</main>
 
 	{#if !hideFooter}
-		<footer class="border-border/60 border-t">
+		<footer>
 			<div
 				class="text-muted-foreground mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-6 text-xs"
 			>
 				<span>© {year} Curiomancer</span>
 				<nav class="flex flex-wrap items-center gap-x-4 gap-y-2">
-					<a href="/pro" class="hover:text-foreground transition-colors">Pro</a>
+					<a href="/pro" class="hover:text-foreground transition-colors">Subscribe</a>
 					<a href="/terms" class="hover:text-foreground transition-colors">Terms</a>
 					<a href="/privacy" class="hover:text-foreground transition-colors">Privacy</a>
 					<a href="/contact" class="hover:text-foreground transition-colors">Contact</a>
