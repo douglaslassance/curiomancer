@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import * as Card from '$lib/components/ui/card';
 	import {
 		ArrowRight,
 		Check,
@@ -126,7 +127,7 @@
 
 {#if !data.signedIn}
 	<!-- --- Anonymous splash ----------------------------------------------- -->
-	<section class="py-16 text-center">
+	<section class="py-12 text-center">
 		<h1 class="text-balance text-4xl font-semibold tracking-tight md:text-5xl">
 			Let your taste guide you
 		</h1>
@@ -219,53 +220,61 @@
 		{/if}
 	</section>
 
-	<section class="grid gap-6 py-12 md:grid-cols-2">
-		<div class="bg-card rounded-xl border p-6">
-			<div class="flex items-center gap-2">
-				<Luggage class="text-primary size-5" />
-				<h2 class="text-base font-medium">Recommendations that travel</h2>
-			</div>
-			<p class="text-muted-foreground mt-2 text-sm">
-				Love a handful of spots back home? Whether you land in Tokyo or pull off the highway in the
-				middle of nowhere, Curiomancer surfaces the places your taste-twins love, right where the
-				big apps leave you guessing.
-			</p>
-		</div>
-		<div class="bg-card rounded-xl border p-6">
-			<div class="flex items-center gap-2">
-				<Sparkles class="text-primary size-5" />
-				<h2 class="text-base font-medium">Nothing but taste</h2>
-			</div>
-			<p class="text-muted-foreground mt-2 text-sm">
-				No ads, no engagement bait, no pay-to-rank. What you see is decided by one thing only: how
-				much your taste overlaps with other people's.
-			</p>
-		</div>
-		<div class="bg-card rounded-xl border p-6">
-			<div class="flex items-center gap-2">
-				<ShieldCheck class="text-primary size-5" />
-				<h2 class="text-base font-medium">No data trap</h2>
-			</div>
-			<p class="text-muted-foreground mt-2 text-sm">
-				Your taste belongs to you, available through our open API to connect with the other services
-				you use.
-			</p>
-		</div>
-		<div class="bg-card relative rounded-xl border p-6">
-			<span
-				class="bg-primary text-primary-foreground absolute right-4 top-4 rounded-full px-2 py-0.5 text-xs font-medium"
-			>
-				Pro
-			</span>
-			<div class="flex items-center gap-2">
-				<MessageCircle class="text-primary size-5" />
-				<h2 class="text-base font-medium">Expand your network</h2>
-			</div>
-			<p class="text-muted-foreground mt-2 text-sm">
-				Reach the people who think like you. Message your taste-twins and trade the spots that never
-				make a list.
-			</p>
-		</div>
+	<section class="grid gap-4 pb-10 md:grid-cols-2">
+		<Card.Root>
+			<Card.Content>
+				<div class="flex items-center gap-2">
+					<Luggage class="text-primary size-5" />
+					<h2 class="text-base font-medium">Recommendations that travel</h2>
+				</div>
+				<p class="text-muted-foreground mt-2 text-sm">
+					Love a handful of spots back home? Whether you land in Tokyo or pull off the highway in
+					the middle of nowhere, Curiomancer surfaces the places your taste-twins love, right where
+					the big apps leave you guessing.
+				</p>
+			</Card.Content>
+		</Card.Root>
+		<Card.Root>
+			<Card.Content>
+				<div class="flex items-center gap-2">
+					<Sparkles class="text-primary size-5" />
+					<h2 class="text-base font-medium">Nothing but taste</h2>
+				</div>
+				<p class="text-muted-foreground mt-2 text-sm">
+					No ads, no engagement bait, no pay-to-rank. What you see is decided by one thing only: how
+					much your taste overlaps with other people's.
+				</p>
+			</Card.Content>
+		</Card.Root>
+		<Card.Root>
+			<Card.Content>
+				<div class="flex items-center gap-2">
+					<ShieldCheck class="text-primary size-5" />
+					<h2 class="text-base font-medium">No data trap</h2>
+				</div>
+				<p class="text-muted-foreground mt-2 text-sm">
+					Your taste belongs to you, available through our open API to connect with the other
+					services you use.
+				</p>
+			</Card.Content>
+		</Card.Root>
+		<Card.Root class="relative">
+			<Card.Content>
+				<span
+					class="bg-primary text-primary-foreground absolute right-4 top-4 rounded-full px-2 py-0.5 text-xs font-medium"
+				>
+					Pro
+				</span>
+				<div class="flex items-center gap-2">
+					<MessageCircle class="text-primary size-5" />
+					<h2 class="text-base font-medium">Expand your network</h2>
+				</div>
+				<p class="text-muted-foreground mt-2 text-sm">
+					Reach the people who think like you. Message your taste-twins and trade the spots that
+					never make a list.
+				</p>
+			</Card.Content>
+		</Card.Root>
 	</section>
 {:else if !data.location}
 	<!-- --- Signed-in but no location yet ----------------------------------- -->

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
 	import { updateLocation, type LocationUpdateError } from '$lib/location-update';
 	import { Compass, Loader2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
@@ -31,26 +32,28 @@
 	});
 </script>
 
-<div class="bg-card mx-auto max-w-md rounded-xl border p-8 text-center">
-	<Compass class="text-primary mx-auto size-8" />
-	<h2 class="mt-4 text-lg font-medium">Where are you right now?</h2>
-	<p class="text-muted-foreground mt-2 text-sm">
-		Curiomancer surfaces places and people in your current city. We need to know where you are.
-	</p>
-	<Button onclick={run} disabled={status === 'working'} class="mt-6">
-		{#if status === 'working'}
-			<Loader2 class="size-4 animate-spin" />
-			Locating…
-		{:else if status === 'error'}
-			Try again
-		{:else}
-			Use my location
+<Card.Root class="mx-auto max-w-md py-8">
+	<Card.Content class="px-8 text-center">
+		<Compass class="text-primary mx-auto size-8" />
+		<h2 class="mt-4 text-lg font-medium">Where are you right now?</h2>
+		<p class="text-muted-foreground mt-2 text-sm">
+			Curiomancer surfaces places and people in your current city. We need to know where you are.
+		</p>
+		<Button onclick={run} disabled={status === 'working'} class="mt-6">
+			{#if status === 'working'}
+				<Loader2 class="size-4 animate-spin" />
+				Locating…
+			{:else if status === 'error'}
+				Try again
+			{:else}
+				Use my location
+			{/if}
+		</Button>
+		{#if errorMessage}
+			<p class="text-destructive mt-4 text-sm">{errorMessage}</p>
+			{#if errorHint}
+				<p class="text-muted-foreground mt-1 text-xs">{errorHint}</p>
+			{/if}
 		{/if}
-	</Button>
-	{#if errorMessage}
-		<p class="text-destructive mt-4 text-sm">{errorMessage}</p>
-		{#if errorHint}
-			<p class="text-muted-foreground mt-1 text-xs">{errorHint}</p>
-		{/if}
-	{/if}
-</div>
+	</Card.Content>
+</Card.Root>

@@ -3,6 +3,7 @@
 	import posthog from 'posthog-js';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
 	import { Bookmark, Eye, Loader2, MapPin, ThumbsDown, ThumbsUp } from '@lucide/svelte';
 	import { relations, type Kind } from '$lib/relations.svelte';
 	import { ensureMapKit } from '$lib/mapkit-client';
@@ -274,37 +275,39 @@
 		</div>
 
 		<!-- Current place -->
-		<article class="bg-card rounded-xl border p-6">
-			<div class="flex items-start gap-2">
-				<h2 class="flex-1 text-xl font-semibold tracking-tight">
-					{#if current.placeId}
-						<a href={`/map?place=${current.placeId}`} class="hover:underline">{current.name}</a>
-					{:else}
-						{current.name}
-					{/if}
-				</h2>
-				<Badge variant="secondary">{categoryLabel(current.category)}</Badge>
-			</div>
-			<p class="text-muted-foreground mt-2 flex items-center gap-1 text-sm">
-				<MapPin class="size-4" />
-				{current.neighborhood ? `${current.neighborhood}, ` : ''}{current.city}
-			</p>
-			{#if current.description}
-				<p class="text-muted-foreground mt-3 text-sm leading-relaxed">{current.description}</p>
-			{/if}
+		<Card.Root>
+			<Card.Content>
+				<div class="flex items-start gap-2">
+					<h2 class="flex-1 text-xl font-semibold tracking-tight">
+						{#if current.placeId}
+							<a href={`/map?place=${current.placeId}`} class="hover:underline">{current.name}</a>
+						{:else}
+							{current.name}
+						{/if}
+					</h2>
+					<Badge variant="secondary">{categoryLabel(current.category)}</Badge>
+				</div>
+				<p class="text-muted-foreground mt-2 flex items-center gap-1 text-sm">
+					<MapPin class="size-4" />
+					{current.neighborhood ? `${current.neighborhood}, ` : ''}{current.city}
+				</p>
+				{#if current.description}
+					<p class="text-muted-foreground mt-3 text-sm leading-relaxed">{current.description}</p>
+				{/if}
 
-			<!-- Ratings: 2x2 grid, then skip. -->
-			<div class="mt-6 grid grid-cols-2 gap-2">
-				{#each RATINGS as r (r.kind)}
-					{@const Icon = r.icon}
-					<Button variant="outline" class="h-12 justify-start gap-2" onclick={() => rate(r.kind)}>
-						<Icon class="size-4" />
-						{r.label}
-					</Button>
-				{/each}
-			</div>
-			<Button variant="outline" class="mt-3 h-12 w-full" onclick={skip}>Skip</Button>
-		</article>
+				<!-- Ratings: 2x2 grid, then skip. -->
+				<div class="mt-6 grid grid-cols-2 gap-2">
+					{#each RATINGS as r (r.kind)}
+						{@const Icon = r.icon}
+						<Button variant="outline" class="h-12 justify-start gap-2" onclick={() => rate(r.kind)}>
+							<Icon class="size-4" />
+							{r.label}
+						</Button>
+					{/each}
+				</div>
+				<Button variant="outline" class="mt-3 h-12 w-full" onclick={skip}>Skip</Button>
+			</Card.Content>
+		</Card.Root>
 	{:else if loadingMore || (!exhausted && !mapkitError)}
 		<div class="text-muted-foreground rounded-xl border border-dashed py-12 text-center text-sm">
 			<Loader2 class="mx-auto size-5 animate-spin" />
