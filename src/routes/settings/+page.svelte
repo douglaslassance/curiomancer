@@ -151,12 +151,6 @@
 </svelte:head>
 
 <div class="py-4">
-	<header class="mb-6">
-		<p class="text-muted-foreground text-sm">
-			Your account and preferences. More controls land here as the product grows.
-		</p>
-	</header>
-
 	<Card.Root>
 		<Card.Header>
 			<div class="flex items-center gap-4">
