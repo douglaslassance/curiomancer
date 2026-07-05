@@ -4,8 +4,17 @@ import { auth } from '$lib/server/auth';
 import { getPostHogClient } from '$lib/server/posthog';
 import type { Actions, PageServerLoad } from './$types';
 
+// Where to land after signing in: the `next` the route guard tucked into the
+// URL, if it's a safe internal path (no protocol-relative / external), else
+// the default landing.
+function nextTarget(url: URL): string {
+	const next = url.searchParams.get('next');
+	if (next && next.startsWith('/') && !next.startsWith('//')) return next;
+	return '/places';
+}
+
 export const load: PageServerLoad = (event) => {
-	if (event.locals.user) throw redirect(302, '/places');
+	if (event.locals.user) throw redirect(302, nextTarget(event.url));
 	return {};
 };
 
@@ -41,6 +50,6 @@ export const actions: Actions = {
 			posthog.capture({ distinctId: userId, event: 'user_signed_in' });
 		}
 
-		throw redirect(302, '/places');
+		throw redirect(302, nextTarget(event.url));
 	}
 };

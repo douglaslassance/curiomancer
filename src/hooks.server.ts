@@ -1,10 +1,26 @@
-import type { Handle, HandleServerError } from '@sveltejs/kit';
+import { redirect, type Handle, type HandleServerError } from '@sveltejs/kit';
 import { building } from '$app/environment';
 import { auth } from '$lib/server/auth';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { startMetricsCron } from '$lib/server/cron';
 import { touchUserActivity } from '$lib/server/metrics';
 import { getPostHogClient } from '$lib/server/posthog';
+
+// Pages anyone can reach signed out: the marketing/legal pages and the whole
+// auth flow. Everything else is account-only and bounces to /sign-in. API
+// endpoints are not listed here - they guard themselves and must answer with
+// 401, not an HTML redirect.
+const PUBLIC_PATHS = new Set([
+	'/',
+	'/terms',
+	'/privacy',
+	'/contact',
+	'/sign-in',
+	'/sign-up',
+	'/forgot-password',
+	'/reset-password',
+	'/setup'
+]);
 
 // Kick off the daily metrics snapshot cron once, when the server boots.
 // Skipped during the build/prerender pass (no server, no DB work wanted).
@@ -60,6 +76,22 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 		event.locals.session = session.session;
 		event.locals.user = session.user;
 		heartbeat(session.user.id);
+	}
+
+	// Central route guard: unless the request is for a public page, an API
+	// endpoint (self-guarded), or a build asset, a signed-out visitor is sent
+	// to sign-in. Strip the `/__data.json` suffix so client-side navigations
+	// are caught too.
+	const requestedPath = pathname.replace(/\/__data\.json$/, '') || '/';
+	const isExempt =
+		PUBLIC_PATHS.has(requestedPath) ||
+		pathname.startsWith('/api/') ||
+		pathname.startsWith('/_app/') ||
+		pathname.startsWith('/.well-known/') ||
+		pathname === '/sign-out' ||
+		pathname === '/favicon.svg';
+	if (!isExempt && !event.locals.user) {
+		throw redirect(302, `/sign-in?next=${encodeURIComponent(requestedPath)}`);
 	}
 
 	return svelteKitHandler({ event, resolve, auth, building });
