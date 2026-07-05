@@ -225,10 +225,7 @@
 			<div
 				class="text-muted-foreground mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-6 text-xs"
 			>
-				<span class="flex items-center gap-1.5">
-					<MapPin class="size-3.5" />
-					© {year} Curiomancer
-				</span>
+				<span>© {year} Curiomancer</span>
 				<nav class="flex flex-wrap items-center gap-x-4 gap-y-2">
 					<a href="/pro" class="hover:text-foreground transition-colors">Pro</a>
 					<a href="/terms" class="hover:text-foreground transition-colors">Terms</a>
