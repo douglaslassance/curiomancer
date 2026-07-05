@@ -16,7 +16,9 @@
 
 <div class="mx-auto max-w-5xl">
 	<h1 class="text-3xl font-semibold tracking-tight">Contact</h1>
-	<p class="text-muted-foreground mt-1 text-sm">Questions, feedback, or bugs? Send us a note.</p>
+	<p class="text-muted-foreground mt-1 text-sm">
+		If you have any questions or feedback, feel free to reach out.
+	</p>
 
 	<Card.Root class="mt-6">
 		<Card.Content>
