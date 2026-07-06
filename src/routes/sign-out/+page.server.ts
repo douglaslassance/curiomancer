@@ -12,8 +12,7 @@ export const actions: Actions = {
 		const userId = event.locals.user?.id;
 		await auth.api.signOut({ headers: event.request.headers });
 		if (userId) {
-			const posthog = getPostHogClient();
-			posthog.capture({ distinctId: userId, event: 'user_signed_out' });
+			getPostHogClient()?.capture({ distinctId: userId, event: 'user_signed_out' });
 		}
 		throw redirect(302, '/');
 	}

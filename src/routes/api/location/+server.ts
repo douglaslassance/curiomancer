@@ -63,8 +63,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			}
 		});
 
-	const posthog = getPostHogClient();
-	posthog.capture({
+	getPostHogClient()?.capture({
 		distinctId: locals.user.id,
 		event: 'location_updated',
 		properties: { city: row.city, country_code: row.countryCode }

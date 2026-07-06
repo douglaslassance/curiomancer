@@ -46,8 +46,7 @@ export const actions: Actions = {
 		}
 
 		if (userId) {
-			const posthog = getPostHogClient();
-			posthog.capture({ distinctId: userId, event: 'user_signed_in' });
+			getPostHogClient()?.capture({ distinctId: userId, event: 'user_signed_in' });
 		}
 
 		throw redirect(302, nextTarget(event.url));

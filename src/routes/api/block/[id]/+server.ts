@@ -15,8 +15,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) throw error(401, 'Sign in to block people.');
 	if (locals.user.id === params.id) throw error(400, 'You cannot block yourself.');
 	await blockUser(locals.user.id, params.id);
-	const posthog = getPostHogClient();
-	posthog.capture({
+	getPostHogClient()?.capture({
 		distinctId: locals.user.id,
 		event: 'user_blocked',
 		properties: { blocked_user_id: params.id }
@@ -27,8 +26,7 @@ export const POST: RequestHandler = async ({ params, locals }) => {
 export const DELETE: RequestHandler = async ({ params, locals }) => {
 	if (!locals.user) throw error(401, 'Sign in first.');
 	await unblockUser(locals.user.id, params.id);
-	const posthog = getPostHogClient();
-	posthog.capture({
+	getPostHogClient()?.capture({
 		distinctId: locals.user.id,
 		event: 'user_unblocked',
 		properties: { unblocked_user_id: params.id }

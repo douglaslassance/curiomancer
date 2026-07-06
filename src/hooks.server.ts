@@ -1,10 +1,17 @@
 import { redirect, type Handle, type HandleServerError } from '@sveltejs/kit';
-import { building } from '$app/environment';
+import { sequence } from '@sveltejs/kit/hooks';
+import * as Sentry from '@sentry/sveltekit';
+import { building, dev } from '$app/environment';
+import { PUBLIC_SENTRY_DSN } from '$env/static/public';
 import { auth } from '$lib/server/auth';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { startMetricsCron } from '$lib/server/cron';
 import { touchUserActivity } from '$lib/server/metrics';
-import { getPostHogClient } from '$lib/server/posthog';
+
+// Opt-in: only reports when a DSN is configured for this deployment.
+if (PUBLIC_SENTRY_DSN) {
+	Sentry.init({ dsn: PUBLIC_SENTRY_DSN, environment: dev ? 'development' : 'production' });
+}
 
 // Pages anyone can reach signed out: the marketing/legal pages and the whole
 // auth flow. Everything else is account-only and bounces to /sign-in. API
@@ -97,13 +104,11 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 	return svelteKitHandler({ event, resolve, auth, building });
 };
 
-export const handleError: HandleServerError = async ({ error, event, status, message }) => {
+const myErrorHandler: HandleServerError = async ({ error, status, message }) => {
 	console.error(error);
-	getPostHogClient().captureException(error, event.locals.user?.id ?? 'server', {
-		status,
-		message
-	});
 	return { message, status };
 };
 
-export const handle: Handle = handleBetterAuth;
+export const handleError: HandleServerError = Sentry.handleErrorWithSentry(myErrorHandler);
+
+export const handle: Handle = sequence(Sentry.sentryHandle(), handleBetterAuth);

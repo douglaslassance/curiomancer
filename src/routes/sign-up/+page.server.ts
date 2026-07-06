@@ -116,8 +116,7 @@ export const actions: Actions = {
 		}
 
 		if (newUserId) {
-			const posthog = getPostHogClient();
-			posthog.capture({
+			getPostHogClient()?.capture({
 				distinctId: newUserId,
 				event: 'user_signed_up',
 				properties: { invite_code: code ?? null }

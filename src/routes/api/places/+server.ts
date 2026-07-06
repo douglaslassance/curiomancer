@@ -79,8 +79,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	await setRelation(locals.user.id, placeId, kind);
 
-	const posthog = getPostHogClient();
-	posthog.capture({
+	getPostHogClient()?.capture({
 		distinctId: locals.user.id,
 		event: 'place_added',
 		properties: {

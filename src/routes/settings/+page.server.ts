@@ -56,8 +56,7 @@ export const actions: Actions = {
 			if (error instanceof APIError) return fail(400, { nameError: error.message, name });
 			return fail(500, { nameError: 'Could not update name.', name });
 		}
-		const posthog = getPostHogClient();
-		posthog.capture({
+		getPostHogClient()?.capture({
 			distinctId: locals.user.id,
 			event: 'profile_updated',
 			properties: { field: 'name' }
@@ -145,8 +144,7 @@ export const actions: Actions = {
 		// Plaintext is returned once here and never stored - the UI shows it
 		// in a copy-now box and it cannot be retrieved again.
 		const token = await createApiToken(locals.user.id, name);
-		const posthog = getPostHogClient();
-		posthog.capture({ distinctId: locals.user.id, event: 'api_token_created' });
+		getPostHogClient()?.capture({ distinctId: locals.user.id, event: 'api_token_created' });
 		return { tokenCreated: token, tokenName: name };
 	},
 
