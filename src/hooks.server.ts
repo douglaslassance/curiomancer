@@ -2,11 +2,12 @@ import { redirect, type Handle, type HandleServerError } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import * as Sentry from '@sentry/sveltekit';
 import { building, dev } from '$app/environment';
-import { PUBLIC_SENTRY_DSN } from '$env/static/public';
+import { PUBLIC_SENTRY_DSN, PUBLIC_POSTHOG_PROJECT_TOKEN, PUBLIC_POSTHOG_HOST } from '$env/static/public';
 import { auth } from '$lib/server/auth';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { startMetricsCron } from '$lib/server/cron';
 import { touchUserActivity } from '$lib/server/metrics';
+import { resolvePostHogHosts } from '$lib/posthog';
 
 // Opt-in: only reports when a DSN is configured for this deployment.
 if (PUBLIC_SENTRY_DSN) {
@@ -50,10 +51,13 @@ function heartbeat(userId: string): void {
 const handleBetterAuth: Handle = async ({ event, resolve }) => {
 	const { pathname } = event.url;
 
-	if (pathname.startsWith('/ingest')) {
+	// Opt-in: only forwards to a PostHog server when a project token is
+	// configured for this deployment.
+	if (PUBLIC_POSTHOG_PROJECT_TOKEN && pathname.startsWith('/ingest')) {
+		const { ingest, assets } = resolvePostHogHosts(PUBLIC_POSTHOG_HOST);
 		const useAssetHost =
 			pathname.startsWith('/ingest/static/') || pathname.startsWith('/ingest/array/');
-		const hostname = useAssetHost ? 'us-assets.i.posthog.com' : 'us.i.posthog.com';
+		const hostname = useAssetHost ? assets : ingest;
 
 		const url = new URL(event.request.url);
 		url.protocol = 'https:';

@@ -1,7 +1,8 @@
 import posthog from 'posthog-js';
 import * as Sentry from '@sentry/sveltekit';
 import { dev } from '$app/environment';
-import { PUBLIC_POSTHOG_PROJECT_TOKEN, PUBLIC_SENTRY_DSN } from '$env/static/public';
+import { PUBLIC_POSTHOG_PROJECT_TOKEN, PUBLIC_POSTHOG_HOST, PUBLIC_SENTRY_DSN } from '$env/static/public';
+import { resolvePostHogHosts } from '$lib/posthog';
 import type { HandleClientError } from '@sveltejs/kit';
 
 // Opt-in: only reports when a DSN is configured for this deployment.
@@ -14,7 +15,7 @@ export async function init() {
 	if (!PUBLIC_POSTHOG_PROJECT_TOKEN) return;
 	posthog.init(PUBLIC_POSTHOG_PROJECT_TOKEN, {
 		api_host: '/ingest',
-		ui_host: 'https://us.posthog.com',
+		ui_host: resolvePostHogHosts(PUBLIC_POSTHOG_HOST).ui,
 		defaults: '2026-01-30',
 		capture_exceptions: false
 	});
