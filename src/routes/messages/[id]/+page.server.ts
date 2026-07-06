@@ -5,6 +5,8 @@ import { user } from '$lib/server/db/schema';
 import { isBlocked } from '$lib/server/blocks';
 import { getPairScore } from '$lib/server/matching';
 import { createConversation, findConversation, getMessages, sendMessage } from '$lib/server/messages';
+import { getReactionsFor } from '$lib/server/reactions';
+import { broadcast } from '$lib/server/ws/registry';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
@@ -26,12 +28,29 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	const existingId = await findConversation(locals.user.id, params.id);
 	if (!existingId && !other.messageable) {
-		return { other, score: pair.score, messages: [], unavailable: true as const };
+		return {
+			other,
+			score: pair.score,
+			conversationId: null,
+			messages: [],
+			reactionsByMessage: {},
+			unavailable: true as const
+		};
 	}
 
 	const conversationId = existingId ?? (await createConversation(locals.user.id, params.id));
 	const messages = await getMessages(conversationId);
-	return { other, score: pair.score, messages, unavailable: false as const };
+	const reactionsByMessage = Object.fromEntries(
+		await getReactionsFor(messages.map((m) => m.id))
+	);
+	return {
+		other,
+		score: pair.score,
+		conversationId,
+		messages,
+		reactionsByMessage,
+		unavailable: false as const
+	};
 };
 
 export const actions: Actions = {
@@ -44,6 +63,7 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const body = data.get('body')?.toString().trim() ?? '';
 		if (!body) return fail(400, { error: 'Message is empty.' });
+		const replyToId = data.get('replyToId')?.toString().trim() || null;
 
 		const existingId = await findConversation(locals.user.id, params.id);
 		if (!existingId) {
@@ -58,7 +78,11 @@ export const actions: Actions = {
 		}
 
 		const conversationId = existingId ?? (await createConversation(locals.user.id, params.id));
-		await sendMessage(conversationId, locals.user.id, body);
+		const created = await sendMessage(conversationId, locals.user.id, body, replyToId);
+		broadcast(conversationId, {
+			type: 'message:new',
+			message: { ...created, createdAt: created.createdAt.toISOString() }
+		});
 		return { sent: true };
 	}
 };

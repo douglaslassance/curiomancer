@@ -1,12 +1,17 @@
 <script lang="ts">
+	import { onDestroy, onMount } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import AvatarMatch from '$lib/components/avatar-match.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { Ban, MoreVertical, Send, Trash2 } from '@lucide/svelte';
+	import { Ban, MoreVertical, Reply, Send, SmilePlus, Trash2, X } from '@lucide/svelte';
 	import { page } from '$app/state';
+	import { createConversationStore } from '$lib/conversation.svelte';
+
+	const REACTION_EMOJI = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 	let { data, form } = $props();
 	const other = $derived(data.other);
@@ -14,6 +19,34 @@
 
 	let body = $state('');
 	let formEl: HTMLFormElement | undefined = $state();
+	let replyingTo = $state<{ id: string; body: string; senderId: string } | null>(null);
+
+	const store = createConversationStore();
+	$effect(() => {
+		if (!data.unavailable) {
+			store.hydrateFromServer(data.conversationId, other.id, data.messages, data.reactionsByMessage);
+		}
+	});
+	onMount(() => {
+		if (!data.unavailable) store.connect(data.conversationId);
+	});
+	onDestroy(() => store.disconnect());
+
+	function onComposeInput() {
+		store.sendTyping();
+	}
+
+	function scrollToMessage(id: string) {
+		document.getElementById(`msg-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+	}
+
+	async function react(messageId: string, emoji: string) {
+		await fetch(`/api/messages/${messageId}/reactions`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ emoji })
+		});
+	}
 
 	async function deleteConversation() {
 		if (!confirm(`Delete your conversation with ${other.name}? This can't be undone.`)) return;
@@ -81,16 +114,78 @@
 		</div>
 	{:else}
 		<div class="flex-1 space-y-2 overflow-y-auto">
-			{#each data.messages as m (m.id)}
+			{#each store.messages as m (m.id)}
 				{@const mine = m.senderId === signedInId}
-				<div class="flex {mine ? 'justify-end' : 'justify-start'}">
-					<div
-						class="max-w-[75%] rounded-xl px-3 py-2 text-sm {mine
-							? 'bg-primary text-primary-foreground'
-							: 'bg-card border'}"
-					>
-						{m.body}
+				{@const reactions = store.reactionsFor(m.id)}
+				<div class="group flex flex-col {mine ? 'items-end' : 'items-start'}">
+					<div class="flex items-center gap-1 {mine ? 'flex-row-reverse' : ''}">
+						<div
+							id={`msg-${m.id}`}
+							class="max-w-[75%] rounded-xl px-3 py-2 text-sm {mine
+								? 'bg-primary text-primary-foreground'
+								: 'bg-card border'}"
+						>
+							{#if m.replyTo}
+								{@const replyTo = m.replyTo}
+								<button
+									type="button"
+									onclick={() => scrollToMessage(replyTo.id)}
+									class="mb-1 block border-l-2 pl-2 text-left text-xs opacity-70"
+								>
+									{replyTo.body.length > 80 ? replyTo.body.slice(0, 80) + '…' : replyTo.body}
+								</button>
+							{/if}
+							{m.body}
+						</div>
+						<div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
+							<button
+								type="button"
+								onclick={() => (replyingTo = { id: m.id, body: m.body, senderId: m.senderId })}
+								aria-label="Reply"
+								class="text-muted-foreground hover:bg-muted hover:text-foreground rounded-md p-1"
+							>
+								<Reply class="size-3.5" />
+							</button>
+							<DropdownMenu.Root>
+								<DropdownMenu.Trigger>
+									{#snippet child({ props })}
+										<button
+											{...props}
+											aria-label="React"
+											class="text-muted-foreground hover:bg-muted hover:text-foreground rounded-md p-1"
+										>
+											<SmilePlus class="size-3.5" />
+										</button>
+									{/snippet}
+								</DropdownMenu.Trigger>
+								<DropdownMenu.Content class="flex w-auto gap-1 p-1">
+									{#each REACTION_EMOJI as emoji (emoji)}
+										<button
+											type="button"
+											onclick={() => react(m.id, emoji)}
+											class="hover:bg-muted rounded p-1 text-base"
+										>
+											{emoji}
+										</button>
+									{/each}
+								</DropdownMenu.Content>
+							</DropdownMenu.Root>
+						</div>
 					</div>
+					{#if reactions.length > 0}
+						<div class="mt-1 flex flex-wrap gap-1">
+							{#each reactions as r (r.emoji)}
+								<Badge
+									variant={r.userIds.includes(signedInId ?? '') ? 'secondary' : 'outline'}
+									onclick={() => react(m.id, r.emoji)}
+									class="cursor-pointer"
+								>
+									{r.emoji}
+									{r.userIds.length}
+								</Badge>
+							{/each}
+						</div>
+					{/if}
 				</div>
 			{:else}
 				<p class="text-muted-foreground py-8 text-center text-sm">
@@ -99,6 +194,23 @@
 			{/each}
 		</div>
 
+		<div class="h-4 shrink-0">
+			{#if store.isOtherTyping}
+				<p class="text-muted-foreground text-xs">{other.name} is typing…</p>
+			{/if}
+		</div>
+
+		{#if replyingTo}
+			<div class="bg-muted mb-1 flex shrink-0 items-center justify-between rounded-md px-2 py-1 text-xs">
+				<span class="truncate">
+					Replying to {replyingTo.senderId === signedInId ? 'yourself' : other.name}: {replyingTo.body}
+				</span>
+				<button type="button" onclick={() => (replyingTo = null)} aria-label="Cancel reply">
+					<X class="size-3" />
+				</button>
+			</div>
+		{/if}
+
 		<form
 			bind:this={formEl}
 			method="post"
@@ -106,16 +218,21 @@
 			use:enhance={() => {
 				return async ({ result, update }) => {
 					await update();
-					if (result.type === 'success') body = '';
+					if (result.type === 'success') {
+						body = '';
+						replyingTo = null;
+					}
 				};
 			}}
 			class="mt-4 flex shrink-0 items-center gap-2"
 		>
+			<input type="hidden" name="replyToId" value={replyingTo?.id ?? ''} />
 			<Input
 				name="body"
 				placeholder="Write a message…"
 				autocomplete="off"
 				bind:value={body}
+				oninput={onComposeInput}
 				class="flex-1"
 			/>
 			<Button type="submit" size="icon" disabled={!body.trim()}>

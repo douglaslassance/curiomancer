@@ -23,10 +23,11 @@ RUN pnpm install --frozen-lockfile --prod
 
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/drizzle ./drizzle
-COPY migrate.mjs ./
+COPY --from=builder /app/src/lib/server/ws ./src/lib/server/ws
+COPY migrate.mjs server.ts ./
 
 ENV NODE_ENV=production
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "node migrate.mjs && node build/index.js"]
+CMD ["sh", "-c", "node migrate.mjs && pnpm start"]

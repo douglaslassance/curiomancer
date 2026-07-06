@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+	type AnyPgColumn,
 	check,
 	date,
 	doublePrecision,
@@ -273,12 +274,52 @@ export const message = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: 'cascade' }),
 		body: text('body').notNull(),
+		/**
+		 * The message this one is replying to, if any. `set null` (not cascade):
+		 * deleting the original should orphan the quote, not delete the reply
+		 * that responds to it - same convention as invite.redeemedByUserId.
+		 */
+		replyToId: text('reply_to_id').references((): AnyPgColumn => message.id, {
+			onDelete: 'set null'
+		}),
 		createdAt: timestamp('created_at').notNull().defaultNow()
 	},
-	(t) => [index('message_conversation_created_idx').on(t.conversationId, t.createdAt)]
+	(t) => [
+		index('message_conversation_created_idx').on(t.conversationId, t.createdAt),
+		index('message_reply_to_idx').on(t.replyToId)
+	]
 );
 
 export type Message = typeof message.$inferSelect;
+
+/**
+ * A user's emoji reaction to a message. Unique on (messageId, userId, emoji) -
+ * not (messageId, userId) - so one person can react with several different
+ * emoji on the same message. Toggle semantics (posting the same emoji again
+ * removes it) live in the endpoint, not the constraint.
+ */
+export const messageReaction = pgTable(
+	'message_reaction',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		messageId: text('message_id')
+			.notNull()
+			.references(() => message.id, { onDelete: 'cascade' }),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		emoji: text('emoji').notNull(),
+		createdAt: timestamp('created_at').notNull().defaultNow()
+	},
+	(t) => [
+		uniqueIndex('message_reaction_message_user_emoji_idx').on(t.messageId, t.userId, t.emoji),
+		index('message_reaction_message_idx').on(t.messageId)
+	]
+);
+
+export type MessageReaction = typeof messageReaction.$inferSelect;
 
 /**
  * Personal access tokens for the public API. Lets a user pull their own
