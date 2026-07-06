@@ -97,16 +97,11 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 	return svelteKitHandler({ event, resolve, auth, building });
 };
 
-export const handleError: HandleServerError = async ({ error, status, message }) => {
-	const posthog = getPostHogClient();
-	posthog.capture({
-		distinctId: 'server',
-		event: 'server_error',
-		properties: {
-			error: error instanceof Error ? error.message : String(error),
-			status,
-			message
-		}
+export const handleError: HandleServerError = async ({ error, event, status, message }) => {
+	console.error(error);
+	getPostHogClient().captureException(error, event.locals.user?.id ?? 'server', {
+		status,
+		message
 	});
 	return { message, status };
 };
