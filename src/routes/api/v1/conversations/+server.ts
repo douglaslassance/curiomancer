@@ -8,6 +8,7 @@ import {
 	createConversation,
 	findConversation,
 	listConversationsFor,
+	MAX_MESSAGE_LENGTH,
 	sendMessage
 } from '$lib/server/messages';
 import { broadcast } from '$lib/server/ws/registry';
@@ -53,6 +54,9 @@ export const POST: RequestHandler = async ({ request }) => {
 	if (!otherUserId) throw error(400, 'otherUserId required.');
 	if (otherUserId === userId) throw error(400, "You can't message yourself.");
 	if (!body) throw error(400, 'body required.');
+	if (body.length > MAX_MESSAGE_LENGTH) {
+		throw error(400, `body must be ${MAX_MESSAGE_LENGTH} characters or fewer.`);
+	}
 	if (await isBlocked(userId, otherUserId)) throw error(404, 'User not found.');
 
 	const existingId = await findConversation(userId, otherUserId);
@@ -73,5 +77,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		message: { ...message, createdAt: message.createdAt.toISOString() }
 	});
 
-	return json({ conversationId, message: { ...message, createdAt: message.createdAt.toISOString() } });
+	return json({
+		conversationId,
+		message: { ...message, createdAt: message.createdAt.toISOString() }
+	});
 };

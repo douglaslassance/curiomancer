@@ -14,6 +14,13 @@ const replyMessage = alias(message, 'reply_message');
 /** Messages returned per page when no explicit limit is given. */
 export const DEFAULT_PAGE_SIZE = 50;
 
+/**
+ * Longest message body accepted. Keeps rows reasonable and, incidentally,
+ * keeps the JSON envelope registry.ts fans out over Postgres NOTIFY well
+ * under that channel's ~8000 byte payload cap.
+ */
+export const MAX_MESSAGE_LENGTH = 4096;
+
 function orderedPair(userIdA: string, userIdB: string): [string, string] {
 	return userIdA < userIdB ? [userIdA, userIdB] : [userIdB, userIdA];
 }

@@ -9,6 +9,7 @@ import {
 	DEFAULT_PAGE_SIZE,
 	findConversation,
 	getMessages,
+	MAX_MESSAGE_LENGTH,
 	sendMessage
 } from '$lib/server/messages';
 import { getReactionsFor } from '$lib/server/reactions';
@@ -41,16 +42,15 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			messages: [],
 			reactionsByMessage: {},
 			hasMore: false,
-			unavailable: true as const
+			unavailable: true as const,
+			maxMessageLength: MAX_MESSAGE_LENGTH
 		};
 	}
 
 	const conversationId = existingId ?? (await createConversation(locals.user.id, params.id));
 	// Just the latest page; the client backfills older messages on scroll-up.
 	const messages = await getMessages(conversationId, { limit: DEFAULT_PAGE_SIZE });
-	const reactionsByMessage = Object.fromEntries(
-		await getReactionsFor(messages.map((m) => m.id))
-	);
+	const reactionsByMessage = Object.fromEntries(await getReactionsFor(messages.map((m) => m.id)));
 	return {
 		other,
 		score: pair.score,
@@ -58,7 +58,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		messages,
 		reactionsByMessage,
 		hasMore: messages.length === DEFAULT_PAGE_SIZE,
-		unavailable: false as const
+		unavailable: false as const,
+		maxMessageLength: MAX_MESSAGE_LENGTH
 	};
 };
 
@@ -72,6 +73,9 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const body = data.get('body')?.toString().trim() ?? '';
 		if (!body) return fail(400, { error: 'Message is empty.' });
+		if (body.length > MAX_MESSAGE_LENGTH) {
+			return fail(400, { error: `Message is too long (max ${MAX_MESSAGE_LENGTH} characters).` });
+		}
 		const replyToId = data.get('replyToId')?.toString().trim() || null;
 
 		const existingId = await findConversation(locals.user.id, params.id);

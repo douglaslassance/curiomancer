@@ -226,7 +226,9 @@
 		</div>
 
 		{#if replyingTo}
-			<div class="bg-muted mb-1 flex shrink-0 items-center justify-between rounded-md px-2 py-1 text-xs">
+			<div
+				class="bg-muted mb-1 flex shrink-0 items-center justify-between rounded-md px-2 py-1 text-xs"
+			>
 				<span class="truncate">
 					Replying to {replyingTo.senderId === signedInId ? 'yourself' : other.name}: {replyingTo.body}
 				</span>
@@ -261,6 +263,7 @@
 				name="body"
 				placeholder="Write a message…"
 				autocomplete="off"
+				maxlength={data.maxMessageLength}
 				bind:value={body}
 				oninput={onComposeInput}
 				class="flex-1"

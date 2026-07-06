@@ -1,6 +1,6 @@
 import { error, json } from '@sveltejs/kit';
 import { requireApiUser } from '$lib/server/api-auth';
-import { getMessages, isParticipant, sendMessage } from '$lib/server/messages';
+import { getMessages, isParticipant, MAX_MESSAGE_LENGTH, sendMessage } from '$lib/server/messages';
 import { getReactionsFor } from '$lib/server/reactions';
 import { parseHistoryQuery } from '$lib/server/messages-query';
 import { broadcast } from '$lib/server/ws/registry';
@@ -51,6 +51,9 @@ export const POST: RequestHandler = async ({ params, request }) => {
 	const body = typeof payload?.body === 'string' ? payload.body.trim() : '';
 	const replyToId = typeof payload?.replyToId === 'string' ? payload.replyToId : null;
 	if (!body) throw error(400, 'body required.');
+	if (body.length > MAX_MESSAGE_LENGTH) {
+		throw error(400, `body must be ${MAX_MESSAGE_LENGTH} characters or fewer.`);
+	}
 
 	const message = await sendMessage(params.id, userId, body, replyToId);
 	broadcast(params.id, {
