@@ -1,14 +1,16 @@
 import { error, json } from '@sveltejs/kit';
 import { findConversation, getMessages } from '$lib/server/messages';
 import { getReactionsFor } from '$lib/server/reactions';
+import { parseHistoryQuery } from '$lib/server/messages-query';
 import type { RequestHandler } from './$types';
 
 /**
- * GET /api/conversations/[id]/messages?since=<ISO timestamp>
+ * GET /api/conversations/[id]/messages?since=<ISO>|before=<ISO>&limit=<n>
  *
  * `id` is the other user's id, matching this route's existing DELETE
- * convention. Used by the client-side conversation store to resync after a
- * dropped WebSocket connection - the cookie-authenticated twin of
+ * convention. Used by the client-side conversation store: `since` to resync
+ * after a dropped WebSocket connection, `before` to backfill older messages on
+ * scroll-up. The cookie-authenticated twin of
  * GET /api/v1/conversations/[conversationId] (which is token-only, so the
  * browser can't call it directly).
  */
@@ -16,17 +18,17 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 	if (!locals.user) throw error(401, 'Sign in first.');
 
 	const conversationId = await findConversation(locals.user.id, params.id);
-	if (!conversationId) return json({ messages: [], reactionsByMessage: {} });
+	if (!conversationId) return json({ messages: [], reactionsByMessage: {}, hasMore: false });
 
-	const sinceParam = url.searchParams.get('since');
-	const since = sinceParam ? new Date(sinceParam) : undefined;
-	if (since && Number.isNaN(since.getTime())) throw error(400, 'Invalid since timestamp.');
-
-	const messages = await getMessages(conversationId, { since });
+	const { since, before, limit } = parseHistoryQuery(url);
+	const messages = await getMessages(conversationId, { since, before, limit });
 	const reactions = await getReactionsFor(messages.map((m) => m.id));
 
 	return json({
 		messages: messages.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() })),
-		reactionsByMessage: Object.fromEntries(reactions)
+		reactionsByMessage: Object.fromEntries(reactions),
+		// A full page implies there may be older messages still. Never "more"
+		// on a `since` resync, which returns the whole gap.
+		hasMore: !since && messages.length === limit
 	});
 };

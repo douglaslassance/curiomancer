@@ -4,7 +4,13 @@ import { db } from '$lib/server/db';
 import { user } from '$lib/server/db/schema';
 import { isBlocked } from '$lib/server/blocks';
 import { getPairScore } from '$lib/server/matching';
-import { createConversation, findConversation, getMessages, sendMessage } from '$lib/server/messages';
+import {
+	createConversation,
+	DEFAULT_PAGE_SIZE,
+	findConversation,
+	getMessages,
+	sendMessage
+} from '$lib/server/messages';
 import { getReactionsFor } from '$lib/server/reactions';
 import { broadcast } from '$lib/server/ws/registry';
 import type { Actions, PageServerLoad } from './$types';
@@ -34,12 +40,14 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 			conversationId: null,
 			messages: [],
 			reactionsByMessage: {},
+			hasMore: false,
 			unavailable: true as const
 		};
 	}
 
 	const conversationId = existingId ?? (await createConversation(locals.user.id, params.id));
-	const messages = await getMessages(conversationId);
+	// Just the latest page; the client backfills older messages on scroll-up.
+	const messages = await getMessages(conversationId, { limit: DEFAULT_PAGE_SIZE });
 	const reactionsByMessage = Object.fromEntries(
 		await getReactionsFor(messages.map((m) => m.id))
 	);
@@ -49,6 +57,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		conversationId,
 		messages,
 		reactionsByMessage,
+		hasMore: messages.length === DEFAULT_PAGE_SIZE,
 		unavailable: false as const
 	};
 };

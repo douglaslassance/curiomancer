@@ -17,9 +17,16 @@
 import type { WebSocket } from 'ws';
 import type { ServerEvent } from './protocol';
 
-type ConnectionHandle = { ws: WebSocket; userId: string };
+type ConnectionHandle = { ws: WebSocket; userId: string; lastSeenAt: number };
 
 const REGISTRY_KEY = Symbol.for('curiomancer.ws.conversations');
+const SWEEP_KEY = Symbol.for('curiomancer.ws.sweep');
+
+// A client pings every ~25s (see conversation.svelte.ts). Terminating after
+// ~2.5 missed pings tolerates a hiccup without leaving a half-open socket on
+// a dropped mobile connection collecting broadcasts into the void.
+const CLIENT_TIMEOUT_MS = 70_000;
+const SWEEP_INTERVAL_MS = 30_000;
 
 function getConversations(): Map<string, Set<ConnectionHandle>> {
 	const g = globalThis as unknown as { [REGISTRY_KEY]?: Map<string, Set<ConnectionHandle>> };
@@ -29,26 +36,51 @@ function getConversations(): Map<string, Set<ConnectionHandle>> {
 
 const conversations = getConversations();
 
-/** Registers a live connection and wires its typing pings and cleanup. */
+/**
+ * Starts the single per-process sweep that terminates sockets which have gone
+ * quiet past CLIENT_TIMEOUT_MS. Guarded through the same global slot the Map
+ * uses so the two module instances (tsx source + Vite SSR bundle) share one
+ * timer; unref'd so it never keeps the process alive on its own.
+ */
+function ensureSweep(): void {
+	const g = globalThis as unknown as { [SWEEP_KEY]?: ReturnType<typeof setInterval> };
+	if (g[SWEEP_KEY]) return;
+	const timer = setInterval(() => {
+		const now = Date.now();
+		for (const set of conversations.values()) {
+			for (const handle of set) {
+				// terminate() fires 'close', whose handler removes the handle and
+				// prunes the now-empty set, so no bookkeeping is needed here.
+				if (now - handle.lastSeenAt > CLIENT_TIMEOUT_MS) handle.ws.terminate();
+			}
+		}
+	}, SWEEP_INTERVAL_MS);
+	timer.unref();
+	g[SWEEP_KEY] = timer;
+}
+
+/** Registers a live connection and wires its inbound events and cleanup. */
 export function registerConnection(conversationId: string, userId: string, ws: WebSocket): void {
-	const handle: ConnectionHandle = { ws, userId };
+	ensureSweep();
+	const handle: ConnectionHandle = { ws, userId, lastSeenAt: Date.now() };
 	let set = conversations.get(conversationId);
 	if (!set) conversations.set(conversationId, (set = new Set()));
 	set.add(handle);
 
 	ws.on('message', (raw) => {
+		// Any inbound frame proves the client is alive, keeping it off the sweep.
+		handle.lastSeenAt = Date.now();
 		let parsed: unknown;
 		try {
 			parsed = JSON.parse(raw.toString());
 		} catch {
 			return;
 		}
-		if ((parsed as { type?: unknown })?.type === 'typing') {
-			broadcast(
-				conversationId,
-				{ type: 'typing', userId, at: new Date().toISOString() },
-				userId
-			);
+		const type = (parsed as { type?: unknown })?.type;
+		if (type === 'ping') {
+			if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ type: 'pong' } satisfies ServerEvent));
+		} else if (type === 'typing') {
+			broadcast(conversationId, { type: 'typing', userId, at: new Date().toISOString() }, userId);
 		}
 	});
 

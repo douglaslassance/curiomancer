@@ -16,6 +16,7 @@ import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 import type { WebSocketServer } from 'ws';
 import { registerConnection } from './registry';
+import { WS_CLOSE_FORBIDDEN, WS_CLOSE_UNAUTHORIZED } from './protocol';
 
 const PATH_PATTERN = /^\/ws\/conversations\/([^/]+)$/;
 const PORT = process.env.PORT ?? '3000';
@@ -49,7 +50,14 @@ export async function handleUpgrade(
 		}
 	);
 	if (!authRes.ok) {
-		rejectSocket(socket, authRes.status, authRes.status === 403 ? 'Forbidden' : 'Unauthorized');
+		// Complete the handshake, then close with an application code the client
+		// can actually read. Rejecting the upgrade at the HTTP level surfaces to
+		// a browser only as an opaque 1006, so the client can't tell "never
+		// authorized, give up" from "network blip, retry" and would loop against
+		// a connection that will never succeed. 4401/4403 make it stoppable.
+		const code = authRes.status === 403 ? WS_CLOSE_FORBIDDEN : WS_CLOSE_UNAUTHORIZED;
+		const reason = authRes.status === 403 ? 'Forbidden' : 'Unauthorized';
+		wss.handleUpgrade(req, socket, head, (ws) => ws.close(code, reason));
 		return;
 	}
 	const { userId } = (await authRes.json()) as { userId: string };

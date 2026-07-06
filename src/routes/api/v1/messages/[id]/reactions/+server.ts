@@ -27,11 +27,17 @@ export const POST: RequestHandler = async ({ params, request }) => {
 	}
 
 	const result = await toggleReaction(params.id, userId, emoji);
-	broadcast(conversationId, {
-		type: result.added ? 'reaction:added' : 'reaction:removed',
-		messageId: params.id,
-		userId,
-		emoji
-	});
+	// Exclude the actor: they apply their own toggle optimistically from this
+	// response, so echoing it back would be redundant.
+	broadcast(
+		conversationId,
+		{
+			type: result.added ? 'reaction:added' : 'reaction:removed',
+			messageId: params.id,
+			userId,
+			emoji
+		},
+		userId
+	);
 	return json({ emoji, added: result.added });
 };

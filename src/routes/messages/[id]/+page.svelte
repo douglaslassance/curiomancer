@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import AvatarMatch from '$lib/components/avatar-match.svelte';
@@ -19,18 +19,47 @@
 
 	let body = $state('');
 	let formEl: HTMLFormElement | undefined = $state();
+	let scrollEl = $state<HTMLDivElement>();
 	let replyingTo = $state<{ id: string; body: string; senderId: string } | null>(null);
 
 	const store = createConversationStore();
+	let activeConvId = '';
+
 	$effect(() => {
-		if (!data.unavailable) {
-			store.hydrateFromServer(data.conversationId, other.id, data.messages, data.reactionsByMessage);
+		if (data.unavailable || !data.conversationId) return;
+		// SvelteKit reuses this component across /messages/[id] navigations, so
+		// re-point the socket at the new thread only when the conversation id
+		// actually changes - not on every unrelated data update (e.g. a send).
+		if (activeConvId !== data.conversationId) {
+			activeConvId = data.conversationId;
+			store.hydrateFromServer(
+				data.conversationId,
+				other.id,
+				data.messages,
+				data.reactionsByMessage,
+				data.hasMore
+			);
+			store.connect(data.conversationId);
+			tick().then(scrollToBottom);
 		}
 	});
-	onMount(() => {
-		if (!data.unavailable) store.connect(data.conversationId);
-	});
 	onDestroy(() => store.disconnect());
+
+	function scrollToBottom() {
+		if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
+	}
+
+	async function onScroll() {
+		if (!scrollEl || scrollEl.scrollTop > 80 || !store.hasMore) return;
+		const prevHeight = scrollEl.scrollHeight;
+		const prevTop = scrollEl.scrollTop;
+		const added = await store.loadOlder();
+		if (added > 0) {
+			// Keep the same messages under the viewport after prepending older ones.
+			await tick();
+			scrollEl.scrollTop = prevTop + (scrollEl.scrollHeight - prevHeight);
+		}
+	}
 
 	function onComposeInput() {
 		store.sendTyping();
@@ -40,12 +69,8 @@
 		document.getElementById(`msg-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 	}
 
-	async function react(messageId: string, emoji: string) {
-		await fetch(`/api/messages/${messageId}/reactions`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ emoji })
-		});
+	function react(messageId: string, emoji: string) {
+		if (signedInId) store.toggleReaction(messageId, emoji, signedInId);
 	}
 
 	async function deleteConversation() {
@@ -113,7 +138,7 @@
 			{other.name} isn't accepting messages right now.
 		</div>
 	{:else}
-		<div class="flex-1 space-y-2 overflow-y-auto">
+		<div bind:this={scrollEl} onscroll={onScroll} class="flex-1 space-y-2 overflow-y-auto">
 			{#each store.messages as m (m.id)}
 				{@const mine = m.senderId === signedInId}
 				{@const reactions = store.reactionsFor(m.id)}
@@ -219,8 +244,13 @@
 				return async ({ result, update }) => {
 					await update();
 					if (result.type === 'success') {
+						// Merge (not replace) so backfilled history survives, and the sent
+						// message shows even if the socket is down.
+						store.mergeServerMessages(data.messages, data.reactionsByMessage);
 						body = '';
 						replyingTo = null;
+						await tick();
+						scrollToBottom();
 					}
 				};
 			}}

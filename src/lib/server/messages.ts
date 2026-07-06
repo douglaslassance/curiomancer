@@ -4,12 +4,15 @@
  * messages, no read receipts, no groups. Not gated behind Pro for now -
  * that's coming later.
  */
-import { and, asc, eq, gt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, lt, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from './db';
 import { conversation, message } from './db/schema';
 
 const replyMessage = alias(message, 'reply_message');
+
+/** Messages returned per page when no explicit limit is given. */
+export const DEFAULT_PAGE_SIZE = 50;
 
 function orderedPair(userIdA: string, userIdB: string): [string, string] {
 	return userIdA < userIdB ? [userIdA, userIdB] : [userIdB, userIdA];
@@ -110,35 +113,30 @@ export type MessageDTO = {
 	replyTo: { id: string; body: string; senderId: string } | null;
 };
 
-/**
- * Every message in a conversation, oldest first, with the quoted message
- * resolved inline for replies. `since` restricts to messages created after a
- * cursor - used by clients resyncing after a dropped realtime connection.
- */
-export async function getMessages(
-	conversationId: string,
-	opts?: { since?: Date }
-): Promise<MessageDTO[]> {
-	const conditions = [eq(message.conversationId, conversationId)];
-	if (opts?.since) conditions.push(gt(message.createdAt, opts.since));
+const MESSAGE_SELECTION = {
+	id: message.id,
+	conversationId: message.conversationId,
+	senderId: message.senderId,
+	body: message.body,
+	createdAt: message.createdAt,
+	replyToId: message.replyToId,
+	replyToBody: replyMessage.body,
+	replyToSenderId: replyMessage.senderId
+} as const;
 
-	const rows = await db
-		.select({
-			id: message.id,
-			conversationId: message.conversationId,
-			senderId: message.senderId,
-			body: message.body,
-			createdAt: message.createdAt,
-			replyToId: message.replyToId,
-			replyToBody: replyMessage.body,
-			replyToSenderId: replyMessage.senderId
-		})
-		.from(message)
-		.leftJoin(replyMessage, eq(message.replyToId, replyMessage.id))
-		.where(and(...conditions))
-		.orderBy(asc(message.createdAt));
+type MessageRow = {
+	id: string;
+	conversationId: string;
+	senderId: string;
+	body: string;
+	createdAt: Date;
+	replyToId: string | null;
+	replyToBody: string | null;
+	replyToSenderId: string | null;
+};
 
-	return rows.map((r) => ({
+function mapRow(r: MessageRow): MessageDTO {
+	return {
 		id: r.id,
 		conversationId: r.conversationId,
 		senderId: r.senderId,
@@ -147,7 +145,47 @@ export async function getMessages(
 		replyTo: r.replyToId
 			? { id: r.replyToId, body: r.replyToBody!, senderId: r.replyToSenderId! }
 			: null
-	}));
+	};
+}
+
+/**
+ * Messages in a conversation, oldest first, with the quoted message resolved
+ * inline for replies. Two access modes:
+ *
+ * - `since`: everything created strictly after the cursor, unbounded. The
+ *   resync path a reconnecting client uses to catch up on a (small) gap.
+ * - otherwise: the newest `limit` messages older than the optional `before`
+ *   cursor. Covers the initial thread load and scroll-up backfill, and is what
+ *   keeps a long conversation from loading its entire history at once. Selected
+ *   newest-first to take the right end, then flipped to the ascending order the
+ *   UI renders.
+ */
+export async function getMessages(
+	conversationId: string,
+	opts?: { since?: Date; before?: Date; limit?: number }
+): Promise<MessageDTO[]> {
+	if (opts?.since) {
+		const rows = await db
+			.select(MESSAGE_SELECTION)
+			.from(message)
+			.leftJoin(replyMessage, eq(message.replyToId, replyMessage.id))
+			.where(and(eq(message.conversationId, conversationId), gt(message.createdAt, opts.since)))
+			.orderBy(asc(message.createdAt));
+		return rows.map(mapRow);
+	}
+
+	const conditions = [eq(message.conversationId, conversationId)];
+	if (opts?.before) conditions.push(lt(message.createdAt, opts.before));
+
+	const rows = await db
+		.select(MESSAGE_SELECTION)
+		.from(message)
+		.leftJoin(replyMessage, eq(message.replyToId, replyMessage.id))
+		.where(and(...conditions))
+		.orderBy(desc(message.createdAt))
+		.limit(opts?.limit ?? DEFAULT_PAGE_SIZE);
+
+	return rows.map(mapRow).reverse();
 }
 
 export async function sendMessage(

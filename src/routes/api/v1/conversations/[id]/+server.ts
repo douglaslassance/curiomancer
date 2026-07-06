@@ -2,30 +2,30 @@ import { error, json } from '@sveltejs/kit';
 import { requireApiUser } from '$lib/server/api-auth';
 import { getMessages, isParticipant, sendMessage } from '$lib/server/messages';
 import { getReactionsFor } from '$lib/server/reactions';
+import { parseHistoryQuery } from '$lib/server/messages-query';
 import { broadcast } from '$lib/server/ws/registry';
 import type { RequestHandler } from './$types';
 
 /**
- * GET /api/v1/conversations/[id]?since=<ISO timestamp>
+ * GET /api/v1/conversations/[id]?since=<ISO>|before=<ISO>&limit=<n>
  *
- * Message history for an already-known conversation id, with an optional
- * `since` cursor - used by ChatSocket's resync-on-reconnect flow to refetch
- * only what was missed while disconnected, and by the initial thread load.
+ * Message history for an already-known conversation id. `since` refetches only
+ * what a reconnecting client missed; `before` pages older messages on
+ * scroll-up; the bare call returns the latest page. Response includes `hasMore`
+ * so the client knows whether to keep backfilling.
  */
 export const GET: RequestHandler = async ({ params, request, url }) => {
 	const userId = await requireApiUser(request);
 	if (!(await isParticipant(params.id, userId))) throw error(404, 'Conversation not found.');
 
-	const sinceParam = url.searchParams.get('since');
-	const since = sinceParam ? new Date(sinceParam) : undefined;
-	if (since && Number.isNaN(since.getTime())) throw error(400, 'Invalid since timestamp.');
-
-	const messages = await getMessages(params.id, { since });
+	const { since, before, limit } = parseHistoryQuery(url);
+	const messages = await getMessages(params.id, { since, before, limit });
 	const reactions = await getReactionsFor(messages.map((m) => m.id));
 
 	return json({
 		messages: messages.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() })),
-		reactionsByMessage: Object.fromEntries(reactions)
+		reactionsByMessage: Object.fromEntries(reactions),
+		hasMore: !since && messages.length === limit
 	});
 };
 
