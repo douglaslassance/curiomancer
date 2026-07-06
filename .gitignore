@@ -28,6 +28,9 @@ vite.config.ts.timestamp-*
 /secrets/
 *.p8
 
+# Local avatar storage — used when R2 (S3_*) env vars aren't set
+/storage/
+
 # Playwright MCP scratch
 /.playwright-mcp/
 /*.png

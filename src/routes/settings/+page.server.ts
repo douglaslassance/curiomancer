@@ -8,6 +8,7 @@ import { getInvitesFor } from '$lib/server/invites';
 import { createApiToken, listApiTokens, revokeApiToken } from '$lib/server/api-tokens';
 import { listBlockedUsers, unblockUser } from '$lib/server/blocks';
 import { getPostHogClient } from '$lib/server/posthog';
+import { uploadAvatar, deleteAvatar, AvatarValidationError } from '$lib/server/storage';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -68,32 +69,39 @@ export const actions: Actions = {
 		if (!locals.user) return fail(401, { message: 'Not signed in.' });
 
 		const data = await request.formData();
+		// The client downscales to a small square data URI before posting;
+		// uploadAvatar re-validates the type/size and stores it on R2.
 		const image = data.get('image')?.toString() ?? '';
-		// The client downscales to a small square data URI before posting.
-		if (!image.startsWith('data:image/')) {
-			return fail(400, { avatarError: 'Please choose an image file.' });
-		}
-		if (image.length > 500_000) {
-			return fail(400, { avatarError: 'That image is too large. Try a smaller one.' });
+		let uploaded: string;
+		try {
+			uploaded = await uploadAvatar(image);
+		} catch (error) {
+			if (error instanceof AvatarValidationError) return fail(400, { avatarError: error.message });
+			return fail(500, { avatarError: 'Could not upload your photo.' });
 		}
 
+		const previousImage = locals.user.image;
 		try {
-			await auth.api.updateUser({ body: { image }, headers: request.headers });
+			await auth.api.updateUser({ body: { image: uploaded }, headers: request.headers });
 		} catch (error) {
+			await deleteAvatar(uploaded).catch(() => {});
 			if (error instanceof APIError) return fail(400, { avatarError: error.message });
 			return fail(500, { avatarError: 'Could not update your photo.' });
 		}
+		await deleteAvatar(previousImage).catch(() => {});
 		return { avatarOk: true };
 	},
 
 	removeAvatar: async ({ request, locals }) => {
 		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+		const previousImage = locals.user.image;
 		try {
 			await auth.api.updateUser({ body: { image: '' }, headers: request.headers });
 		} catch (error) {
 			if (error instanceof APIError) return fail(400, { avatarError: error.message });
 			return fail(500, { avatarError: 'Could not remove your photo.' });
 		}
+		await deleteAvatar(previousImage).catch(() => {});
 		return { avatarOk: true };
 	},
 
