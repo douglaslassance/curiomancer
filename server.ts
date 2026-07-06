@@ -10,12 +10,13 @@
  * src/lib/server/ws/* stay plain TypeScript, type-checked like the rest of
  * the app, without needing a separate build step.
  *
- * Owning the HTTP server (and holding sockets + the in-process broadcast
- * registry in memory) commits Curiomancer to a single long-lived stateful
- * process. That rules out serverless/edge targets (Workers, Vercel functions),
- * where realtime would instead need Durable Objects or a hosted pub/sub. It
- * also caps us at one instance until registry.ts's broadcast seam is backed by
- * Postgres LISTEN/NOTIFY - a deliberate choice for now, see registry.ts.
+ * Owning the HTTP server (and holding sockets in memory) commits Curiomancer
+ * to a single long-lived stateful process. That rules out serverless/edge
+ * targets (Workers, Vercel functions), where realtime would instead need
+ * Durable Objects or a hosted pub/sub. Multiple instances of this process are
+ * fine, though: registry.ts fans broadcasts out across instances via Postgres
+ * LISTEN/NOTIFY, so two participants in a conversation can land on different
+ * instances and still reach each other.
  */
 import { createServer } from 'node:http';
 import { handler } from './build/handler.js';
