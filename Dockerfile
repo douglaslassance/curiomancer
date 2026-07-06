@@ -26,6 +26,12 @@ ARG PUBLIC_POSTHOG_HOST
 ENV PUBLIC_POSTHOG_PROJECT_TOKEN=$PUBLIC_POSTHOG_PROJECT_TOKEN
 ENV PUBLIC_POSTHOG_HOST=$PUBLIC_POSTHOG_HOST
 
+# SvelteKit's build-time route analysis imports hooks.server.ts, which pulls
+# in the db client. It only needs a parseable connection string here - no
+# query runs during the build, so a placeholder is fine. The real value is
+# supplied at runtime.
+ENV DATABASE_URL=postgres://build:build@localhost:5432/build
+
 RUN pnpm build
 
 # ─── Runtime image ────────────────────────────────────────────────────────────
