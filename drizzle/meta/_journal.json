@@ -120,6 +120,13 @@
       "when": 1783155681690,
       "tag": "0016_add_admin_plugin_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1783318870997,
+      "tag": "0017_busy_lucky_pierre",
+      "breakpoints": true
     }
   ]
 }
