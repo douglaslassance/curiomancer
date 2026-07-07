@@ -170,7 +170,7 @@
 							<h2 class="text-base font-medium">Expand your network</h2>
 						</div>
 						<p class="text-muted-foreground mt-2 text-sm">
-							Reach the people who think like you. Message your taste-twins and trade the spots that
+							Reach the people who share your taste. Message your taste-twins and trade the spots that
 							never make a list.
 						</p>
 					</Card.Content>
