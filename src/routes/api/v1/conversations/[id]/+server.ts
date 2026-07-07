@@ -3,6 +3,7 @@ import { requireApiUser } from '$lib/server/api-auth';
 import { getMessages, isParticipant, MAX_MESSAGE_LENGTH, sendMessage } from '$lib/server/messages';
 import { getReactionsFor } from '$lib/server/reactions';
 import { parseHistoryQuery } from '$lib/server/messages-query';
+import { isSubscriber } from '$lib/server/subscriptions';
 import { toMessagePayload } from '$lib/server/ws/protocol';
 import { broadcast } from '$lib/server/ws/registry';
 import type { RequestHandler } from './$types';
@@ -17,6 +18,7 @@ import type { RequestHandler } from './$types';
  */
 export const GET: RequestHandler = async ({ params, request, url }) => {
 	const userId = await requireApiUser(request);
+	if (!(await isSubscriber(userId))) throw error(403, 'Subscription required.');
 	if (!(await isParticipant(params.id, userId))) throw error(404, 'Conversation not found.');
 
 	const { since, before, limit } = parseHistoryQuery(url);
@@ -43,6 +45,7 @@ export const GET: RequestHandler = async ({ params, request, url }) => {
  */
 export const POST: RequestHandler = async ({ params, request }) => {
 	const userId = await requireApiUser(request);
+	if (!(await isSubscriber(userId))) throw error(403, 'Subscription required.');
 	if (!(await isParticipant(params.id, userId))) throw error(404, 'Conversation not found.');
 
 	const payload = (await request.json().catch(() => null)) as {

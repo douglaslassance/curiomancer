@@ -14,6 +14,7 @@
 	});
 
 	let impersonatingId = $state<string | null>(null);
+	let subscriptionBusyId = $state<string | null>(null);
 </script>
 
 <svelte:head>
@@ -36,6 +37,7 @@
 				</th>
 				<th class="px-4 py-3 text-right font-medium">Invites left</th>
 				<th class="px-4 py-3 font-medium">Referred by</th>
+				<th class="px-4 py-3 text-right font-medium">Subscriber</th>
 				{#if data.canImpersonate}
 					<th class="px-4 py-3 text-right font-medium">Dev</th>
 				{/if}
@@ -59,6 +61,35 @@
 					<td class="px-4 py-3 text-right tabular-nums">{u.dislikes}</td>
 					<td class="px-4 py-3 text-right tabular-nums">{u.invitesRemaining}</td>
 					<td class="text-muted-foreground px-4 py-3 text-xs">{u.referredByName ?? '-'}</td>
+					<td class="px-4 py-3 text-right">
+						<form
+							method="post"
+							action={u.isSubscriber ? '?/revokeSubscription' : '?/grantSubscription'}
+							use:enhance={() => {
+								subscriptionBusyId = u.id;
+								return async ({ update }) => {
+									await update();
+									subscriptionBusyId = null;
+								};
+							}}
+						>
+							<input type="hidden" name="userId" value={u.id} />
+							<Button
+								type="submit"
+								size="sm"
+								variant={u.isSubscriber ? 'outline' : 'secondary'}
+								disabled={subscriptionBusyId === u.id}
+							>
+								{#if subscriptionBusyId === u.id}
+									<Loader2 class="size-3.5 animate-spin" />
+								{:else if u.isSubscriber}
+									Revoke
+								{:else}
+									Grant
+								{/if}
+							</Button>
+						</form>
+					</td>
 					{#if data.canImpersonate}
 						<td class="px-4 py-3 text-right">
 							{#if u.id !== page.data.user?.id}
@@ -94,7 +125,7 @@
 				</tr>
 			{:else}
 				<tr>
-					<td colspan={data.canImpersonate ? 9 : 8} class="text-muted-foreground py-8 text-center">
+					<td colspan={data.canImpersonate ? 10 : 9} class="text-muted-foreground py-8 text-center">
 						No users.
 					</td>
 				</tr>

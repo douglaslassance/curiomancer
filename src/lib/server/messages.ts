@@ -1,8 +1,9 @@
 /**
  * Minimal 1:1 messaging. One conversation per pair of users (canonical
  * ordering enforced by the `conversation` table's CHECK), plain-text
- * messages, no read receipts, no groups. Not gated behind Pro for now -
- * that's coming later.
+ * messages, no read receipts, no groups. Gated behind an active
+ * subscription (see subscriptions.ts) at the route/endpoint layer, not
+ * in here.
  */
 import { and, asc, desc, eq, gt, lt, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';

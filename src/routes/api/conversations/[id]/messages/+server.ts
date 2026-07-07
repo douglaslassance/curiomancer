@@ -2,6 +2,7 @@ import { error, json } from '@sveltejs/kit';
 import { findConversation, getMessages } from '$lib/server/messages';
 import { getReactionsFor } from '$lib/server/reactions';
 import { parseHistoryQuery } from '$lib/server/messages-query';
+import { isSubscriber } from '$lib/server/subscriptions';
 import { toMessagePayload } from '$lib/server/ws/protocol';
 import type { RequestHandler } from './$types';
 
@@ -17,6 +18,7 @@ import type { RequestHandler } from './$types';
  */
 export const GET: RequestHandler = async ({ params, url, locals }) => {
 	if (!locals.user) throw error(401, 'Sign in first.');
+	if (!(await isSubscriber(locals.user.id))) throw error(403, 'Subscription required.');
 
 	const conversationId = await findConversation(locals.user.id, params.id);
 	if (!conversationId) return json({ messages: [], reactionsByMessage: {}, hasMore: false });

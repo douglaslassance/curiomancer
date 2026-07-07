@@ -60,7 +60,7 @@
 						</p>
 					{/if}
 				{:else}
-					<Button class="w-full" href="/sign-up?next=/pro">
+					<Button class="w-full" href="/sign-up?next=/subscribe">
 						Create an account to subscribe
 						<ArrowRight class="size-4" />
 					</Button>

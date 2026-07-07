@@ -11,6 +11,7 @@ import {
 } from '$lib/server/db/schema';
 import { isBlocked } from '$lib/server/blocks';
 import { getPairScore } from '$lib/server/matching';
+import { isSubscriber } from '$lib/server/subscriptions';
 import type { LayoutServerLoad } from './$types';
 
 export type SharedPlace = Place & { kind: PlaceRelationKind };
@@ -64,6 +65,7 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 	// Compute similarity with the viewer (if signed in and not viewing self).
 	let viewer: {
 		isSelf: boolean;
+		isSubscriber: boolean;
 		score: number | null;
 		sharedCount: number;
 		sharedPlaces: SharedPlace[];
@@ -77,7 +79,10 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 			// landed on the SAME kind (both liked, both disliked, both seen,
 			// both want-to-go) - a different thing from the score's liked+
 			// disliked overlap, so we still query it separately.
-			const pair = await getPairScore(locals.user.id, params.id);
+			const [pair, subscriber] = await Promise.all([
+				getPairScore(locals.user.id, params.id),
+				isSubscriber(locals.user.id)
+			]);
 			const shared = await db.execute<{
 				id: string;
 				name: string;
@@ -101,6 +106,7 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 
 			viewer = {
 				isSelf: false,
+				isSubscriber: subscriber,
 				score: pair.score,
 				sharedCount: pair.sharedCount,
 				sharedPlaces: shared.map((r) => ({
@@ -119,7 +125,7 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 				}))
 			};
 		} else {
-			viewer = { isSelf: true, score: null, sharedCount: 0, sharedPlaces: [] };
+			viewer = { isSelf: true, isSubscriber: false, score: null, sharedCount: 0, sharedPlaces: [] };
 		}
 	}
 

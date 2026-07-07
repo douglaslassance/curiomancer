@@ -126,12 +126,21 @@
 						</Button>
 					</form>
 				{:else if data.viewer && !data.viewer.isSelf}
+					{@const canMessage = profile.messageable && data.viewer.isSubscriber}
 					<Button
 						size="sm"
 						variant="default"
-						href={profile.messageable ? `/messages/${profile.id}` : undefined}
+						href={profile.messageable
+							? canMessage
+								? `/messages/${profile.id}`
+								: '/subscribe'
+							: undefined}
 						disabled={!profile.messageable}
-						title={profile.messageable ? undefined : 'Not accepting messages right now'}
+						title={!profile.messageable
+							? 'Not accepting messages right now'
+							: canMessage
+								? undefined
+								: 'Subscribe to message people'}
 					>
 						<MessageCircle class="size-4" />
 						Message

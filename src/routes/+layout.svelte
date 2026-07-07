@@ -180,15 +180,17 @@
 						<SlidersHorizontal class="size-4" />
 						Tune
 					</Button>
-					<Button
-						href="/messages"
-						variant={isActive('/messages') ? 'secondary' : 'ghost'}
-						size="sm"
-						aria-current={isActive('/messages') ? 'page' : undefined}
-					>
-						<MessageCircle class="size-4" />
-						Messages
-					</Button>
+					{#if data.isSubscriber}
+						<Button
+							href="/messages"
+							variant={isActive('/messages') ? 'secondary' : 'ghost'}
+							size="sm"
+							aria-current={isActive('/messages') ? 'page' : undefined}
+						>
+							<MessageCircle class="size-4" />
+							Messages
+						</Button>
+					{/if}
 					{#if data.user.role === 'admin'}
 						<Button
 							href="/admin"
@@ -227,7 +229,7 @@
 			>
 				<span>© {year} Curiomancer</span>
 				<nav class="flex flex-wrap items-center gap-x-4 gap-y-2">
-					<a href="/pro" class="hover:text-foreground transition-colors">Subscribe</a>
+					<a href="/subscribe" class="hover:text-foreground transition-colors">Subscribe</a>
 					<a href="/terms" class="hover:text-foreground transition-colors">Terms</a>
 					<a href="/privacy" class="hover:text-foreground transition-colors">Privacy</a>
 					<a href="/contact" class="hover:text-foreground transition-colors">Contact</a>

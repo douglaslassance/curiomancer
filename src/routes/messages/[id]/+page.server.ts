@@ -13,12 +13,14 @@ import {
 	sendMessage
 } from '$lib/server/messages';
 import { getReactionsFor } from '$lib/server/reactions';
+import { isSubscriber } from '$lib/server/subscriptions';
 import { toMessagePayload } from '$lib/server/ws/protocol';
 import { broadcast } from '$lib/server/ws/registry';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ params, locals }) => {
 	if (!locals.user) throw redirect(302, `/sign-in?next=/messages/${params.id}`);
+	if (!(await isSubscriber(locals.user.id))) throw redirect(302, '/subscribe');
 	if (locals.user.id === params.id) throw error(400, "You can't message yourself.");
 
 	const [other] = await db
@@ -67,6 +69,9 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 export const actions: Actions = {
 	send: async ({ request, params, locals }) => {
 		if (!locals.user) return fail(401, { error: 'Sign in first.' });
+		if (!(await isSubscriber(locals.user.id))) {
+			return fail(403, { error: 'Subscribe to send messages.' });
+		}
 		if (await isBlocked(locals.user.id, params.id)) {
 			return fail(403, { error: 'This conversation is unavailable.' });
 		}

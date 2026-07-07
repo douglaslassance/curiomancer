@@ -11,6 +11,7 @@ import {
 	MAX_MESSAGE_LENGTH,
 	sendMessage
 } from '$lib/server/messages';
+import { isSubscriber } from '$lib/server/subscriptions';
 import { toMessagePayload } from '$lib/server/ws/protocol';
 import { broadcast } from '$lib/server/ws/registry';
 import type { RequestHandler } from './$types';
@@ -24,6 +25,7 @@ import type { RequestHandler } from './$types';
  */
 export const GET: RequestHandler = async ({ request }) => {
 	const userId = await requireApiUser(request);
+	if (!(await isSubscriber(userId))) throw error(403, 'Subscription required.');
 	const conversations = await listConversationsFor(userId);
 	return json({ conversations });
 };
@@ -42,6 +44,7 @@ export const GET: RequestHandler = async ({ request }) => {
  */
 export const POST: RequestHandler = async ({ request }) => {
 	const userId = await requireApiUser(request);
+	if (!(await isSubscriber(userId))) throw error(403, 'Subscription required.');
 
 	const payload = (await request.json().catch(() => null)) as {
 		otherUserId?: unknown;

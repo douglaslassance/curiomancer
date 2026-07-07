@@ -1,6 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { authenticateToken } from '$lib/server/api-tokens';
 import { isParticipant } from '$lib/server/messages';
+import { isSubscriber } from '$lib/server/subscriptions';
 import type { RequestHandler } from './$types';
 
 /**
@@ -21,6 +22,7 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
 	const bearerUserId = await authenticateToken(request.headers.get('authorization'));
 	const userId = bearerUserId ?? locals.user?.id ?? null;
 	if (!userId) throw error(401, 'Sign in first.');
+	if (!(await isSubscriber(userId))) throw error(403, 'Subscription required.');
 
 	if (!(await isParticipant(conversationId, userId))) {
 		throw error(403, 'Not a participant in this conversation.');
