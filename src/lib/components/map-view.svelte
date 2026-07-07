@@ -19,6 +19,14 @@
 		signedIn = false,
 		showSearch = true,
 		showFilters = false,
+		showCategoryFilter = showFilters,
+		defaultFilters = {
+			recommended: true,
+			liked: true,
+			wantToGo: true,
+			disliked: false,
+			seen: false
+		},
 		selectPlaceId = null,
 		zoom = 12
 	}: {
@@ -37,6 +45,10 @@
 		showSearch?: boolean;
 		/** Show relation filter chips (recommended/liked/want-to-go/seen/disliked). */
 		showFilters?: boolean;
+		/** Show the place-type (eat/drink/shop/visit) toggle row. Defaults to showFilters. */
+		showCategoryFilter?: boolean;
+		/** Initial state of the relation filter chips, before the viewer touches them. */
+		defaultFilters?: Record<'recommended' | 'liked' | 'wantToGo' | 'disliked' | 'seen', boolean>;
 		zoom?: number;
 	} = $props();
 
@@ -60,15 +72,13 @@
 	type FilterKey = Exclude<Relation, 'other'>;
 
 	// Which relation categories are shown. Seen and disliked default off so the
-	// map stays uncluttered; the filter chips let the user reveal them. Neutral
-	// ("other") discovery pins are always shown - they're the base layer.
-	let filters = $state<Record<FilterKey, boolean>>({
-		recommended: true,
-		liked: true,
-		wantToGo: true,
-		disliked: false,
-		seen: false
-	});
+	// map stays uncluttered; the filter chips let the user reveal them (unless
+	// the caller passes different defaults). Neutral ("other") discovery pins
+	// are always shown - they're the base layer. Only the initial value of
+	// defaultFilters matters - once mounted, `filters` is independently
+	// toggleable client state.
+	// svelte-ignore state_referenced_locally
+	let filters = $state<Record<FilterKey, boolean>>({ ...defaultFilters });
 
 	// Place-type toggles (all on by default), shared with the places list.
 	let categories = $state<Record<Place['category'], boolean>>({
@@ -364,29 +374,33 @@
 		/>
 	{/if}
 
-	{#if status === 'ready' && showFilters}
+	{#if status === 'ready' && (showFilters || showCategoryFilter)}
 		<!-- Filters: place-type toggles on top, relation toggles below. Raised so
 		     they clear Apple's map attribution/logo at the bottom edge. -->
 		<div class="absolute bottom-[66px] left-4 z-10 flex flex-col gap-1.5">
-			<CategoryFilter bind:value={categories} />
-			<div class="flex flex-wrap gap-1.5">
-				{#each FILTER_CHIPS as chip (chip.key)}
-					{@const Icon = chip.icon}
-					<button
-						type="button"
-						onclick={() => (filters[chip.key] = !filters[chip.key])}
-						aria-pressed={filters[chip.key]}
-						class="bg-background/90 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium shadow-sm backdrop-blur-sm transition-opacity {filters[
-							chip.key
-						]
-							? ''
-							: 'opacity-40'}"
-					>
-						<Icon class="size-3.5" style="color: {chip.color}" />
-						{chip.label}
-					</button>
-				{/each}
-			</div>
+			{#if showCategoryFilter}
+				<CategoryFilter bind:value={categories} />
+			{/if}
+			{#if showFilters}
+				<div class="flex flex-wrap gap-1.5">
+					{#each FILTER_CHIPS as chip (chip.key)}
+						{@const Icon = chip.icon}
+						<button
+							type="button"
+							onclick={() => (filters[chip.key] = !filters[chip.key])}
+							aria-pressed={filters[chip.key]}
+							class="bg-background/90 flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium shadow-sm backdrop-blur-sm transition-opacity {filters[
+								chip.key
+							]
+								? ''
+								: 'opacity-40'}"
+						>
+							<Icon class="size-3.5" style="color: {chip.color}" />
+							{chip.label}
+						</button>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	{/if}
 

@@ -24,6 +24,7 @@
 		Monitor,
 		Moon,
 		RefreshCw,
+		Share2,
 		Sparkles,
 		Sun,
 		ThumbsUp,
@@ -127,6 +128,28 @@
 			await navigator.clipboard.writeText(token);
 			tokenCopied = true;
 			setTimeout(() => (tokenCopied = false), 2000);
+		} catch (err) {
+			console.error('Clipboard write failed:', err);
+		}
+	}
+
+	// Viewing the link requires a Curiomancer account - anyone without one
+	// lands on /sign-in (which offers sign-up/waitlist) before seeing the map.
+	let likesLinkCopied = $state(false);
+	async function shareLikes() {
+		const url = `${window.location.origin}/users/${data.profile.id}/map`;
+		if (navigator.share) {
+			try {
+				await navigator.share({ title: 'My likes on Curiomancer', url });
+				return;
+			} catch (err) {
+				if ((err as Error)?.name === 'AbortError') return;
+			}
+		}
+		try {
+			await navigator.clipboard.writeText(url);
+			likesLinkCopied = true;
+			setTimeout(() => (likesLinkCopied = false), 2000);
 		} catch (err) {
 			console.error('Clipboard write failed:', err);
 		}
@@ -247,7 +270,10 @@
 							bind:this={messageableForm}
 						>
 							<input type="hidden" name="messageable" value={(!messageable).toString()} />
-							<Switch checked={messageable} onCheckedChange={() => messageableForm?.requestSubmit()} />
+							<Switch
+								checked={messageable}
+								onCheckedChange={() => messageableForm?.requestSubmit()}
+							/>
 						</form>
 					</div>
 					<p class="text-muted-foreground mt-1 text-sm">
@@ -310,8 +336,17 @@
 					<div class="text-sm font-medium">Likes</div>
 					<p class="text-muted-foreground text-sm">
 						You've liked {data.likeCount} place{data.likeCount === 1 ? '' : 's'}.
-						<a href="/places?filter=liked" class="underline">View</a>
 					</p>
+					<p class="text-muted-foreground mt-1 text-sm">
+						Share a link to your likes on the map. Only people with a Curiomancer account can open
+						it - everyone else is sent to sign in first.
+					</p>
+					<div class="mt-2">
+						<Button type="button" size="sm" variant="outline" onclick={shareLikes}>
+							<Share2 class="size-3.5" />
+							{likesLinkCopied ? 'Link copied' : 'Share my likes'}
+						</Button>
+					</div>
 				</div>
 			</div>
 

@@ -27,6 +27,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	return {
 		profile: {
+			id: locals.user.id,
 			name: locals.user.name,
 			email: locals.user.email,
 			image: locals.user.image ?? null,
