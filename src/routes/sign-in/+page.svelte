@@ -10,7 +10,7 @@
 	const justReset = $derived(page.url.searchParams.get('reset') === '1');
 </script>
 
-<div class="mx-auto max-w-sm py-10">
+<div class="mx-auto w-full max-w-md py-10">
 	<Card.Root>
 		<Card.Header>
 			<Card.Title>Welcome back</Card.Title>

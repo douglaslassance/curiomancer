@@ -9,7 +9,7 @@
 	let { data, form } = $props();
 </script>
 
-<div class="mx-auto max-w-sm py-10">
+<div class="mx-auto w-full max-w-md py-10">
 	<Card.Root>
 		{#if form?.verifyEmailSent}
 			<Card.Header>
@@ -18,8 +18,7 @@
 					Check your email
 				</Card.Title>
 				<Card.Description>
-					We sent a verification link to {form.email}. Click it to finish setting up your
-					account.
+					We sent a verification link to {form.email}. Click it to finish setting up your account.
 				</Card.Description>
 			</Card.Header>
 		{:else}
@@ -54,6 +53,9 @@
 								autocomplete="off"
 								class="font-mono uppercase"
 							/>
+							<p class="text-muted-foreground text-xs">
+								No code? <a href="/" class="underline">Join the waitlist</a>
+							</p>
 						</div>
 					{/if}
 					<div class="space-y-2">
