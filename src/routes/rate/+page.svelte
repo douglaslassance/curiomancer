@@ -280,7 +280,8 @@
 				<div class="flex items-start gap-2">
 					<h2 class="flex-1 text-xl font-semibold tracking-tight">
 						{#if current.placeId}
-							<a href={`/map?place=${current.placeId}`} class="hover:underline">{current.name}</a>
+							<a href={`/places?place=${current.placeId}`} class="hover:underline">{current.name}</a
+							>
 						{:else}
 							{current.name}
 						{/if}

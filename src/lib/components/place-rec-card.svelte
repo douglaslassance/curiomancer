@@ -16,7 +16,7 @@
 >
 	<div class="min-w-0">
 		<h3 class="text-sm font-medium">
-			<a href={`/map?place=${place.id}`} class="hover:underline">{place.name}</a>
+			<a href={`/places?place=${place.id}`} class="hover:underline">{place.name}</a>
 		</h3>
 		<div class="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
 			<Badge variant="secondary">{categoryLabel(place.category)}</Badge>

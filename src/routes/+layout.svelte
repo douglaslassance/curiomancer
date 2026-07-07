@@ -35,8 +35,11 @@
 	}
 
 	// The map routes are full-bleed (fixed overlay), so a footer would sit
-	// behind them. Hide it there; show it on every normal page.
-	const hideFooter = $derived(page.url.pathname.endsWith('/map'));
+	// behind them. Hide it there; show it on every normal page. Covers /places
+	// (the main map) and /users/[id]/map (someone's shared likes map).
+	const hideFooter = $derived(
+		page.url.pathname === '/places' || page.url.pathname.endsWith('/map')
+	);
 	const year = new Date().getFullYear();
 
 	// Highlights the nav item for the current section - pages no longer repeat
@@ -154,10 +157,10 @@
 			<nav class="flex items-center gap-1">
 				{#if data.user}
 					<Button
-						href="/map"
-						variant={isActive('/map') ? 'secondary' : 'ghost'}
+						href="/places"
+						variant={isActive('/places') ? 'secondary' : 'ghost'}
 						size="sm"
-						aria-current={isActive('/map') ? 'page' : undefined}
+						aria-current={isActive('/places') ? 'page' : undefined}
 					>
 						<MapIcon class="size-4" />
 						Places

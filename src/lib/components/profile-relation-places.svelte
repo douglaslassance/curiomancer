@@ -37,7 +37,7 @@
 		class="bg-card hover:border-foreground/30 flex flex-col gap-3 rounded-xl border p-4 transition-colors"
 	>
 		<div class="min-w-0">
-			<a href={`/map?place=${p.id}`} class="text-sm font-medium hover:underline">{p.name}</a>
+			<a href={`/places?place=${p.id}`} class="text-sm font-medium hover:underline">{p.name}</a>
 			<div class="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
 				<Badge variant="secondary">{categoryLabel(p.category)}</Badge>
 				<span>{p.neighborhood ? `${p.neighborhood}, ` : ''}{p.city}</span>
