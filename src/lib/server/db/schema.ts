@@ -370,6 +370,9 @@ export const waitlist = pgTable('waitlist', {
 		.$defaultFn(() => crypto.randomUUID()),
 	email: text('email').notNull().unique(),
 	city: text('city'),
+	/** Geocoded from `city` at signup, best-effort, for the waitlist map. */
+	latitude: doublePrecision('latitude'),
+	longitude: doublePrecision('longitude'),
 	status: text('status', { enum: ['pending', 'invited'] })
 		.notNull()
 		.default('pending'),

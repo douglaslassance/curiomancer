@@ -6,7 +6,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import CityInput from '$lib/components/city-input.svelte';
-	import { Copy, Plus } from '@lucide/svelte';
+	import { Copy, Plus, Search } from '@lucide/svelte';
 
 	let { data, form } = $props();
 
@@ -34,6 +34,15 @@
 			console.error('Clipboard write failed:', err);
 		}
 	}
+
+	let query = $state('');
+	const filteredEntries = $derived.by(() => {
+		const q = query.trim().toLowerCase();
+		if (!q) return data.entries;
+		return data.entries.filter(
+			(e) => e.email.toLowerCase().includes(q) || (e.city ?? '').toLowerCase().includes(q)
+		);
+	});
 </script>
 
 <svelte:head>
@@ -82,6 +91,11 @@
 	{/if}
 </form>
 
+<div class="relative mb-4">
+	<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+	<Input placeholder="Search by email or city…" bind:value={query} class="pl-9" />
+</div>
+
 <div class="bg-card overflow-x-auto rounded-xl border">
 	<table class="w-full text-sm">
 		<thead class="border-b">
@@ -94,7 +108,7 @@
 			</tr>
 		</thead>
 		<tbody>
-			{#each data.entries as e (e.id)}
+			{#each filteredEntries as e (e.id)}
 				<tr class="hover:bg-accent/40 border-b align-middle last:border-b-0">
 					<td class="px-4 py-3">{e.email}</td>
 					<td class="text-muted-foreground px-4 py-3 text-xs">{e.city ?? '-'}</td>
@@ -127,10 +141,11 @@
 					</td>
 				</tr>
 			{:else}
-				<tr
-					><td colspan="5" class="text-muted-foreground py-8 text-center">Nobody waiting yet.</td
-					></tr
-				>
+				<tr>
+					<td colspan="5" class="text-muted-foreground py-8 text-center">
+						{data.entries.length === 0 ? 'Nobody waiting yet.' : 'No entries match your search.'}
+					</td>
+				</tr>
 			{/each}
 		</tbody>
 	</table>

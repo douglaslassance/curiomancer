@@ -143,6 +143,34 @@ export async function reverseGeocodeApple(lat: number, lng: number): Promise<str
 	return result?.country ? `${city}, ${result.country}` : city;
 }
 
+/**
+ * Forward-geocode a free-text place name (e.g. "Paris, France") to
+ * coordinates via Apple. Used to plot waitlist entries on the join map -
+ * best-effort, so callers should treat a null result as "skip this one"
+ * rather than an error.
+ */
+export async function geocodeApple(
+	query: string
+): Promise<{ latitude: number; longitude: number } | null> {
+	const token = await getAccessToken();
+
+	const url = new URL(`${BASE}/v1/geocode`);
+	url.searchParams.set('q', query);
+	url.searchParams.set('lang', 'en-US');
+
+	const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+	if (!res.ok) {
+		throw new Error(`Apple Maps geocode returned ${res.status}: ${await res.text()}`);
+	}
+
+	const data = (await res.json()) as {
+		results?: Array<{ coordinate?: { latitude: number; longitude: number } }>;
+	};
+
+	const coordinate = data.results?.[0]?.coordinate;
+	return coordinate ? { latitude: coordinate.latitude, longitude: coordinate.longitude } : null;
+}
+
 export type PlaceCompletion = {
 	/** Primary line, e.g. "Paris". */
 	title: string;

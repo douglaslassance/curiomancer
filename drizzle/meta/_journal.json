@@ -134,6 +134,13 @@
       "when": 1783386701553,
       "tag": "0018_puzzling_killraven",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1783450855367,
+      "tag": "0019_add_waitlist_coordinates",
+      "breakpoints": true
     }
   ]
 }

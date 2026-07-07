@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { db } from './db';
-import { userActivity } from './db/schema';
+import { user, userActivity, userLocation } from './db/schema';
 
 /**
  * Investor-facing growth metrics.
@@ -187,6 +187,41 @@ export async function getRecommendationConversionSeries(days: number): Promise<C
 	}));
 }
 
+export type ConversionTotals = {
+	impressions: number;
+	conversions: number;
+	twinImpressions: number;
+	twinConversions: number;
+	popularImpressions: number;
+	popularConversions: number;
+};
+
+/**
+ * Recommendation conversion summed over the trailing `days` window - raw
+ * counts, not a per-day average (see `getRecommendationConversionSeries`).
+ */
+export async function getConversionTotals(days: number): Promise<ConversionTotals> {
+	const conversion = await getRecommendationConversionSeries(days);
+	return conversion.reduce(
+		(acc, p) => ({
+			impressions: acc.impressions + p.twinImpressions + p.popularImpressions,
+			conversions: acc.conversions + p.twinConversions + p.popularConversions,
+			twinImpressions: acc.twinImpressions + p.twinImpressions,
+			twinConversions: acc.twinConversions + p.twinConversions,
+			popularImpressions: acc.popularImpressions + p.popularImpressions,
+			popularConversions: acc.popularConversions + p.popularConversions
+		}),
+		{
+			impressions: 0,
+			conversions: 0,
+			twinImpressions: 0,
+			twinConversions: 0,
+			popularImpressions: 0,
+			popularConversions: 0
+		}
+	);
+}
+
 /**
  * Record a user as active now. Called from the request hook, throttled there
  * so this is at most one write per user every few minutes.
@@ -231,4 +266,33 @@ export async function snapshotActiveUsers(): Promise<{
 		activeWeek: row.active_week,
 		activeMonth: row.active_month
 	};
+}
+
+export type UserLocationPoint = { latitude: number; longitude: number; count: number };
+export type UserLocationStats = { total: number; locations: UserLocationPoint[] };
+
+/**
+ * Total user count plus a bubble-map dataset of `user_location` rows:
+ * coordinates rounded to ~1km (3 decimal places) and grouped, so nearby users
+ * in the same city collapse into one bubble instead of a cluster of
+ * overlapping ones. `total` counts every user, not just those with a
+ * location, matching the headline count shown elsewhere in the admin panel.
+ */
+export async function getUserLocationStats(): Promise<UserLocationStats> {
+	const roundedLat = sql<number>`round(${userLocation.latitude}::numeric, 3)::double precision`;
+	const roundedLng = sql<number>`round(${userLocation.longitude}::numeric, 3)::double precision`;
+
+	const [[{ count: total }], locations] = await Promise.all([
+		db.select({ count: sql<number>`count(*)::int` }).from(user),
+		db
+			.select({
+				latitude: roundedLat,
+				longitude: roundedLng,
+				count: sql<number>`count(*)::int`
+			})
+			.from(userLocation)
+			.groupBy(roundedLat, roundedLng)
+	]);
+
+	return { total, locations };
 }

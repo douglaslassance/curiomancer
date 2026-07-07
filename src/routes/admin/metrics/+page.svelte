@@ -23,18 +23,6 @@
 		}))
 	);
 
-	function pct(n: number, d: number): string {
-		return d > 0 ? `${Math.round((100 * n) / d)}%` : 'n/a';
-	}
-
-	function money(cents: number): string {
-		return new Intl.NumberFormat('en-US', {
-			style: 'currency',
-			currency: 'USD',
-			minimumFractionDigits: cents % 100 === 0 ? 0 : 2
-		}).format(cents / 100);
-	}
-
 	function shortDate(d: Date): string {
 		return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 	}
@@ -67,22 +55,6 @@
 		twinRate: { label: 'Twin match', color: 'var(--chart-1)' },
 		popularRate: { label: 'Popular fallback', color: 'var(--chart-3)' }
 	} satisfies Chart.ChartConfig;
-
-	const stats = $derived([
-		{ label: 'Total users', value: data.headline.totalUsers.toLocaleString() },
-		{
-			label: 'Active users',
-			value: data.headline.dau.toLocaleString(),
-			hint: `${data.headline.wau.toLocaleString()} weekly · ${data.headline.mau.toLocaleString()} monthly`
-		},
-		{ label: 'Subscribers', value: data.headline.subscribers.toLocaleString() },
-		{ label: 'MRR', value: money(data.headline.mrrCents), hint: 'monthly recurring' },
-		{
-			label: 'Rec conversion',
-			value: pct(data.conversionTotals.conversions, data.conversionTotals.impressions),
-			hint: `${pct(data.conversionTotals.twinConversions, data.conversionTotals.twinImpressions)} twin, ${pct(data.conversionTotals.popularConversions, data.conversionTotals.popularImpressions)} popular`
-		}
-	]);
 </script>
 
 <div class="space-y-6">
@@ -100,21 +72,6 @@
 				</Button>
 			{/each}
 		</div>
-	</div>
-
-	<!-- Headline stat cards -->
-	<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-		{#each stats as s (s.label)}
-			<Card.Root>
-				<Card.Header class="pb-2">
-					<Card.Description>{s.label}</Card.Description>
-					<Card.Title class="text-3xl tabular-nums">{s.value}</Card.Title>
-				</Card.Header>
-				{#if s.hint}
-					<Card.Content class="text-muted-foreground pt-0 text-xs">{s.hint}</Card.Content>
-				{/if}
-			</Card.Root>
-		{/each}
 	</div>
 
 	<div class="grid gap-4 lg:grid-cols-2">

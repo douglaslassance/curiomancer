@@ -3,7 +3,8 @@
 	import { enhance } from '$app/forms';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { Loader2, ThumbsDown, ThumbsUp, VenetianMask } from '@lucide/svelte';
+	import { Input } from '$lib/components/ui/input';
+	import { Loader2, Search, ThumbsDown, ThumbsUp, VenetianMask } from '@lucide/svelte';
 
 	let { data, form } = $props();
 
@@ -15,11 +16,25 @@
 
 	let impersonatingId = $state<string | null>(null);
 	let subscriptionBusyId = $state<string | null>(null);
+
+	let query = $state('');
+	const filteredUsers = $derived.by(() => {
+		const q = query.trim().toLowerCase();
+		if (!q) return data.users;
+		return data.users.filter(
+			(u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+		);
+	});
 </script>
 
 <svelte:head>
 	<title>Admin · Users · Curiomancer</title>
 </svelte:head>
+
+<div class="relative mb-4">
+	<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+	<Input placeholder="Search by name or email…" bind:value={query} class="pl-9" />
+</div>
 
 <div class="bg-card overflow-x-auto rounded-xl border">
 	<table class="w-full text-sm">
@@ -44,7 +59,7 @@
 			</tr>
 		</thead>
 		<tbody>
-			{#each data.users as u (u.id)}
+			{#each filteredUsers as u (u.id)}
 				<tr class="hover:bg-accent/40 border-b last:border-b-0">
 					<td class="px-4 py-3">
 						<a href={`/users/${u.id}`} class="font-medium hover:underline">{u.name}</a>
@@ -126,7 +141,7 @@
 			{:else}
 				<tr>
 					<td colspan={data.canImpersonate ? 10 : 9} class="text-muted-foreground py-8 text-center">
-						No users.
+						{data.users.length === 0 ? 'No users.' : 'No users match your search.'}
 					</td>
 				</tr>
 			{/each}

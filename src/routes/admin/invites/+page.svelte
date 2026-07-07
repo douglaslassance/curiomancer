@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
+	import { Input } from '$lib/components/ui/input';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { Copy, Plus } from '@lucide/svelte';
+	import { Copy, Plus, Search } from '@lucide/svelte';
 
 	let { data } = $props();
 
@@ -29,6 +30,18 @@
 			console.error('Clipboard write failed:', err);
 		}
 	}
+
+	let query = $state('');
+	const filteredInvites = $derived.by(() => {
+		const q = query.trim().toLowerCase();
+		if (!q) return data.invites;
+		return data.invites.filter(
+			(i) =>
+				i.id.toLowerCase().includes(q) ||
+				(i.createdByName ?? '').toLowerCase().includes(q) ||
+				(i.redeemedByName ?? '').toLowerCase().includes(q)
+		);
+	});
 </script>
 
 <svelte:head>
@@ -47,6 +60,11 @@
 	</form>
 </div>
 
+<div class="relative mb-4">
+	<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+	<Input placeholder="Search by code or name…" bind:value={query} class="pl-9" />
+</div>
+
 <div class="bg-card overflow-x-auto rounded-xl border">
 	<table class="w-full text-sm">
 		<thead class="border-b">
@@ -59,7 +77,7 @@
 			</tr>
 		</thead>
 		<tbody>
-			{#each data.invites as i (i.id)}
+			{#each filteredInvites as i (i.id)}
 				<tr class="hover:bg-accent/40 border-b align-middle last:border-b-0">
 					<td class="px-4 py-3 font-mono text-xs">{i.id}</td>
 					<td class="text-muted-foreground px-4 py-3 text-xs">{i.createdByName ?? '-'}</td>
@@ -85,7 +103,11 @@
 					</td>
 				</tr>
 			{:else}
-				<tr><td colspan="5" class="text-muted-foreground py-8 text-center">No invites yet.</td></tr>
+				<tr>
+					<td colspan="5" class="text-muted-foreground py-8 text-center">
+						{data.invites.length === 0 ? 'No invites yet.' : 'No invites match your search.'}
+					</td>
+				</tr>
 			{/each}
 		</tbody>
 	</table>
