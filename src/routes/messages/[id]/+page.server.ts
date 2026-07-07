@@ -13,6 +13,7 @@ import {
 	sendMessage
 } from '$lib/server/messages';
 import { getReactionsFor } from '$lib/server/reactions';
+import { toMessagePayload } from '$lib/server/ws/protocol';
 import { broadcast } from '$lib/server/ws/registry';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -92,10 +93,7 @@ export const actions: Actions = {
 
 		const conversationId = existingId ?? (await createConversation(locals.user.id, params.id));
 		const created = await sendMessage(conversationId, locals.user.id, body, replyToId);
-		broadcast(conversationId, {
-			type: 'message:new',
-			message: { ...created, createdAt: created.createdAt.toISOString() }
-		});
+		broadcast(conversationId, { type: 'message:new', message: toMessagePayload(created) });
 		return { sent: true };
 	}
 };

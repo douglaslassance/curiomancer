@@ -17,6 +17,23 @@ import type { ServerEvent } from './server/ws/protocol';
 
 export type ReactionSummary = { emoji: string; userIds: string[] };
 
+type WireMessage = Omit<MessageDTO, 'createdAt' | 'editedAt' | 'deletedAt'> & {
+	createdAt: string;
+	editedAt: string | null;
+	deletedAt: string | null;
+};
+
+/** Converts a message as it arrives over the wire (JSON, ISO date strings)
+ *  into the Date-bearing shape the store and UI work with. */
+function parseMessageDates(m: WireMessage): MessageDTO {
+	return {
+		...m,
+		createdAt: new Date(m.createdAt),
+		editedAt: m.editedAt ? new Date(m.editedAt) : null,
+		deletedAt: m.deletedAt ? new Date(m.deletedAt) : null
+	};
+}
+
 const TYPING_EXPIRY_MS = 3000;
 // Coalesce keystrokes: at most one typing notice this often while composing.
 const TYPING_THROTTLE_MS = 2000;
@@ -113,7 +130,9 @@ class ConversationStore {
 					: [...current, { emoji, userIds: [userId] }];
 		} else {
 			updated = current
-				.map((r) => (r.emoji === emoji ? { ...r, userIds: r.userIds.filter((u) => u !== userId) } : r))
+				.map((r) =>
+					r.emoji === emoji ? { ...r, userIds: r.userIds.filter((u) => u !== userId) } : r
+				)
 				.filter((r) => r.userIds.length > 0);
 		}
 		next.set(messageId, updated);
@@ -126,6 +145,77 @@ class ConversationStore {
 		this.#setReaction(messageId, userId, emoji, added);
 	}
 
+	#applyEdit(messageId: string, body: string, editedAt: Date) {
+		const i = this.#messages.findIndex((m) => m.id === messageId);
+		if (i < 0) return;
+		this.#messages[i] = { ...this.#messages[i], body, editedAt };
+	}
+
+	#applyDelete(messageId: string, deletedAt: Date) {
+		const i = this.#messages.findIndex((m) => m.id === messageId);
+		if (i < 0) return;
+		this.#messages[i] = { ...this.#messages[i], body: '', deletedAt };
+		const next = new Map(this.#reactions);
+		next.delete(messageId);
+		this.#reactions = next;
+	}
+
+	/**
+	 * Edits the signed-in user's own message, optimistically. Mirrors
+	 * toggleReaction: the UI updates immediately, the PATCH reconciles against
+	 * the server's `editedAt`, and any failure rolls back. Returns whether it
+	 * succeeded so the caller can decide whether to leave edit mode.
+	 */
+	async editMessage(messageId: string, body: string): Promise<boolean> {
+		const previous = this.#messages.find((m) => m.id === messageId);
+		if (!previous) return false;
+		this.#applyEdit(messageId, body, new Date());
+
+		try {
+			const res = await fetch(`/api/messages/${messageId}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ body })
+			});
+			if (!res.ok) throw new Error(`Status ${res.status}`);
+			const { editedAt } = (await res.json()) as { editedAt: string };
+			this.#applyEdit(messageId, body, new Date(editedAt));
+			return true;
+		} catch (err) {
+			const i = this.#messages.findIndex((m) => m.id === messageId);
+			if (i >= 0) this.#messages[i] = previous;
+			console.error('Edit failed:', err);
+			return false;
+		}
+	}
+
+	/**
+	 * Deletes the signed-in user's own message, optimistically. Same
+	 * roll-back-on-failure shape as editMessage/toggleReaction.
+	 */
+	async deleteMessage(messageId: string): Promise<boolean> {
+		const previous = this.#messages.find((m) => m.id === messageId);
+		if (!previous) return false;
+		const previousReactions = this.#reactions.get(messageId);
+		this.#applyDelete(messageId, new Date());
+
+		try {
+			const res = await fetch(`/api/messages/${messageId}`, { method: 'DELETE' });
+			if (!res.ok) throw new Error(`Status ${res.status}`);
+			return true;
+		} catch (err) {
+			const i = this.#messages.findIndex((m) => m.id === messageId);
+			if (i >= 0) this.#messages[i] = previous;
+			if (previousReactions) {
+				const next = new Map(this.#reactions);
+				next.set(messageId, previousReactions);
+				this.#reactions = next;
+			}
+			console.error('Delete failed:', err);
+			return false;
+		}
+	}
+
 	/**
 	 * Toggles the signed-in user's reaction, optimistically. The UI updates
 	 * immediately, the POST reconciles against the server's authoritative
@@ -135,8 +225,10 @@ class ConversationStore {
 	 */
 	async toggleReaction(messageId: string, emoji: string, selfUserId: string) {
 		const reactedBefore =
-			this.#reactions.get(messageId)?.find((r) => r.emoji === emoji)?.userIds.includes(selfUserId) ??
-			false;
+			this.#reactions
+				.get(messageId)
+				?.find((r) => r.emoji === emoji)
+				?.userIds.includes(selfUserId) ?? false;
 		const optimisticAdded = !reactedBefore;
 		this.#setReaction(messageId, selfUserId, emoji, optimisticAdded);
 
@@ -185,14 +277,12 @@ class ConversationStore {
 			);
 			if (!res.ok) return 0;
 			const data = (await res.json()) as {
-				messages: (Omit<MessageDTO, 'createdAt'> & { createdAt: string })[];
+				messages: WireMessage[];
 				reactionsByMessage: Record<string, ReactionSummary[]>;
 				hasMore: boolean;
 			};
 			const have = new Set(this.#messages.map((m) => m.id));
-			const older = data.messages
-				.map((m) => ({ ...m, createdAt: new Date(m.createdAt) }))
-				.filter((m) => !have.has(m.id));
+			const older = data.messages.map(parseMessageDates).filter((m) => !have.has(m.id));
 			this.#messages = [...older, ...this.#messages];
 			const next = new Map(this.#reactions);
 			for (const [id, summary] of Object.entries(data.reactionsByMessage)) next.set(id, summary);
@@ -224,7 +314,9 @@ class ConversationStore {
 
 	#open() {
 		const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-		const ws = new WebSocket(`${protocol}//${location.host}/ws/conversations/${this.#conversationId}`);
+		const ws = new WebSocket(
+			`${protocol}//${location.host}/ws/conversations/${this.#conversationId}`
+		);
 		this.#ws = ws;
 
 		ws.addEventListener('open', () => {
@@ -239,7 +331,11 @@ class ConversationStore {
 			const parsed = JSON.parse(event.data) as ServerEvent;
 			if (parsed.type === 'typing') this.noteTyping();
 			else if (parsed.type === 'message:new') {
-				this.mergeNew({ ...parsed.message, createdAt: new Date(parsed.message.createdAt) });
+				this.mergeNew(parseMessageDates(parsed.message));
+			} else if (parsed.type === 'message:edited') {
+				this.#applyEdit(parsed.messageId, parsed.body, new Date(parsed.editedAt));
+			} else if (parsed.type === 'message:deleted') {
+				this.#applyDelete(parsed.messageId, new Date(parsed.deletedAt));
 			} else if (parsed.type === 'reaction:added') {
 				this.applyRemoteReaction(parsed.messageId, parsed.userId, parsed.emoji, true);
 			} else if (parsed.type === 'reaction:removed') {
@@ -294,10 +390,10 @@ class ConversationStore {
 		const res = await fetch(`/api/conversations/${this.#otherUserId}/messages${since}`);
 		if (!res.ok) return;
 		const data = (await res.json()) as {
-			messages: (Omit<MessageDTO, 'createdAt'> & { createdAt: string })[];
+			messages: WireMessage[];
 			reactionsByMessage?: Record<string, ReactionSummary[]>;
 		};
-		for (const m of data.messages) this.mergeNew({ ...m, createdAt: new Date(m.createdAt) });
+		for (const m of data.messages) this.mergeNew(parseMessageDates(m));
 		if (data.reactionsByMessage) {
 			const next = new Map(this.#reactions);
 			for (const [id, summary] of Object.entries(data.reactionsByMessage)) next.set(id, summary);

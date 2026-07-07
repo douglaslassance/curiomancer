@@ -7,7 +7,7 @@
 import { and, asc, desc, eq, gt, lt, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from './db';
-import { conversation, message } from './db/schema';
+import { conversation, message, messageReaction } from './db/schema';
 
 const replyMessage = alias(message, 'reply_message');
 
@@ -117,6 +117,8 @@ export type MessageDTO = {
 	senderId: string;
 	body: string;
 	createdAt: Date;
+	editedAt: Date | null;
+	deletedAt: Date | null;
 	replyTo: { id: string; body: string; senderId: string } | null;
 };
 
@@ -126,6 +128,8 @@ const MESSAGE_SELECTION = {
 	senderId: message.senderId,
 	body: message.body,
 	createdAt: message.createdAt,
+	editedAt: message.editedAt,
+	deletedAt: message.deletedAt,
 	replyToId: message.replyToId,
 	replyToBody: replyMessage.body,
 	replyToSenderId: replyMessage.senderId
@@ -137,6 +141,8 @@ type MessageRow = {
 	senderId: string;
 	body: string;
 	createdAt: Date;
+	editedAt: Date | null;
+	deletedAt: Date | null;
 	replyToId: string | null;
 	replyToBody: string | null;
 	replyToSenderId: string | null;
@@ -149,6 +155,8 @@ function mapRow(r: MessageRow): MessageDTO {
 		senderId: r.senderId,
 		body: r.body,
 		createdAt: r.createdAt,
+		editedAt: r.editedAt,
+		deletedAt: r.deletedAt,
 		replyTo: r.replyToId
 			? { id: r.replyToId, body: r.replyToBody!, senderId: r.replyToSenderId! }
 			: null
@@ -222,8 +230,51 @@ export async function sendMessage(
 		senderId: row.senderId,
 		body: row.body,
 		createdAt: row.createdAt,
+		editedAt: row.editedAt,
+		deletedAt: row.deletedAt,
 		replyTo
 	};
+}
+
+export type MessageOwnership = { conversationId: string; senderId: string; deletedAt: Date | null };
+
+/** Basic identity of a message, for authorizing edit/delete requests. */
+export async function getMessageForMutation(messageId: string): Promise<MessageOwnership | null> {
+	const [row] = await db
+		.select({
+			conversationId: message.conversationId,
+			senderId: message.senderId,
+			deletedAt: message.deletedAt
+		})
+		.from(message)
+		.where(eq(message.id, messageId))
+		.limit(1);
+	return row ?? null;
+}
+
+/** Updates a message's body. Caller (the route handler) must already have
+ *  verified ownership and length. */
+export async function editMessage(messageId: string, body: string): Promise<Date> {
+	const [row] = await db
+		.update(message)
+		.set({ body, editedAt: sql`now()` })
+		.where(eq(message.id, messageId))
+		.returning({ editedAt: message.editedAt });
+	return row.editedAt!;
+}
+
+/** Soft-deletes a message: clears its body and reactions but keeps the row so
+ *  replies quoting it still resolve. */
+export async function deleteMessage(messageId: string): Promise<Date> {
+	return await db.transaction(async (tx) => {
+		const [row] = await tx
+			.update(message)
+			.set({ body: '', deletedAt: sql`now()` })
+			.where(eq(message.id, messageId))
+			.returning({ deletedAt: message.deletedAt });
+		await tx.delete(messageReaction).where(eq(messageReaction.messageId, messageId));
+		return row.deletedAt!;
+	});
 }
 
 /** Deletes a conversation and all its messages (cascade). */

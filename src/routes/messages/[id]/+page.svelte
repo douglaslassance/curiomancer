@@ -7,7 +7,17 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { Ban, MoreVertical, Reply, Send, SmilePlus, Trash2, X } from '@lucide/svelte';
+	import {
+		Ban,
+		Check,
+		MoreVertical,
+		Pencil,
+		Reply,
+		Send,
+		SmilePlus,
+		Trash2,
+		X
+	} from '@lucide/svelte';
 	import { page } from '$app/state';
 	import { createConversationStore } from '$lib/conversation.svelte';
 
@@ -21,6 +31,8 @@
 	let formEl: HTMLFormElement | undefined = $state();
 	let scrollEl = $state<HTMLDivElement>();
 	let replyingTo = $state<{ id: string; body: string; senderId: string } | null>(null);
+	let editingId = $state<string | null>(null);
+	let editingBody = $state('');
 
 	const store = createConversationStore();
 	let activeConvId = '';
@@ -71,6 +83,27 @@
 
 	function react(messageId: string, emoji: string) {
 		if (signedInId) store.toggleReaction(messageId, emoji, signedInId);
+	}
+
+	function startEdit(m: { id: string; body: string }) {
+		editingId = m.id;
+		editingBody = m.body;
+	}
+
+	function cancelEdit() {
+		editingId = null;
+		editingBody = '';
+	}
+
+	async function saveEdit(messageId: string) {
+		const trimmed = editingBody.trim();
+		if (!trimmed) return;
+		if (await store.editMessage(messageId, trimmed)) cancelEdit();
+	}
+
+	async function removeMessage(messageId: string) {
+		if (!confirm("Delete this message? This can't be undone.")) return;
+		await store.deleteMessage(messageId);
 	}
 
 	async function deleteConversation() {
@@ -150,52 +183,98 @@
 								? 'bg-primary text-primary-foreground'
 								: 'bg-card border'}"
 						>
-							{#if m.replyTo}
-								{@const replyTo = m.replyTo}
+							{#if m.deletedAt}
+								<span class="italic opacity-70">Message deleted</span>
+							{:else if editingId === m.id}
+								<div class="flex items-center gap-1">
+									<Input
+										autofocus
+										maxlength={data.maxMessageLength}
+										bind:value={editingBody}
+										class="h-7 text-sm"
+										onkeydown={(e) => {
+											if (e.key === 'Enter') saveEdit(m.id);
+											if (e.key === 'Escape') cancelEdit();
+										}}
+									/>
+									<button type="button" onclick={() => saveEdit(m.id)} aria-label="Save edit">
+										<Check class="size-3.5" />
+									</button>
+									<button type="button" onclick={cancelEdit} aria-label="Cancel edit">
+										<X class="size-3.5" />
+									</button>
+								</div>
+							{:else}
+								{#if m.replyTo}
+									{@const replyTo = m.replyTo}
+									<button
+										type="button"
+										onclick={() => scrollToMessage(replyTo.id)}
+										class="mb-1 block border-l-2 pl-2 text-left text-xs opacity-70"
+									>
+										{replyTo.body.length > 80 ? replyTo.body.slice(0, 80) + '…' : replyTo.body}
+									</button>
+								{/if}
+								{m.body}
+								{#if m.editedAt}
+									<span class="text-xs opacity-60">(edited)</span>
+								{/if}
+							{/if}
+						</div>
+						{#if !m.deletedAt && editingId !== m.id}
+							<div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
 								<button
 									type="button"
-									onclick={() => scrollToMessage(replyTo.id)}
-									class="mb-1 block border-l-2 pl-2 text-left text-xs opacity-70"
+									onclick={() => (replyingTo = { id: m.id, body: m.body, senderId: m.senderId })}
+									aria-label="Reply"
+									class="text-muted-foreground hover:bg-muted hover:text-foreground rounded-md p-1"
 								>
-									{replyTo.body.length > 80 ? replyTo.body.slice(0, 80) + '…' : replyTo.body}
+									<Reply class="size-3.5" />
 								</button>
-							{/if}
-							{m.body}
-						</div>
-						<div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
-							<button
-								type="button"
-								onclick={() => (replyingTo = { id: m.id, body: m.body, senderId: m.senderId })}
-								aria-label="Reply"
-								class="text-muted-foreground hover:bg-muted hover:text-foreground rounded-md p-1"
-							>
-								<Reply class="size-3.5" />
-							</button>
-							<DropdownMenu.Root>
-								<DropdownMenu.Trigger>
-									{#snippet child({ props })}
-										<button
-											{...props}
-											aria-label="React"
-											class="text-muted-foreground hover:bg-muted hover:text-foreground rounded-md p-1"
-										>
-											<SmilePlus class="size-3.5" />
-										</button>
-									{/snippet}
-								</DropdownMenu.Trigger>
-								<DropdownMenu.Content class="flex w-auto gap-1 p-1">
-									{#each REACTION_EMOJI as emoji (emoji)}
-										<button
-											type="button"
-											onclick={() => react(m.id, emoji)}
-											class="hover:bg-muted rounded p-1 text-base"
-										>
-											{emoji}
-										</button>
-									{/each}
-								</DropdownMenu.Content>
-							</DropdownMenu.Root>
-						</div>
+								<DropdownMenu.Root>
+									<DropdownMenu.Trigger>
+										{#snippet child({ props })}
+											<button
+												{...props}
+												aria-label="React"
+												class="text-muted-foreground hover:bg-muted hover:text-foreground rounded-md p-1"
+											>
+												<SmilePlus class="size-3.5" />
+											</button>
+										{/snippet}
+									</DropdownMenu.Trigger>
+									<DropdownMenu.Content class="flex w-auto gap-1 p-1">
+										{#each REACTION_EMOJI as emoji (emoji)}
+											<button
+												type="button"
+												onclick={() => react(m.id, emoji)}
+												class="hover:bg-muted rounded p-1 text-base"
+											>
+												{emoji}
+											</button>
+										{/each}
+									</DropdownMenu.Content>
+								</DropdownMenu.Root>
+								{#if mine}
+									<button
+										type="button"
+										onclick={() => startEdit(m)}
+										aria-label="Edit"
+										class="text-muted-foreground hover:bg-muted hover:text-foreground rounded-md p-1"
+									>
+										<Pencil class="size-3.5" />
+									</button>
+									<button
+										type="button"
+										onclick={() => removeMessage(m.id)}
+										aria-label="Delete"
+										class="text-muted-foreground hover:bg-muted hover:text-destructive rounded-md p-1"
+									>
+										<Trash2 class="size-3.5" />
+									</button>
+								{/if}
+							</div>
+						{/if}
 					</div>
 					{#if reactions.length > 0}
 						<div class="mt-1 flex flex-wrap gap-1">

@@ -282,7 +282,14 @@ export const message = pgTable(
 		replyToId: text('reply_to_id').references((): AnyPgColumn => message.id, {
 			onDelete: 'set null'
 		}),
-		createdAt: timestamp('created_at').notNull().defaultNow()
+		createdAt: timestamp('created_at').notNull().defaultNow(),
+		editedAt: timestamp('edited_at'),
+		/**
+		 * Soft-delete marker. The row stays (so replies quoting it still resolve
+		 * and its id stays valid) but `body` is cleared to '' at the same time
+		 * this is set - see deleteMessage in messages.ts.
+		 */
+		deletedAt: timestamp('deleted_at')
 	},
 	(t) => [
 		index('message_conversation_created_idx').on(t.conversationId, t.createdAt),

@@ -2,6 +2,7 @@ import { error, json } from '@sveltejs/kit';
 import { findConversation, getMessages } from '$lib/server/messages';
 import { getReactionsFor } from '$lib/server/reactions';
 import { parseHistoryQuery } from '$lib/server/messages-query';
+import { toMessagePayload } from '$lib/server/ws/protocol';
 import type { RequestHandler } from './$types';
 
 /**
@@ -25,7 +26,7 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 	const reactions = await getReactionsFor(messages.map((m) => m.id));
 
 	return json({
-		messages: messages.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() })),
+		messages: messages.map(toMessagePayload),
 		reactionsByMessage: Object.fromEntries(reactions),
 		// A full page implies there may be older messages still. Never "more"
 		// on a `since` resync, which returns the whole gap.

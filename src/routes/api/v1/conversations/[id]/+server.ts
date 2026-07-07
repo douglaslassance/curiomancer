@@ -3,6 +3,7 @@ import { requireApiUser } from '$lib/server/api-auth';
 import { getMessages, isParticipant, MAX_MESSAGE_LENGTH, sendMessage } from '$lib/server/messages';
 import { getReactionsFor } from '$lib/server/reactions';
 import { parseHistoryQuery } from '$lib/server/messages-query';
+import { toMessagePayload } from '$lib/server/ws/protocol';
 import { broadcast } from '$lib/server/ws/registry';
 import type { RequestHandler } from './$types';
 
@@ -23,7 +24,7 @@ export const GET: RequestHandler = async ({ params, request, url }) => {
 	const reactions = await getReactionsFor(messages.map((m) => m.id));
 
 	return json({
-		messages: messages.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() })),
+		messages: messages.map(toMessagePayload),
 		reactionsByMessage: Object.fromEntries(reactions),
 		hasMore: !since && messages.length === limit
 	});
@@ -56,10 +57,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
 	}
 
 	const message = await sendMessage(params.id, userId, body, replyToId);
-	broadcast(params.id, {
-		type: 'message:new',
-		message: { ...message, createdAt: message.createdAt.toISOString() }
-	});
+	const wireMessage = toMessagePayload(message);
+	broadcast(params.id, { type: 'message:new', message: wireMessage });
 
-	return json({ message: { ...message, createdAt: message.createdAt.toISOString() } });
+	return json({ message: wireMessage });
 };

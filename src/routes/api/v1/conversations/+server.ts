@@ -11,6 +11,7 @@ import {
 	MAX_MESSAGE_LENGTH,
 	sendMessage
 } from '$lib/server/messages';
+import { toMessagePayload } from '$lib/server/ws/protocol';
 import { broadcast } from '$lib/server/ws/registry';
 import type { RequestHandler } from './$types';
 
@@ -72,13 +73,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	const conversationId = existingId ?? (await createConversation(userId, otherUserId));
 	const message = await sendMessage(conversationId, userId, body, replyToId);
-	broadcast(conversationId, {
-		type: 'message:new',
-		message: { ...message, createdAt: message.createdAt.toISOString() }
-	});
+	const wireMessage = toMessagePayload(message);
+	broadcast(conversationId, { type: 'message:new', message: wireMessage });
 
-	return json({
-		conversationId,
-		message: { ...message, createdAt: message.createdAt.toISOString() }
-	});
+	return json({ conversationId, message: wireMessage });
 };
