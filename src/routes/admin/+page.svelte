@@ -117,11 +117,9 @@
 			<p class="text-muted-foreground mt-1 text-xs">redeemed</p>
 		</Card.Content>
 	</Card.Root>
-</div>
 
-<!-- Growth headline numbers - point-in-time snapshots, not trends over time
-     (see the Growth tab for those). -->
-<div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+	<!-- Growth headline numbers - point-in-time snapshots, not trends over time
+	     (see the Growth tab for those). -->
 	{#each headlineStats as hs (hs.label)}
 		<Card.Root>
 			<Card.Header class="pb-2">
