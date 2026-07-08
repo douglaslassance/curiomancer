@@ -48,6 +48,9 @@
 			<p class="text-muted-foreground text-sm">
 				{data.userLocationStats.total === 1 ? 'user' : 'users'}
 			</p>
+			<p class="text-muted-foreground mt-1 text-xs">
+				{s.admins} admin{s.admins === 1 ? '' : 's'}
+			</p>
 		</div>
 		<div class="h-48 sm:flex-1">
 			<LocationBubbleMap
@@ -75,15 +78,6 @@
 </div>
 
 <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-	<!-- Users -->
-	<Card.Root>
-		<Card.Content>
-			<h2 class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Users</h2>
-			<p class="mt-2 text-3xl font-semibold tabular-nums">{s.users}</p>
-			<p class="text-muted-foreground mt-1 text-xs">{s.admins} admin{s.admins === 1 ? '' : 's'}</p>
-		</Card.Content>
-	</Card.Root>
-
 	<!-- Places -->
 	<Card.Root>
 		<Card.Content>

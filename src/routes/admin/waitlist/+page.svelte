@@ -35,6 +35,8 @@
 		}
 	}
 
+	const invitedCount = $derived(data.entries.filter((e) => e.status === 'invited').length);
+
 	let query = $state('');
 	const filteredEntries = $derived.by(() => {
 		const q = query.trim().toLowerCase();
@@ -90,6 +92,10 @@
 		<p class="text-muted-foreground mt-2 text-xs">Added to the waitlist.</p>
 	{/if}
 </form>
+
+<p class="text-muted-foreground mb-4 text-sm">
+	{data.entries.length} total · {invitedCount} invited
+</p>
 
 <div class="relative mb-4">
 	<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />

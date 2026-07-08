@@ -38,7 +38,7 @@
 	} satisfies Chart.ChartConfig;
 
 	const signupsConfig = {
-		newUsers: { label: 'New signups', color: 'var(--chart-1)' }
+		newUsers: { label: 'Signups', color: 'var(--chart-1)' }
 	} satisfies Chart.ChartConfig;
 
 	const activeConfig = {
@@ -104,7 +104,7 @@
 		<!-- New signups per day -->
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>New signups</Card.Title>
+				<Card.Title>Signups</Card.Title>
 				<Card.Description>Per day</Card.Description>
 			</Card.Header>
 			<Card.Content>
@@ -112,7 +112,7 @@
 					<BarChart
 						data={signups}
 						x="date"
-						series={[{ key: 'newUsers', label: 'New signups', color: 'var(--color-newUsers)' }]}
+						series={[{ key: 'newUsers', label: 'Signups', color: 'var(--color-newUsers)' }]}
 						props={{ xAxis: { format: shortDate, ticks: 6 }, yAxis: { ticks: 4 } }}
 					>
 						{#snippet tooltip()}
