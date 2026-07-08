@@ -2,14 +2,30 @@ import { fail } from '@sveltejs/kit';
 import { desc, eq } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { db } from '$lib/server/db';
-import { waitlist } from '$lib/server/db/schema';
+import { invite, waitlist } from '$lib/server/db/schema';
 import { sendInviteEmail } from '$lib/server/email';
 import { createInviteReturningCode } from '$lib/server/invites';
 import { joinWaitlist } from '$lib/server/waitlist';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-	const entries = await db.select().from(waitlist).orderBy(desc(waitlist.createdAt));
+	// Left-joined so we can tell an invite that's been sent apart from one
+	// that's already been redeemed (the waitlist row's own status doesn't
+	// change on redemption - only the linked invite does).
+	const entries = await db
+		.select({
+			id: waitlist.id,
+			email: waitlist.email,
+			city: waitlist.city,
+			status: waitlist.status,
+			inviteId: waitlist.inviteId,
+			createdAt: waitlist.createdAt,
+			invitedAt: waitlist.invitedAt,
+			redeemedAt: invite.redeemedAt
+		})
+		.from(waitlist)
+		.leftJoin(invite, eq(waitlist.inviteId, invite.id))
+		.orderBy(desc(waitlist.createdAt));
 	return { entries };
 };
 
@@ -54,5 +70,15 @@ export const actions: Actions = {
 		}
 
 		return { ok: true };
+	},
+
+	remove: async ({ request, locals }) => {
+		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+
+		const data = await request.formData();
+		const id = data.get('id')?.toString() ?? '';
+
+		await db.delete(waitlist).where(eq(waitlist.id, id));
+		return { removed: true };
 	}
 };

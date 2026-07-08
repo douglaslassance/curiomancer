@@ -6,7 +6,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import CityInput from '$lib/components/city-input.svelte';
-	import { Copy, Plus, Search } from '@lucide/svelte';
+	import { Copy, Plus, Search, Trash2 } from '@lucide/svelte';
 
 	let { data, form } = $props();
 
@@ -122,28 +122,46 @@
 						{dateFmt.format(e.createdAt)}
 					</td>
 					<td class="px-4 py-3">
-						{#if e.status === 'invited'}
+						{#if e.status === 'invited' && e.redeemedAt}
+							<Badge>Joined</Badge>
+						{:else if e.status === 'invited'}
 							<Badge variant="secondary">Invited</Badge>
 						{:else}
 							<Badge variant="outline">Pending</Badge>
 						{/if}
 					</td>
-					<td class="px-4 py-3 text-right">
-						{#if e.status === 'invited' && e.inviteId}
-							<Button
-								size="sm"
-								variant="outline"
-								onclick={() => e.inviteId && copyLink(e.inviteId)}
+					<td class="px-4 py-3">
+						<div class="flex items-center justify-end gap-2">
+							{#if e.status === 'invited' && e.redeemedAt}
+								<!-- Invite already redeemed - the link is dead, nothing to do here. -->
+							{:else if e.status === 'invited' && e.inviteId}
+								<Button
+									size="sm"
+									variant="outline"
+									onclick={() => e.inviteId && copyLink(e.inviteId)}
+								>
+									<Copy class="size-3.5" />
+									{copied === e.inviteId ? 'Copied' : 'Copy link'}
+								</Button>
+							{:else}
+								<form method="post" action="?/invite" use:enhance>
+									<input type="hidden" name="id" value={e.id} />
+									<Button type="submit" size="sm">Invite</Button>
+								</form>
+							{/if}
+							<form
+								method="post"
+								action="?/remove"
+								use:enhance={({ cancel }) => {
+									if (!confirm(`Remove ${e.email} from the waitlist?`)) cancel();
+								}}
 							>
-								<Copy class="size-3.5" />
-								{copied === e.inviteId ? 'Copied' : 'Copy link'}
-							</Button>
-						{:else}
-							<form method="post" action="?/invite" use:enhance>
 								<input type="hidden" name="id" value={e.id} />
-								<Button type="submit" size="sm">Invite</Button>
+								<Button type="submit" size="sm" variant="ghost" aria-label="Remove from waitlist">
+									<Trash2 class="text-muted-foreground size-3.5" />
+								</Button>
 							</form>
-						{/if}
+						</div>
 					</td>
 				</tr>
 			{:else}
