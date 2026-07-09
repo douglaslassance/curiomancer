@@ -18,6 +18,16 @@ const config = {
 				...config,
 				include: [...config.include, '../drizzle.config.ts']
 			})
+		},
+
+		experimental: {
+			tracing: {
+				server: true
+			},
+
+			instrumentation: {
+				server: true
+			}
 		}
 	}
 };

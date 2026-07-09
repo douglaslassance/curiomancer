@@ -1,18 +1,13 @@
 import { redirect, type Handle, type HandleServerError } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import * as Sentry from '@sentry/sveltekit';
-import { building, dev } from '$app/environment';
-import { PUBLIC_SENTRY_DSN, PUBLIC_POSTHOG_PROJECT_TOKEN, PUBLIC_POSTHOG_HOST } from '$env/static/public';
+import { building } from '$app/environment';
+import { PUBLIC_POSTHOG_PROJECT_TOKEN, PUBLIC_POSTHOG_HOST } from '$env/static/public';
 import { auth } from '$lib/server/auth';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { startMetricsCron } from '$lib/server/cron';
 import { touchUserActivity } from '$lib/server/metrics';
 import { resolvePostHogHosts } from '$lib/posthog';
-
-// Opt-in: only reports when a DSN is configured for this deployment.
-if (PUBLIC_SENTRY_DSN) {
-	Sentry.init({ dsn: PUBLIC_SENTRY_DSN, environment: dev ? 'development' : 'production' });
-}
 
 // Pages anyone can reach signed out: the marketing/legal pages and the whole
 // auth flow. Everything else is account-only and bounces to /sign-in. API
