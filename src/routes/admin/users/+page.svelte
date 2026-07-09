@@ -4,7 +4,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { Loader2, Search, ThumbsDown, ThumbsUp, VenetianMask } from '@lucide/svelte';
+	import { Check, Loader2, Search, ThumbsDown, ThumbsUp, VenetianMask } from '@lucide/svelte';
 
 	let { data, form } = $props();
 
@@ -76,34 +76,44 @@
 					<td class="px-4 py-3 text-right tabular-nums">{u.dislikes}</td>
 					<td class="px-4 py-3 text-right tabular-nums">{u.invitesRemaining}</td>
 					<td class="text-muted-foreground px-4 py-3 text-xs">{u.referredByName ?? '-'}</td>
-					<td class="px-4 py-3 text-right">
-						<form
-							method="post"
-							action={u.isSubscriber ? '?/revokeSubscription' : '?/grantSubscription'}
-							use:enhance={() => {
-								subscriptionBusyId = u.id;
-								return async ({ update }) => {
-									await update();
-									subscriptionBusyId = null;
-								};
-							}}
-						>
-							<input type="hidden" name="userId" value={u.id} />
-							<Button
-								type="submit"
-								size="sm"
-								variant={u.isSubscriber ? 'outline' : 'secondary'}
-								disabled={subscriptionBusyId === u.id}
+					<td class="px-4 py-3">
+						<div class="flex items-center justify-end gap-2">
+							{#if u.isSubscriber}
+								<Badge variant="secondary" class="gap-1">
+									<Check class="size-3" />
+									Subscriber
+								</Badge>
+							{:else}
+								<span class="text-muted-foreground text-xs">Free</span>
+							{/if}
+							<form
+								method="post"
+								action={u.isSubscriber ? '?/revokeSubscription' : '?/grantSubscription'}
+								use:enhance={() => {
+									subscriptionBusyId = u.id;
+									return async ({ update }) => {
+										await update();
+										subscriptionBusyId = null;
+									};
+								}}
 							>
-								{#if subscriptionBusyId === u.id}
-									<Loader2 class="size-3.5 animate-spin" />
-								{:else if u.isSubscriber}
-									Revoke
-								{:else}
-									Grant
-								{/if}
-							</Button>
-						</form>
+								<input type="hidden" name="userId" value={u.id} />
+								<Button
+									type="submit"
+									size="sm"
+									variant={u.isSubscriber ? 'outline' : 'secondary'}
+									disabled={subscriptionBusyId === u.id}
+								>
+									{#if subscriptionBusyId === u.id}
+										<Loader2 class="size-3.5 animate-spin" />
+									{:else if u.isSubscriber}
+										Revoke
+									{:else}
+										Grant
+									{/if}
+								</Button>
+							</form>
+						</div>
 					</td>
 					{#if data.canImpersonate}
 						<td class="px-4 py-3 text-right">
