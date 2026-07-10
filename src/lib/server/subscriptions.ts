@@ -108,7 +108,6 @@ export async function syncStripeSubscription(sub: Stripe.Subscription): Promise<
 		.insert(subscription)
 		.values({
 			userId,
-			tier: 'pro',
 			stripeSubscriptionId: sub.id,
 			...values
 		})

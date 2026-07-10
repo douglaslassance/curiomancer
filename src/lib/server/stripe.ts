@@ -31,7 +31,7 @@ export function getStripe(): Stripe {
 	return client;
 }
 
-/** The recurring Price id customers subscribe to (Curiomancer Pro). */
+/** The recurring Price id customers subscribe to (Curiomancer Subscription). */
 export function stripePriceId(): string {
 	if (!env.STRIPE_PRICE_ID) {
 		throw new Error('STRIPE_PRICE_ID is not set; billing is disabled.');

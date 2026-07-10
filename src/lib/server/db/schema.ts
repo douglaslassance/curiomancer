@@ -385,12 +385,11 @@ export const waitlist = pgTable('waitlist', {
 export type Waitlist = typeof waitlist.$inferSelect;
 
 /**
- * A paid subscription. Currently one tier ("pro"); the enum leaves room for
- * more later. We snapshot the monthly price on the row (`priceCents`) so MRR
- * is computed from the subscription itself and stays correct if the list
- * price ever changes. Billing/checkout is not wired yet - rows are created
- * out of band - but the shape is complete so metrics read real data the
- * moment subscriptions start landing.
+ * A paid subscription. There is a single subscription (no tiers). We snapshot
+ * the monthly price on the row (`priceCents`) so MRR is computed from the
+ * subscription itself and stays correct if the list price ever changes. Rows
+ * are created by the Stripe webhook (real subscriptions) or by admin grants
+ * (comps); Stripe linkage lives in the stripe* columns below.
  *
  * Subscriber counts and MRR over time are reconstructable from `createdAt`
  * and `canceledAt`, so they never need a daily snapshot: a subscription is
@@ -405,13 +404,10 @@ export const subscription = pgTable(
 		userId: text('user_id')
 			.notNull()
 			.references(() => user.id, { onDelete: 'cascade' }),
-		tier: text('tier', { enum: ['pro'] })
-			.notNull()
-			.default('pro'),
 		status: text('status', { enum: ['active', 'canceled'] })
 			.notNull()
 			.default('active'),
-		/** Monthly price in cents captured at signup. Pro is currently $4.99. */
+		/** Monthly price in cents captured at signup. Currently $4.99. */
 		priceCents: integer('price_cents').notNull().default(499),
 		/**
 		 * Stripe linkage. All null for admin-granted comps; populated for rows

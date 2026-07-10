@@ -24,7 +24,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-	// Starts Stripe Checkout for the Pro subscription. The local subscription
+	// Starts Stripe Checkout for the subscription. The local subscription
 	// row is created later by the webhook (customer.subscription.created), not
 	// here - this only kicks off the hosted payment page.
 	checkout: async ({ locals, url }) => {
