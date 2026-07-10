@@ -10,27 +10,24 @@
 
 	const signedIn = $derived(!!page.data.user);
 	const isSubscriber = $derived(!!page.data.isSubscriber);
-	const canManageBilling = $derived(!!page.data.canManageBilling);
 	const checkoutState = $derived(page.url.searchParams.get('checkout'));
 
 	let checkoutLoading = $state(false);
-	let portalLoading = $state(false);
 
-	// Checkout and portal actions both redirect to a Stripe-hosted page. goto()
-	// can't leave the app, so follow external redirects with a full navigation.
-	function followRedirect(start: () => void, stop: () => void): SubmitFunction {
-		return () => {
-			start();
-			return async ({ result }) => {
-				if (result.type === 'redirect') {
-					window.location.href = result.location;
-					return;
-				}
-				stop();
-				await applyAction(result);
-			};
+	// Checkout redirects to a Stripe-hosted page; goto() can't leave the app, so
+	// follow the external redirect with a full navigation. Managing an existing
+	// subscription lives in Settings, not here.
+	const startCheckout: SubmitFunction = () => {
+		checkoutLoading = true;
+		return async ({ result }) => {
+			if (result.type === 'redirect') {
+				window.location.href = result.location;
+				return;
+			}
+			checkoutLoading = false;
+			await applyAction(result);
 		};
-	}
+	};
 
 	const benefits = [
 		{ icon: MessageCircle, label: 'Message your twins' },
@@ -75,35 +72,8 @@
 						Go to your messages
 						<ArrowRight class="size-4" />
 					</Button>
-					{#if canManageBilling}
-						<form
-							method="post"
-							action="?/portal"
-							class="mt-3"
-							use:enhance={followRedirect(
-								() => (portalLoading = true),
-								() => (portalLoading = false)
-							)}
-						>
-							<Button type="submit" variant="outline" class="w-full" disabled={portalLoading}>
-								{#if portalLoading}
-									<Loader2 class="size-4 animate-spin" />
-									Opening…
-								{:else}
-									Manage subscription
-								{/if}
-							</Button>
-						</form>
-					{/if}
 				{:else if signedIn}
-					<form
-						method="post"
-						action="?/checkout"
-						use:enhance={followRedirect(
-							() => (checkoutLoading = true),
-							() => (checkoutLoading = false)
-						)}
-					>
+					<form method="post" action="?/checkout" use:enhance={startCheckout}>
 						<Button type="submit" class="w-full" disabled={checkoutLoading}>
 							{#if checkoutLoading}
 								<Loader2 class="size-4 animate-spin" />

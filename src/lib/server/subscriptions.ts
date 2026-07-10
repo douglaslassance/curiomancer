@@ -5,7 +5,7 @@
  * Stripe webhooks (`syncStripeSubscription`), which mirror a real Stripe
  * subscription into a row.
  */
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
 import type Stripe from 'stripe';
 import { db } from './db';
 import { subscription } from './db/schema';
@@ -65,6 +65,47 @@ export async function revokeSubscription(userId: string): Promise<void> {
 		.where(and(eq(subscription.userId, userId), eq(subscription.status, 'active')));
 }
 
+/** The user's most recent Stripe customer id, if they've ever had a paid sub. */
+export async function latestCustomerId(userId: string): Promise<string | null> {
+	const [row] = await db
+		.select({ customerId: subscription.stripeCustomerId })
+		.from(subscription)
+		.where(and(eq(subscription.userId, userId), isNotNull(subscription.stripeCustomerId)))
+		.orderBy(desc(subscription.createdAt))
+		.limit(1);
+	return row?.customerId ?? null;
+}
+
+export type ActiveSubscription = {
+	/** Admin comp (no Stripe side) vs a real paid Stripe subscription. */
+	isComp: boolean;
+	currentPeriodEnd: Date | null;
+	cancelAtPeriodEnd: boolean;
+	/** Whether the Stripe Customer Portal can be opened (Stripe-backed only). */
+	canManage: boolean;
+};
+
+/** The user's current active subscription, shaped for the settings display. */
+export async function getActiveSubscription(userId: string): Promise<ActiveSubscription | null> {
+	const [row] = await db
+		.select({
+			stripeCustomerId: subscription.stripeCustomerId,
+			currentPeriodEnd: subscription.currentPeriodEnd,
+			cancelAtPeriodEnd: subscription.cancelAtPeriodEnd
+		})
+		.from(subscription)
+		.where(and(eq(subscription.userId, userId), eq(subscription.status, 'active')))
+		.orderBy(desc(subscription.createdAt))
+		.limit(1);
+	if (!row) return null;
+	return {
+		isComp: !row.stripeCustomerId,
+		currentPeriodEnd: row.currentPeriodEnd,
+		cancelAtPeriodEnd: row.cancelAtPeriodEnd,
+		canManage: !!row.stripeCustomerId
+	};
+}
+
 /** Resolve a Stripe customer id to a local user via any existing row. */
 async function userIdForCustomer(customerId: string): Promise<string | null> {
 	const [row] = await db
@@ -100,6 +141,9 @@ export async function syncStripeSubscription(sub: Stripe.Subscription): Promise<
 		status: active ? ('active' as const) : ('canceled' as const),
 		priceCents: item?.price.unit_amount ?? 499,
 		currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000) : null,
+		// True once the user schedules cancellation; the sub stays active until
+		// currentPeriodEnd, so we surface "cancels on <date>" instead of "renews".
+		cancelAtPeriodEnd: sub.cancel_at_period_end ?? false,
 		canceledAt: active ? null : new Date((sub.canceled_at ?? Math.floor(Date.now() / 1000)) * 1000),
 		stripeCustomerId: customerId
 	};

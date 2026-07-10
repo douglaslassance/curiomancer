@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
 	type AnyPgColumn,
+	boolean,
 	check,
 	date,
 	doublePrecision,
@@ -419,6 +420,8 @@ export const subscription = pgTable(
 		stripeSubscriptionId: text('stripe_subscription_id').unique(),
 		/** End of the current paid period, mirrored from Stripe for display. */
 		currentPeriodEnd: timestamp('current_period_end'),
+		/** True when the subscription is set to end at currentPeriodEnd instead of renewing. */
+		cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
 		createdAt: timestamp('created_at').notNull().defaultNow(),
 		canceledAt: timestamp('canceled_at')
 	},

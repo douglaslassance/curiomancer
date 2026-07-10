@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick } from 'svelte';
-	import { enhance } from '$app/forms';
+	import { enhance, applyAction } from '$app/forms';
+	import type { SubmitFunction } from '@sveltejs/kit';
 	import * as Avatar from '$lib/components/ui/avatar';
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
@@ -14,6 +15,7 @@
 		Ban,
 		Camera,
 		Copy,
+		CreditCard,
 		KeyRound,
 		Loader2,
 		Lock,
@@ -41,6 +43,30 @@
 	];
 
 	let { data, form } = $props();
+
+	const subscriptionDateFmt = new Intl.DateTimeFormat('en-US', {
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric'
+	});
+	function formatPeriodEnd(d: Date | string | null): string {
+		return d ? subscriptionDateFmt.format(new Date(d)) : 'the end of the period';
+	}
+
+	let portalLoading = $state(false);
+	// The portal action redirects to a Stripe-hosted page; goto() can't leave the
+	// app, so follow the external redirect with a full navigation.
+	const openPortal: SubmitFunction = () => {
+		portalLoading = true;
+		return async ({ result }) => {
+			if (result.type === 'redirect') {
+				window.location.href = result.location;
+				return;
+			}
+			portalLoading = false;
+			await applyAction(result);
+		};
+	};
 
 	let refreshingLocation = $state(false);
 	let locationError = $state<string | null>(null);
@@ -281,6 +307,45 @@
 					</p>
 					{#if form?.messageableError}
 						<p class="text-destructive mt-1 text-xs">{form.messageableError}</p>
+					{/if}
+				</div>
+			</div>
+
+			<Separator />
+
+			<div class="flex items-start gap-3">
+				<CreditCard class="text-muted-foreground mt-0.5 size-4" />
+				<div class="min-w-0 flex-1">
+					<div class="flex items-center justify-between gap-2">
+						<div class="text-sm font-medium">Subscription</div>
+						{#if data.subscription?.canManage}
+							<form method="post" action="?/portal" use:enhance={openPortal}>
+								<Button type="submit" size="sm" variant="outline" disabled={portalLoading}>
+									{#if portalLoading}
+										<Loader2 class="size-3.5 animate-spin" />
+										Opening…
+									{:else}
+										Manage
+									{/if}
+								</Button>
+							</form>
+						{:else if !data.subscription}
+							<Button href="/subscribe" size="sm" variant="outline">Subscribe</Button>
+						{/if}
+					</div>
+					<p class="text-muted-foreground mt-1 text-sm">
+						{#if !data.subscription}
+							Free plan. Subscribe to message your taste-twins.
+						{:else if data.subscription.isComp}
+							Complimentary subscription. Thanks for being here.
+						{:else if data.subscription.cancelAtPeriodEnd}
+							Active. Cancels on {formatPeriodEnd(data.subscription.currentPeriodEnd)}.
+						{:else}
+							Active. Renews on {formatPeriodEnd(data.subscription.currentPeriodEnd)}.
+						{/if}
+					</p>
+					{#if form?.message}
+						<p class="text-destructive mt-1 text-xs">{form.message}</p>
 					{/if}
 				</div>
 			</div>

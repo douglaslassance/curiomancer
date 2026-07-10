@@ -7,6 +7,8 @@ import { placeRelation, userLocation } from '$lib/server/db/schema';
 import { getInvitesFor } from '$lib/server/invites';
 import { createApiToken, listApiTokens, revokeApiToken } from '$lib/server/api-tokens';
 import { listBlockedUsers, unblockUser } from '$lib/server/blocks';
+import { getActiveSubscription, latestCustomerId } from '$lib/server/subscriptions';
+import { getStripe, stripeEnabled } from '$lib/server/stripe';
 import { getPostHogClient } from '$lib/server/posthog';
 import { uploadAvatar, deleteAvatar, AvatarValidationError } from '$lib/server/storage';
 import type { Actions, PageServerLoad } from './$types';
@@ -14,7 +16,7 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) throw redirect(302, '/sign-in?next=/settings');
 
-	const [[location], likes, invites, apiTokens, blockedUsers] = await Promise.all([
+	const [[location], likes, invites, apiTokens, blockedUsers, subscription] = await Promise.all([
 		db.select().from(userLocation).where(eq(userLocation.userId, locals.user.id)).limit(1),
 		db
 			.select({ id: placeRelation.id })
@@ -22,7 +24,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.where(eq(placeRelation.userId, locals.user.id)),
 		getInvitesFor(locals.user.id),
 		listApiTokens(locals.user.id),
-		listBlockedUsers(locals.user.id)
+		listBlockedUsers(locals.user.id),
+		getActiveSubscription(locals.user.id)
 	]);
 
 	return {
@@ -38,7 +41,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		likeCount: likes.length,
 		invites,
 		apiTokens,
-		blockedUsers
+		blockedUsers,
+		subscription
 	};
 };
 
@@ -180,5 +184,21 @@ export const actions: Actions = {
 		const id = data.get('id')?.toString() ?? '';
 		if (id) await unblockUser(locals.user.id, id);
 		return { unblocked: true };
+	},
+
+	// Opens the Stripe Customer Portal so the user can update payment method,
+	// see invoices, or cancel. Only Stripe-backed subscribers have a customer id.
+	portal: async ({ locals, url }) => {
+		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+		if (!stripeEnabled()) return fail(503, { message: 'Billing is not available right now.' });
+
+		const customerId = await latestCustomerId(locals.user.id);
+		if (!customerId) return fail(400, { message: 'No billing account to manage.' });
+
+		const session = await getStripe().billingPortal.sessions.create({
+			customer: customerId,
+			return_url: `${url.origin}/settings`
+		});
+		throw redirect(303, session.url);
 	}
 };
