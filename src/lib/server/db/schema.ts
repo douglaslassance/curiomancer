@@ -413,6 +413,16 @@ export const subscription = pgTable(
 			.default('active'),
 		/** Monthly price in cents captured at signup. Pro is currently $4.99. */
 		priceCents: integer('price_cents').notNull().default(499),
+		/**
+		 * Stripe linkage. All null for admin-granted comps; populated for rows
+		 * created from a real Stripe subscription via the webhook. The customer
+		 * id persists across resubscribes so we reuse one Stripe customer per
+		 * user, and backs the "manage subscription" Customer Portal link.
+		 */
+		stripeCustomerId: text('stripe_customer_id'),
+		stripeSubscriptionId: text('stripe_subscription_id').unique(),
+		/** End of the current paid period, mirrored from Stripe for display. */
+		currentPeriodEnd: timestamp('current_period_end'),
 		createdAt: timestamp('created_at').notNull().defaultNow(),
 		canceledAt: timestamp('canceled_at')
 	},

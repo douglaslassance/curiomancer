@@ -1,15 +1,36 @@
 <script lang="ts">
+	import { enhance, applyAction } from '$app/forms';
+	import { page } from '$app/state';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
-	import { ArrowRight, Heart, MessageCircle, Ticket } from '@lucide/svelte';
-	import { page } from '$app/state';
+	import { ArrowRight, Heart, Loader2, MessageCircle, Ticket } from '@lucide/svelte';
+	import type { SubmitFunction } from '@sveltejs/kit';
+
+	let { form } = $props();
 
 	const signedIn = $derived(!!page.data.user);
+	const isSubscriber = $derived(!!page.data.isSubscriber);
+	const canManageBilling = $derived(!!page.data.canManageBilling);
+	const checkoutState = $derived(page.url.searchParams.get('checkout'));
 
-	// Stripe checkout is not wired yet - clicking surfaces an inline note
-	// instead of a dead button. Swap this for a POST to a checkout-session
-	// endpoint once billing is live.
-	let checkoutNote = $state(false);
+	let checkoutLoading = $state(false);
+	let portalLoading = $state(false);
+
+	// Checkout and portal actions both redirect to a Stripe-hosted page. goto()
+	// can't leave the app, so follow external redirects with a full navigation.
+	function followRedirect(start: () => void, stop: () => void): SubmitFunction {
+		return () => {
+			start();
+			return async ({ result }) => {
+				if (result.type === 'redirect') {
+					window.location.href = result.location;
+					return;
+				}
+				stop();
+				await applyAction(result);
+			};
+		};
+	}
 
 	const benefits = [
 		{ icon: MessageCircle, label: 'Message your twins' },
@@ -49,21 +70,69 @@
 			</ul>
 
 			<div class="mt-6">
-				{#if signedIn}
-					<Button class="w-full" onclick={() => (checkoutNote = true)}>
-						Subscribe for $4.99/month
+				{#if isSubscriber}
+					<Button class="w-full" href="/messages">
+						Go to your messages
 						<ArrowRight class="size-4" />
 					</Button>
-					{#if checkoutNote}
-						<p class="text-muted-foreground mt-3 text-center text-xs">
-							Checkout is being set up. Hang tight.
-						</p>
+					{#if canManageBilling}
+						<form
+							method="post"
+							action="?/portal"
+							class="mt-3"
+							use:enhance={followRedirect(
+								() => (portalLoading = true),
+								() => (portalLoading = false)
+							)}
+						>
+							<Button type="submit" variant="outline" class="w-full" disabled={portalLoading}>
+								{#if portalLoading}
+									<Loader2 class="size-4 animate-spin" />
+									Opening…
+								{:else}
+									Manage subscription
+								{/if}
+							</Button>
+						</form>
 					{/if}
+				{:else if signedIn}
+					<form
+						method="post"
+						action="?/checkout"
+						use:enhance={followRedirect(
+							() => (checkoutLoading = true),
+							() => (checkoutLoading = false)
+						)}
+					>
+						<Button type="submit" class="w-full" disabled={checkoutLoading}>
+							{#if checkoutLoading}
+								<Loader2 class="size-4 animate-spin" />
+								Redirecting…
+							{:else}
+								Subscribe for $4.99/month
+								<ArrowRight class="size-4" />
+							{/if}
+						</Button>
+					</form>
 				{:else}
 					<Button class="w-full" href="/sign-up?next=/subscribe">
 						Create an account to subscribe
 						<ArrowRight class="size-4" />
 					</Button>
+				{/if}
+
+				{#if checkoutState === 'success' && !isSubscriber}
+					<p class="text-muted-foreground mt-3 text-center text-xs">
+						Payment received. Activating your subscription…
+					</p>
+				{:else if checkoutState === 'canceled'}
+					<p class="text-muted-foreground mt-3 text-center text-xs">
+						Checkout canceled. You can subscribe whenever you're ready.
+					</p>
+				{/if}
+
+				{#if form?.message}
+					<p class="text-destructive mt-3 text-center text-xs">{form.message}</p>
 				{/if}
 			</div>
 		</Card.Content>
