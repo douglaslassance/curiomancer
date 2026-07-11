@@ -69,6 +69,34 @@ export const actions: Actions = {
 		return { nameOk: true, name };
 	},
 
+	updateEmail: async ({ request, locals }) => {
+		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+
+		const data = await request.formData();
+		const email = data.get('email')?.toString().trim().toLowerCase() ?? '';
+		if (!email) return fail(400, { emailError: 'Email cannot be empty.', email });
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+			return fail(400, { emailError: 'Enter a valid email address.', email });
+		}
+		if (email === locals.user.email.toLowerCase()) {
+			return fail(400, { emailError: "That's already your email.", email });
+		}
+
+		// Sends a verification link to the new address; the change only lands once
+		// they click it (auth.ts wires the recipient + copy). Nothing changes yet.
+		try {
+			await auth.api.changeEmail({
+				body: { newEmail: email, callbackURL: '/settings?emailChanged=1' },
+				headers: request.headers
+			});
+		} catch (error) {
+			if (error instanceof APIError) return fail(400, { emailError: error.message, email });
+			return fail(500, { emailError: 'Could not start the email change. Try again.' });
+		}
+		getPostHogClient()?.capture({ distinctId: locals.user.id, event: 'email_change_requested' });
+		return { emailPending: true, email };
+	},
+
 	updateAvatar: async ({ request, locals }) => {
 		if (!locals.user) return fail(401, { message: 'Not signed in.' });
 

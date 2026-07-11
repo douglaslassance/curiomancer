@@ -6,7 +6,11 @@ import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
 import { db } from '$lib/server/db';
 import { createInvitesFor } from '$lib/server/invites';
-import { sendPasswordResetEmail, sendVerificationEmail } from '$lib/server/email';
+import {
+	sendChangeEmailVerificationEmail,
+	sendPasswordResetEmail,
+	sendVerificationEmail
+} from '$lib/server/email';
 
 export const auth = betterAuth({
 	baseURL: env.ORIGIN,
@@ -33,13 +37,28 @@ export const auth = betterAuth({
 		sendOnSignIn: true,
 		autoSignInAfterVerification: true,
 		sendVerificationEmail: async ({ user, url }) => {
-			await sendVerificationEmail(user.email, url);
+			// A verification link for an already-verified user means they're
+			// confirming a NEW address for an email change: better-auth invokes this
+			// with the new email as `user.email` (see user.changeEmail below). An
+			// unverified user is finishing sign-up, so it gets the sign-up copy.
+			if (user.emailVerified) {
+				await sendChangeEmailVerificationEmail(user.email, url);
+			} else {
+				await sendVerificationEmail(user.email, url);
+			}
 		}
 	},
 	user: {
 		additionalFields: {
 			/** Whether other users can start a chat with them. Set from Settings. */
 			messageable: { type: 'boolean', defaultValue: true }
+		},
+		// Let users change their email from Settings. With no confirmation hook set,
+		// a verified user gets a single verification link sent to the NEW address;
+		// the change only applies once they click it (their current email stays put
+		// until then). See sendVerificationEmail above for the routing.
+		changeEmail: {
+			enabled: true
 		}
 	},
 	databaseHooks: {

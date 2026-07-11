@@ -169,6 +169,30 @@ export async function sendVerificationEmail(to: string, verifyUrl: string): Prom
 	});
 }
 
+/**
+ * Sent to the NEW address when a user changes their email. Clicking the link
+ * verifies ownership of the new address and applies the change; until then the
+ * account keeps its current email.
+ */
+export async function sendChangeEmailVerificationEmail(to: string, verifyUrl: string): Promise<void> {
+	await sendEmail({
+		to,
+		subject: 'Confirm your new Curiomancer email',
+		text:
+			'You asked to change the email on your Curiomancer account to this address.\n\n' +
+			`Confirm it to complete the change:\n${verifyUrl}\n\n` +
+			"If you didn't request this, you can safely ignore this email and nothing will change.",
+		html: renderEmailHtml({
+			heading: 'Confirm your new email',
+			paragraphs: [
+				'You asked to change the email on your Curiomancer account to this address.',
+				"If you didn't request this, you can safely ignore this email and nothing will change."
+			],
+			action: { label: 'Confirm new email', url: verifyUrl }
+		})
+	});
+}
+
 /** Sent when someone joins the waitlist through the public splash form. */
 export async function sendWaitlistConfirmationEmail(to: string): Promise<void> {
 	await sendEmail({

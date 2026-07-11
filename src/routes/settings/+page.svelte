@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tick } from 'svelte';
+	import { page } from '$app/state';
 	import { enhance, applyAction } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import * as Avatar from '$lib/components/ui/avatar';
@@ -43,6 +44,10 @@
 	];
 
 	let { data, form } = $props();
+
+	// Better-auth redirects here after the user clicks the confirmation link in
+	// their new inbox; by then data.profile.email is already the new address.
+	const emailChanged = $derived(page.url.searchParams.get('emailChanged') === '1');
 
 	const subscriptionDateFmt = new Intl.DateTimeFormat('en-US', {
 		year: 'numeric',
@@ -258,6 +263,15 @@
 			</div>
 		</Card.Header>
 		<Card.Content class="space-y-4">
+			{#if emailChanged}
+				<div
+					class="border-primary/30 bg-primary/5 text-foreground flex items-center gap-2 rounded-lg border px-3 py-2 text-sm"
+				>
+					<Mail class="text-primary size-4 shrink-0" />
+					Your email was updated to {data.profile.email}.
+				</div>
+			{/if}
+
 			<Separator />
 
 			<div class="flex items-start gap-3">
@@ -478,6 +492,41 @@
 						<p class="text-muted-foreground text-xs">Saved.</p>
 					{:else}
 						<p class="text-muted-foreground text-xs">Shown on your profile and to taste-twins.</p>
+					{/if}
+				</div>
+			</form>
+
+			<Separator />
+
+			<!-- Email -->
+			<form method="post" action="?/updateEmail" use:enhance class="flex items-start gap-3">
+				<Mail class="text-muted-foreground mt-0.5 size-4" />
+				<div class="min-w-0 flex-1 space-y-2">
+					<Label for="email" class="text-sm font-medium">Email</Label>
+					<div class="flex items-center gap-2">
+						<Input
+							id="email"
+							name="email"
+							type="email"
+							placeholder="you@example.com"
+							autocomplete="email"
+							value={form?.email ?? ''}
+							class="max-w-xs"
+						/>
+						<Button type="submit" size="sm" variant="outline">Change</Button>
+					</div>
+					{#if form?.emailError}
+						<p class="text-destructive text-xs">{form.emailError}</p>
+					{:else if form?.emailPending}
+						<p class="text-muted-foreground text-xs">
+							Check <span class="font-medium">{form.email}</span> for a link to confirm the change.
+							Your current email stays until you do.
+						</p>
+					{:else}
+						<p class="text-muted-foreground text-xs">
+							Currently {data.profile.email}. We'll email a confirmation link to the new address
+							before switching.
+						</p>
 					{/if}
 				</div>
 			</form>
