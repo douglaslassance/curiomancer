@@ -7,6 +7,7 @@
  * consistent with the rest of the app's iconography.
  */
 
+import { mapAppleCategoryClient } from '$lib/map-category';
 import type { Place } from '$lib/server/db/schema';
 
 // Lucide source paths (24×24 viewBox, stroke-based). Keep in sync with
@@ -49,7 +50,12 @@ export function categoryGlyphDataUri(category: Place['category'], stroke = '#fff
 	// is added around the icon.
 	const PAD = 5;
 	const size = 24 + PAD * 2;
-	const paths = PATHS[category].map((d) => `<path d="${d}"/>`).join('');
+	// Some legacy place rows carry off-enum, Apple-style values (e.g. "bar"),
+	// which mapAppleCategoryClient knows how to bucket (bar -> drink), so the right
+	// icon still shows. Anything unmappable falls back to an empty glyph rather
+	// than throwing - a missing PATHS entry would kill the whole marker.
+	const key = PATHS[category] ? category : (mapAppleCategoryClient(category) ?? category);
+	const paths = (PATHS[key] ?? []).map((d) => `<path d="${d}"/>`).join('');
 	const svg =
 		`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" ` +
 		`viewBox="${-PAD} ${-PAD} ${size} ${size}" ` +

@@ -6,6 +6,7 @@
 	import MapSearch from './map-search.svelte';
 	import CategoryFilter from './category-filter.svelte';
 	import { Bookmark, Eye, Sparkles, ThumbsDown, ThumbsUp } from '@lucide/svelte';
+	import { RELATION_COLOR, RELATION_NEUTRAL, RELATION_RECOMMENDED } from '$lib/relation-colors';
 	import type { Component } from 'svelte';
 
 	let {
@@ -91,20 +92,22 @@
 	// Same icon + faded-when-off chip style as the places page. The icon is
 	// tinted to the pin color so the chips double as the map's colour legend.
 	const FILTER_CHIPS: { key: FilterKey; label: string; color: string; icon: Component }[] = [
-		{ key: 'recommended', label: 'Recommended', color: '#f59e0b', icon: Sparkles },
-		{ key: 'liked', label: 'Liked', color: '#ec4899', icon: ThumbsUp },
-		{ key: 'wantToGo', label: 'Want to go', color: '#10b981', icon: Bookmark },
-		{ key: 'seen', label: 'Been there', color: '#64748b', icon: Eye },
-		{ key: 'disliked', label: 'Disliked', color: '#ef4444', icon: ThumbsDown }
+		{ key: 'recommended', label: 'Recommended', color: RELATION_RECOMMENDED, icon: Sparkles },
+		{ key: 'liked', label: 'Liked', color: RELATION_COLOR.liked, icon: ThumbsUp },
+		{ key: 'wantToGo', label: 'Want to go', color: RELATION_COLOR.want_to_go, icon: Bookmark },
+		{ key: 'seen', label: 'Been there', color: RELATION_COLOR.seen, icon: Eye },
+		{ key: 'disliked', label: 'Disliked', color: RELATION_COLOR.disliked, icon: ThumbsDown }
 	];
 
+	// Sourced from the shared relation palette (relation-colors.ts) so map pins,
+	// the legend chips above, and the Tune rate buttons all stay in sync.
 	const REL_COLOR: Record<Relation, string> = {
-		liked: '#ec4899', // pink-500
-		wantToGo: '#10b981', // emerald-500
-		disliked: '#ef4444', // red-500
-		seen: '#64748b', // slate-500
-		recommended: '#f59e0b', // amber-500
-		other: '#9ca3af' // gray-400
+		liked: RELATION_COLOR.liked,
+		wantToGo: RELATION_COLOR.want_to_go,
+		disliked: RELATION_COLOR.disliked,
+		seen: RELATION_COLOR.seen,
+		recommended: RELATION_RECOMMENDED,
+		other: RELATION_NEUTRAL
 	};
 
 	function relationOf(id: string): Relation {

@@ -175,10 +175,10 @@
 						Twins
 					</Button>
 					<Button
-						href="/rate"
-						variant={isActive('/rate') ? 'secondary' : 'ghost'}
+						href="/tune"
+						variant={isActive('/tune') ? 'secondary' : 'ghost'}
 						size="sm"
-						aria-current={isActive('/rate') ? 'page' : undefined}
+						aria-current={isActive('/tune') ? 'page' : undefined}
 					>
 						<SlidersHorizontal class="size-4" />
 						Tune

@@ -9,7 +9,7 @@ import type { RequestHandler } from './$types';
  * GET /api/v1/rate
  *
  * The quick-rate queue: places near the viewer they have not rated yet,
- * closest first. Mirrors the /rate page load, but does the "unrated" filtering
+ * closest first. Mirrors the /tune page load, but does the "unrated" filtering
  * server-side so the client just walks the list. Also returns the external ids
  * of Apple-sourced places we already hold, so a client pulling fresh POIs from
  * Apple can skip re-surfacing them.

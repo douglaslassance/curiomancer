@@ -4,9 +4,20 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
-	import { Bookmark, Eye, Loader2, MapPin, ThumbsDown, ThumbsUp } from '@lucide/svelte';
+	import {
+		Bookmark,
+		ExternalLink,
+		Eye,
+		Loader2,
+		MapPin,
+		ThumbsDown,
+		ThumbsUp
+	} from '@lucide/svelte';
 	import { relations, type Kind } from '$lib/relations.svelte';
+	import { googleMapsUrl } from '$lib/maps-link';
 	import { ensureMapKit } from '$lib/mapkit-client';
+	import PlaceMiniMap from '$lib/components/place-mini-map.svelte';
+	import { RELATION_COLOR } from '$lib/relation-colors';
 	import { mapAppleCategoryClient } from '$lib/map-category';
 	import { categoryLabel } from '$lib/place-category';
 	import type { Component } from 'svelte';
@@ -22,6 +33,10 @@
 		neighborhood: string | null;
 		description: string;
 		distanceKm: number;
+		// Coordinates for the preview map. Null only for legacy DB places that
+		// predate geocoding; the map is hidden in that case.
+		latitude: number | null;
+		longitude: number | null;
 		// A place already in our DB (rate via /api/relations) vs a fresh Apple POI
 		// (rate via /api/places, which adds it to our DB first).
 		placeId: string | null;
@@ -55,6 +70,8 @@
 			neighborhood: p.neighborhood,
 			description: p.description,
 			distanceKm: p.distanceKm,
+			latitude: p.latitude,
+			longitude: p.longitude,
 			placeId: p.id,
 			apple: null
 		}));
@@ -66,6 +83,7 @@
 	let exhausted = $state(false);
 	let mapkitError = $state(false);
 	const current = $derived(queue[index] ?? null);
+	const mapsUrl = $derived(current ? googleMapsUrl(current) : null);
 
 	// Non-reactive dedupe + sweep state. muids we've already surfaced (DB apple
 	// places, plus every POI we enqueue) so Apple searches never repeat a place.
@@ -156,6 +174,8 @@
 						neighborhood: p.subLocality ?? null,
 						description: p.formattedAddress ?? p.name ?? '',
 						distanceKm: dist,
+						latitude: p.coordinate.latitude,
+						longitude: p.coordinate.longitude,
 						placeId: null,
 						apple: {
 							externalId: muid,
@@ -277,31 +297,62 @@
 		<!-- Current place -->
 		<Card.Root>
 			<Card.Content>
-				<div class="flex items-start gap-2">
-					<h2 class="flex-1 text-xl font-semibold tracking-tight">
-						{#if current.placeId}
-							<a href={`/places?place=${current.placeId}`} class="hover:underline">{current.name}</a
-							>
-						{:else}
-							{current.name}
+				<!-- Details and map side by side (stacked on narrow screens) so the map
+				     stays a compact companion to the text, not a full-width block. -->
+				<div class="flex flex-col gap-4 sm:flex-row sm:items-start">
+					<div class="min-w-0 flex-1">
+						<div class="flex items-start gap-2">
+							<h2 class="flex-1 text-xl font-semibold tracking-tight">
+								{#if current.placeId}
+									<a href={`/places?place=${current.placeId}`} class="hover:underline"
+										>{current.name}</a
+									>
+								{:else}
+									{current.name}
+								{/if}
+							</h2>
+							<Badge variant="secondary">{categoryLabel(current.category)}</Badge>
+						</div>
+						<p class="text-muted-foreground mt-2 flex items-center gap-1 text-sm">
+							<MapPin class="size-4" />
+							{current.neighborhood ? `${current.neighborhood}, ` : ''}{current.city}
+						</p>
+						{#if current.description}
+							<p class="text-muted-foreground mt-3 text-sm leading-relaxed">
+								{current.description}
+							</p>
 						{/if}
-					</h2>
-					<Badge variant="secondary">{categoryLabel(current.category)}</Badge>
+						{#if mapsUrl}
+							<a
+								href={mapsUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="text-muted-foreground hover:text-foreground mt-3 inline-flex items-center gap-1 text-sm underline"
+							>
+								Open in Google Maps
+								<ExternalLink class="size-3.5" />
+							</a>
+						{/if}
+					</div>
+
+					{#if current.latitude !== null && current.longitude !== null}
+						<div class="h-52 w-full sm:order-first sm:h-56 sm:w-72 sm:shrink-0">
+							<PlaceMiniMap
+								latitude={current.latitude}
+								longitude={current.longitude}
+								name={current.name}
+								category={current.category}
+							/>
+						</div>
+					{/if}
 				</div>
-				<p class="text-muted-foreground mt-2 flex items-center gap-1 text-sm">
-					<MapPin class="size-4" />
-					{current.neighborhood ? `${current.neighborhood}, ` : ''}{current.city}
-				</p>
-				{#if current.description}
-					<p class="text-muted-foreground mt-3 text-sm leading-relaxed">{current.description}</p>
-				{/if}
 
 				<!-- Ratings: 2x2 grid, then skip. -->
 				<div class="mt-6 grid grid-cols-2 gap-2">
 					{#each RATINGS as r (r.kind)}
 						{@const Icon = r.icon}
 						<Button variant="outline" class="h-12 justify-start gap-2" onclick={() => rate(r.kind)}>
-							<Icon class="size-4" />
+							<Icon class="size-4" style="color: {RELATION_COLOR[r.kind]}" />
 							{r.label}
 						</Button>
 					{/each}
