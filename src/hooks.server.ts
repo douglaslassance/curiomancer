@@ -77,6 +77,15 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 		});
 	}
 
+	// The better-auth admin plugin exposes a hard-delete (POST
+	// /api/auth/admin/remove-user) that cascade-wipes the user's ratings AND
+	// every message in their conversations, for both participants, with no
+	// backup. The app never calls it over HTTP (admin actions run through
+	// server-side auth.api calls), so block the route to remove the footgun.
+	if (pathname === '/api/auth/admin/remove-user') {
+		throw error(403, 'Not available.');
+	}
+
 	const session = await auth.api.getSession({ headers: event.request.headers });
 
 	if (session) {
