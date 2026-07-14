@@ -1,6 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { setRelation } from '$lib/server/likes';
 import { requireApiUser } from '$lib/server/api-auth';
+import { getPostHogClient } from '$lib/server/posthog';
 import type { PlaceRelationKind } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
 
@@ -33,5 +34,14 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	const result = await setRelation(userId, placeId, kind as PlaceRelationKind);
+
+	// Mirror the web /api/relations capture so ratings made from native clients
+	// show up in product analytics too.
+	getPostHogClient()?.capture({
+		distinctId: userId,
+		event: 'place_rated',
+		properties: { place_id: placeId, kind: result }
+	});
+
 	return json({ placeId, kind: result });
 };
