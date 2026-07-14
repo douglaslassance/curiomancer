@@ -2,9 +2,12 @@
  * Emoji reactions on messages. Separate from messages.ts (like blocks.ts is
  * separate from it) - a distinct concern with its own table.
  */
+import { error } from '@sveltejs/kit';
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from './db';
 import { messageReaction } from './db/schema';
+import { getMessageConversationId, isParticipant } from './messages';
+import { broadcast } from './ws/registry';
 
 /**
  * A reaction is a single emoji, not free text. Accepting arbitrary strings
@@ -49,6 +52,42 @@ export async function toggleReaction(
 		await tx.insert(messageReaction).values({ messageId, userId, emoji }).onConflictDoNothing();
 		return { added: true };
 	});
+}
+
+/**
+ * Validate an emoji, authorize the caller as a participant, toggle their
+ * reaction, and broadcast it. Shared by the web and native reaction endpoints
+ * so the two can't drift. Throws a SvelteKit `error` (400/404) the route
+ * handler can propagate as-is.
+ */
+export async function reactToMessage(
+	messageId: string,
+	userId: string,
+	rawEmoji: unknown
+): Promise<{ emoji: string; added: boolean }> {
+	const emoji = typeof rawEmoji === 'string' ? rawEmoji : '';
+	if (!emoji) throw error(400, 'emoji required.');
+	if (!isValidReactionEmoji(emoji)) throw error(400, 'emoji must be a single emoji.');
+
+	const conversationId = await getMessageConversationId(messageId);
+	if (!conversationId || !(await isParticipant(conversationId, userId))) {
+		throw error(404, 'Message not found.');
+	}
+
+	const result = await toggleReaction(messageId, userId, emoji);
+	// Exclude the actor: they apply their own toggle optimistically from this
+	// response, so echoing it back would be redundant.
+	broadcast(
+		conversationId,
+		{
+			type: result.added ? 'reaction:added' : 'reaction:removed',
+			messageId,
+			userId,
+			emoji
+		},
+		userId
+	);
+	return { emoji, added: result.added };
 }
 
 export type ReactionSummary = { emoji: string; userIds: string[] };
