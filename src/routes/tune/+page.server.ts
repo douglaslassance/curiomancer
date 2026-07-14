@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { userLocation } from '$lib/server/db/schema';
-import { getPlaceIdsByKind } from '$lib/server/likes';
+import { userLocation, type PlaceRelationKind } from '$lib/server/db/schema';
+import { getRelationMap } from '$lib/server/likes';
 import { getPlacesNearby, MAX_RADIUS_KM, type NearbyPlace } from '$lib/server/nearby';
 import type { PageServerLoad } from './$types';
 
@@ -40,13 +40,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		Math.min(MAX_RADIUS_KM, Number(url.searchParams.get('radius') ?? '') || 30)
 	);
 
-	const [allNearby, liked, disliked, seen, wantToGo] = await Promise.all([
+	// One relation lookup instead of four getPlaceIdsByKind round trips.
+	const [allNearby, relations] = await Promise.all([
 		getPlacesNearby(loc.latitude, loc.longitude, radiusKm),
-		getPlaceIdsByKind(locals.user.id, 'liked'),
-		getPlaceIdsByKind(locals.user.id, 'disliked'),
-		getPlaceIdsByKind(locals.user.id, 'seen'),
-		getPlaceIdsByKind(locals.user.id, 'want_to_go')
+		getRelationMap(locals.user.id)
 	]);
+	const idsOf = (kind: PlaceRelationKind) =>
+		Object.keys(relations).filter((id) => relations[id] === kind);
 
 	// External ids of Apple-sourced places we already have, so the client can
 	// skip re-surfacing them when it pulls fresh POIs from Apple.
@@ -60,10 +60,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		radiusKm,
 		places: allNearby,
 		knownExternalIds,
-		likedIds: [...liked],
-		dislikedIds: [...disliked],
-		seenIds: [...seen],
-		wantToGoIds: [...wantToGo],
+		likedIds: idsOf('liked'),
+		dislikedIds: idsOf('disliked'),
+		seenIds: idsOf('seen'),
+		wantToGoIds: idsOf('want_to_go'),
 		signedIn: true as const
 	};
 };
