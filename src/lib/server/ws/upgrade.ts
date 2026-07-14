@@ -20,6 +20,9 @@ import { WS_CLOSE_FORBIDDEN, WS_CLOSE_UNAUTHORIZED } from './protocol';
 
 const PATH_PATTERN = /^\/ws\/conversations\/([^/]+)$/;
 const PORT = process.env.PORT ?? '3000';
+// The app's own web origin. Runs under tsx, so read process.env directly (same
+// value auth.ts feeds better-auth as baseURL via $env).
+const ALLOWED_ORIGIN = process.env.ORIGIN;
 
 function rejectSocket(socket: Duplex, status: number, message: string): void {
 	socket.write(`HTTP/1.1 ${status} ${message}\r\nConnection: close\r\n\r\n`);
@@ -39,6 +42,17 @@ export async function handleUpgrade(
 		return;
 	}
 	const conversationId = match[1];
+
+	// Cross-site WebSocket hijacking defense. A browser attaches the victim's
+	// session cookie to a cross-origin WS handshake automatically, so a foreign
+	// page could otherwise open a socket as them and read their live messages.
+	// Only browsers send an Origin header; native/bearer-token clients omit it
+	// (and don't rely on the cookie), so a missing Origin is allowed through.
+	const origin = req.headers.origin;
+	if (origin && ALLOWED_ORIGIN && origin !== ALLOWED_ORIGIN) {
+		rejectSocket(socket, 403, 'Forbidden');
+		return;
+	}
 
 	const authRes = await fetch(
 		`http://127.0.0.1:${PORT}/api/internal/ws-auth?conversationId=${encodeURIComponent(conversationId)}`,
