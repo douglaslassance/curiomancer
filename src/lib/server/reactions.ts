@@ -6,6 +6,19 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { db } from './db';
 import { messageReaction } from './db/schema';
 
+/**
+ * A reaction is a single emoji, not free text. Accepting arbitrary strings
+ * would let a client store large / arbitrary-content values in the `emoji`
+ * column (row bloat, abuse). Cap the length and require it to actually contain
+ * emoji (pictographic or flag) code points and no plain letters/whitespace.
+ */
+export function isValidReactionEmoji(value: string): boolean {
+	const points = [...value];
+	if (points.length === 0 || points.length > 8) return false;
+	if (/[A-Za-z]|\s/u.test(value)) return false;
+	return /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(value);
+}
+
 /** Toggle: reacting with an emoji already present removes it instead. */
 export async function toggleReaction(
 	messageId: string,

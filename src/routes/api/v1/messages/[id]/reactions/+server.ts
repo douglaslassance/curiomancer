@@ -1,7 +1,7 @@
 import { error, json } from '@sveltejs/kit';
 import { requireApiUser } from '$lib/server/api-auth';
 import { getMessageConversationId, isParticipant } from '$lib/server/messages';
-import { toggleReaction } from '$lib/server/reactions';
+import { isValidReactionEmoji, toggleReaction } from '$lib/server/reactions';
 import { broadcast } from '$lib/server/ws/registry';
 import type { RequestHandler } from './$types';
 
@@ -20,6 +20,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 	const body = (await request.json().catch(() => null)) as { emoji?: unknown } | null;
 	const emoji = typeof body?.emoji === 'string' ? body.emoji : null;
 	if (!emoji) throw error(400, 'emoji required.');
+	if (!isValidReactionEmoji(emoji)) throw error(400, 'emoji must be a single emoji.');
 
 	const conversationId = await getMessageConversationId(params.id);
 	if (!conversationId || !(await isParticipant(conversationId, userId))) {
