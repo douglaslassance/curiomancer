@@ -61,6 +61,14 @@
 	let selectedPlace = $state<Place | null>(null);
 	// A tapped Apple POI that isn't one of our saved places yet (rate to save it).
 	let selectedPoi = $state<Poi | null>(null);
+	// Current map focus (region center), kept in sync as the user pans/zooms so
+	// search can bias + sort results by proximity to what's on screen. Seeded
+	// from the initial center; a region-change listener keeps it current.
+	// svelte-ignore state_referenced_locally
+	let focus = $state<{ latitude: number; longitude: number }>({
+		latitude: center.latitude,
+		longitude: center.longitude
+	});
 
 	const likedSet = $derived(new Set(likedIds));
 	const wantToGoSet = $derived(new Set(wantToGoIds));
@@ -214,6 +222,51 @@
 	}
 
 	/**
+	 * Picking a search result behaves exactly like tapping the place: fly there
+	 * and open the right-side panel. If we already have the place saved (matched
+	 * by Apple muid), open the full PlacePopup and highlight its pin; otherwise
+	 * drop the amber preview marker and open PoiPopup to rate-and-save it.
+	 */
+	function selectSearchHit(hit: {
+		muid: string;
+		name: string;
+		address: string;
+		latitude: number;
+		longitude: number;
+		category: 'eat' | 'drink' | 'shop' | 'visit' | null;
+		locality?: string;
+	}) {
+		if (!mapRef || !window.mapkit) return;
+		const saved = places.find((p) => p.source === 'apple' && p.externalId === hit.muid);
+		if (saved) {
+			clearPreviewMarker();
+			selectedPoi = null;
+			selectedPlace = saved;
+			if (saved.latitude !== null && saved.longitude !== null) {
+				const coord = new window.mapkit.Coordinate(saved.latitude, saved.longitude);
+				mapRef.setRegionAnimated(
+					new window.mapkit.CoordinateRegion(coord, new window.mapkit.CoordinateSpan(0.01, 0.01)),
+					true
+				);
+			}
+			const ann = placeAnnotations.get(saved.id);
+			if (ann) mapRef.selectedAnnotation = ann;
+			return;
+		}
+		selectedPlace = null;
+		selectedPoi = {
+			muid: hit.muid,
+			name: hit.name,
+			category: hit.category,
+			city: hit.locality ?? '',
+			address: hit.address,
+			latitude: hit.latitude,
+			longitude: hit.longitude
+		};
+		previewSelected(hit);
+	}
+
+	/**
 	 * Fires when any feature is selected. Our own pins carry `.data` and are
 	 * handled by their per-annotation listener, so here we only handle Apple's
 	 * native POIs: resolve the tapped feature to a mapkit.Place and open the
@@ -307,6 +360,12 @@
 				// POI into a rating popup.
 				mapRef.selectableMapFeatures = [window.mapkit.MapFeatureType.PointOfInterest];
 				mapRef.addEventListener('select', handleFeatureSelect);
+
+				// Keep `focus` on the map's current center so search follows the view.
+				mapRef.addEventListener('region-change-end', () => {
+					const c = mapRef.center;
+					if (c) focus = { latitude: c.latitude, longitude: c.longitude };
+				});
 
 				if (!cancelled) status = 'ready';
 				// Annotation sync below runs in a separate $effect so changes to
@@ -429,12 +488,7 @@
 	<div bind:this={mapElement} class="absolute inset-0 bg-muted"></div>
 
 	{#if status === 'ready' && showSearch}
-		<MapSearch
-			{center}
-			{signedIn}
-			onPreview={previewSelected}
-			onClearPreview={clearPreviewMarker}
-		/>
+		<MapSearch {focus} {signedIn} onSelect={selectSearchHit} onClearPreview={clearPreviewMarker} />
 	{/if}
 
 	{#if status === 'ready' && (showFilters || showCategoryFilter)}

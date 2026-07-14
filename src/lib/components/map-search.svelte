@@ -28,43 +28,53 @@
 	};
 
 	let {
-		center,
+		focus,
 		signedIn,
-		onPreview,
+		onSelect,
 		onClearPreview
 	}: {
-		center: { latitude: number; longitude: number };
+		/** Current map focus (region center). Search is biased and sorted around
+		 * this, and it follows the map as the user pans/zooms. */
+		focus: { latitude: number; longitude: number };
 		signedIn: boolean;
-		/** Called when a search result is selected - parent flies the map. */
-		onPreview: (hit: Hit) => void;
+		/** A result was picked - parent flies the map and opens the place panel,
+		 * exactly as if the place's pin had been tapped. */
+		onSelect: (hit: Hit) => void;
 		onClearPreview: () => void;
 	} = $props();
 
 	let query = $state('');
 	let results = $state<Hit[]>([]);
 	let searching = $state(false);
-	let selected = $state<Hit | null>(null);
 	// Which hit + kind is currently being saved, so we can spin the right button.
 	let saving = $state<{ muid: string; kind: Kind } | null>(null);
 	let error = $state<string | null>(null);
 	let debounceId: ReturnType<typeof setTimeout> | null = null;
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let search: any = null;
+	/** Great-circle distance in km, for sorting results by proximity to focus. */
+	function distanceKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
+		const toRad = (d: number) => (d * Math.PI) / 180;
+		const dLat = toRad(bLat - aLat);
+		const dLng = toRad(bLng - aLng);
+		const s =
+			Math.sin(dLat / 2) ** 2 +
+			Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
+		return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(s)));
+	}
 
-	async function ensureSearch() {
-		if (search) return search;
+	function makeSearch() {
 		if (typeof window === 'undefined' || !window.mapkit) {
 			throw new Error('MapKit JS not loaded yet.');
 		}
-		search = new window.mapkit.Search({
+		// Rebuilt per search (not cached) so the region tracks the current focus
+		// as the user moves the map.
+		return new window.mapkit.Search({
 			getsUserLocation: false,
 			region: new window.mapkit.CoordinateRegion(
-				new window.mapkit.Coordinate(center.latitude, center.longitude),
+				new window.mapkit.Coordinate(focus.latitude, focus.longitude),
 				new window.mapkit.CoordinateSpan(0.5, 0.5)
 			)
 		});
-		return search;
 	}
 
 	async function runSearch(q: string) {
@@ -75,7 +85,7 @@
 		searching = true;
 		error = null;
 		try {
-			const s = await ensureSearch();
+			const s = makeSearch();
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const data = await new Promise<any>((resolve, reject) => {
 				s.search(q, (err: unknown, data: unknown) => {
@@ -86,15 +96,23 @@
 
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const places = (data?.places ?? []) as any[];
-			results = places.slice(0, 8).map((p) => ({
-				muid: String(p.muid ?? p.id ?? ''),
-				name: p.name ?? '(unnamed)',
-				address: p.formattedAddress ?? '',
-				latitude: p.coordinate?.latitude ?? 0,
-				longitude: p.coordinate?.longitude ?? 0,
-				category: mapAppleCategory(p.pointOfInterestCategory),
-				locality: p.locality ?? p.subLocality ?? undefined
-			}));
+			results = places
+				.map((p) => ({
+					muid: String(p.muid ?? p.id ?? ''),
+					name: p.name ?? '(unnamed)',
+					address: p.formattedAddress ?? '',
+					latitude: p.coordinate?.latitude ?? 0,
+					longitude: p.coordinate?.longitude ?? 0,
+					category: mapAppleCategory(p.pointOfInterestCategory),
+					locality: p.locality ?? p.subLocality ?? undefined
+				}))
+				// Nearest to what's on screen first, then keep the top 8.
+				.sort(
+					(a, b) =>
+						distanceKm(focus.latitude, focus.longitude, a.latitude, a.longitude) -
+						distanceKm(focus.latitude, focus.longitude, b.latitude, b.longitude)
+				)
+				.slice(0, 8);
 		} catch (err) {
 			console.error('Search failed:', err);
 			error = err instanceof Error ? err.message : 'Search failed.';
@@ -110,15 +128,27 @@
 		debounceId = setTimeout(() => runSearch(value), 300);
 	}
 
+	// Enter validates the first (nearest) result. If a search is still pending,
+	// flush it so a fast typist who hits Enter immediately still gets results.
+	function onKeydown(e: KeyboardEvent) {
+		if (e.key !== 'Enter') return;
+		e.preventDefault();
+		if (debounceId) {
+			clearTimeout(debounceId);
+			debounceId = null;
+		}
+		if (results.length > 0) selectHit(results[0]);
+		else runSearch(query);
+	}
+
+	// Picking a result behaves like tapping its pin: the parent flies there and
+	// opens the place panel on the right. We keep the query and result list intact
+	// so the field stays usable for the next search.
 	function selectHit(hit: Hit) {
-		selected = hit;
-		results = [];
-		query = hit.name;
-		onPreview(hit);
+		onSelect(hit);
 	}
 
 	function clearSelection() {
-		selected = null;
 		query = '';
 		results = [];
 		onClearPreview();
@@ -152,7 +182,6 @@
 				const text = await res.text().catch(() => '');
 				throw new Error(text || `Server returned ${res.status}`);
 			}
-			selected = null;
 			query = '';
 			results = [];
 			onClearPreview();
@@ -198,6 +227,7 @@
 			placeholder="Search places…"
 			value={query}
 			oninput={(e) => onInput(e.currentTarget.value)}
+			onkeydown={onKeydown}
 			class="border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
 		/>
 		{#if searching}
@@ -220,8 +250,8 @@
 		</p>
 	{/if}
 
-	<!-- Results dropdown: rate inline, or click the text to preview on the map. -->
-	{#if results.length > 0 && !selected}
+	<!-- Results dropdown: rate inline, or click the text to open it on the map. -->
+	{#if results.length > 0}
 		<div class="bg-card mt-1 max-h-96 overflow-y-auto rounded-xl border shadow-md backdrop-blur">
 			{#each results as hit (hit.muid)}
 				<div class="hover:bg-accent flex flex-col gap-2 px-3 py-2">
@@ -239,35 +269,6 @@
 					{/if}
 				</div>
 			{/each}
-		</div>
-	{/if}
-
-	<!-- Selected preview: relation buttons -->
-	{#if selected}
-		<div class="bg-card mt-1 rounded-xl border p-3 shadow-md backdrop-blur">
-			<div class="flex items-start justify-between gap-2">
-				<div class="min-w-0 flex-1">
-					<div class="flex items-center gap-2">
-						<span class="truncate text-sm font-medium">{selected.name}</span>
-						{#if selected.category}
-							<Badge variant="secondary" class="text-[10px]">{categoryLabel(selected.category)}</Badge>
-						{/if}
-					</div>
-					<p class="text-muted-foreground mt-0.5 truncate text-xs">{selected.address}</p>
-				</div>
-			</div>
-
-			{#if !signedIn}
-				<p class="text-muted-foreground mt-2 text-xs">Sign in to like or dislike places.</p>
-			{:else if !selected.category}
-				<p class="text-muted-foreground mt-2 text-xs">
-					This type isn't supported yet, only places to eat, drink, shop, or visit.
-				</p>
-			{:else}
-				<div class="mt-3">
-					{@render ratingGroup(selected)}
-				</div>
-			{/if}
 		</div>
 	{/if}
 </div>
