@@ -20,8 +20,22 @@ export type Weather = {
 
 type CacheEntry = { value: Weather; expiresAt: number };
 const cache = new Map<string, CacheEntry>();
+const MAX_ENTRIES = 5000;
 
 const cacheKey = (lat: number, lng: number) => `${lat.toFixed(2)}:${lng.toFixed(2)}`;
+
+// Keep the cache from growing without bound on a long-lived process: drop
+// expired entries first, then the oldest-inserted ones if still over the cap.
+function evictIfNeeded(): void {
+	if (cache.size < MAX_ENTRIES) return;
+	const now = Date.now();
+	for (const [k, v] of cache) if (v.expiresAt <= now) cache.delete(k);
+	while (cache.size >= MAX_ENTRIES) {
+		const oldest = cache.keys().next().value;
+		if (oldest === undefined) break;
+		cache.delete(oldest);
+	}
+}
 
 export async function getCurrentWeather(latitude: number, longitude: number): Promise<Weather> {
 	const key = cacheKey(latitude, longitude);
@@ -52,6 +66,7 @@ export async function getCurrentWeather(latitude: number, longitude: number): Pr
 		weatherCode: code,
 		description: describeCode(code)
 	};
+	evictIfNeeded();
 	cache.set(key, { value, expiresAt: Date.now() + TTL_MS });
 	return value;
 }

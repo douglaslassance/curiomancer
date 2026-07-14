@@ -38,6 +38,7 @@ if (!building) startMetricsCron();
 // In-process throttle for the last-seen heartbeat: at most one DB write per
 // user every 5 minutes, so a burst of requests doesn't hammer user_activity.
 const HEARTBEAT_MS = 5 * 60 * 1000;
+const HEARTBEAT_MAX_TRACKED = 50_000;
 const lastBeat = new Map<string, number>();
 
 function heartbeat(userId: string): void {
@@ -45,6 +46,12 @@ function heartbeat(userId: string): void {
 	const prev = lastBeat.get(userId);
 	if (prev && now - prev < HEARTBEAT_MS) return;
 	lastBeat.set(userId, now);
+	// Keep this map bounded: once an entry is older than the window it no longer
+	// suppresses anything (the next request writes regardless), so it's safe to
+	// drop. Only sweep when the map gets large, to keep the common path cheap.
+	if (lastBeat.size > HEARTBEAT_MAX_TRACKED) {
+		for (const [id, ts] of lastBeat) if (now - ts >= HEARTBEAT_MS) lastBeat.delete(id);
+	}
 	// Fire-and-forget: activity tracking must never delay or fail a request.
 	void touchUserActivity(userId).catch((err) => console.error('[metrics] heartbeat failed:', err));
 }
