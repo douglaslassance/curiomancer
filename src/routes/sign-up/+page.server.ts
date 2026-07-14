@@ -3,10 +3,52 @@ import { APIError } from 'better-auth/api';
 import { eq } from 'drizzle-orm';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { user } from '$lib/server/db/schema';
+import { user, userLocation } from '$lib/server/db/schema';
 import { findRedeemableInvite, redeemInvite } from '$lib/server/invites';
+import { geocodeApple } from '$lib/server/maps-search';
+import { reverseGeocode } from '$lib/server/location';
 import { getPostHogClient } from '$lib/server/posthog';
 import type { Actions, PageServerLoad } from './$types';
+
+/**
+ * Store the new user's home location from the sign-up form. Best-effort: any
+ * failure (bad city, geocode hiccup) is swallowed so it never blocks account
+ * creation - the dashboard's location prompt is the fallback. Uses the coords
+ * from "Detect" when present, otherwise forward-geocodes the typed city.
+ */
+async function storeSignupLocation(
+	userId: string,
+	cityInput: string,
+	latRaw: string,
+	lngRaw: string
+): Promise<void> {
+	try {
+		let coords: { latitude: number; longitude: number } | null = null;
+		const lat = Number(latRaw);
+		const lng = Number(lngRaw);
+		if (latRaw && lngRaw && isFinite(lat) && isFinite(lng)) {
+			coords = { latitude: lat, longitude: lng };
+		} else if (cityInput) {
+			coords = await geocodeApple(cityInput);
+		}
+		if (!coords) return;
+
+		const resolved = await reverseGeocode(coords.latitude, coords.longitude);
+		await db
+			.insert(userLocation)
+			.values({
+				userId,
+				city: resolved.city,
+				countryCode: resolved.countryCode,
+				latitude: coords.latitude,
+				longitude: coords.longitude,
+				timezone: resolved.timezone
+			})
+			.onConflictDoNothing();
+	} catch (err) {
+		console.error('Sign-up location store failed (non-fatal):', err);
+	}
+}
 
 /**
  * Sign-up is strictly invite-gated. The very first admin comes in
@@ -54,6 +96,9 @@ export const actions: Actions = {
 		const email = data.get('email')?.toString() ?? '';
 		const password = data.get('password')?.toString() ?? '';
 		const code = data.get('invite')?.toString().trim() || null;
+		const city = data.get('city')?.toString().trim() ?? '';
+		const latitude = data.get('latitude')?.toString() ?? '';
+		const longitude = data.get('longitude')?.toString() ?? '';
 
 		if (!name || !email || !password) {
 			return fail(400, { name, email, message: 'All fields are required.' });
@@ -116,6 +161,8 @@ export const actions: Actions = {
 		}
 
 		if (newUserId) {
+			await storeSignupLocation(newUserId, city, latitude, longitude);
+
 			getPostHogClient()?.capture({
 				distinctId: newUserId,
 				event: 'user_signed_up',
