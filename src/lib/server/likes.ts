@@ -42,9 +42,6 @@ export async function getPlaceIdsByKind(
 	return new Set(rows.map((r) => r.placeId));
 }
 
-/** Backwards-compatible alias for callers that only ever want liked IDs. */
-export const getLikedPlaceIds = (userId: string | undefined) => getPlaceIdsByKind(userId, 'liked');
-
 /**
  * Set the user's relation to a place to `kind`, or clear it if the row
  * already matches `kind` (toggle behavior). Returns the resulting state
@@ -101,15 +98,6 @@ export async function upsertRelation(
 			target: [placeRelation.userId, placeRelation.placeId],
 			set: { kind }
 		});
-}
-
-/**
- * Legacy toggle: flips the place between "liked" and "no relation". Kept
- * so older endpoints still compile during the dislike rollout.
- */
-export async function toggleLike(userId: string, placeId: string): Promise<boolean> {
-	const result = await setRelation(userId, placeId, 'liked');
-	return result === 'liked';
 }
 
 /** Insert any place IDs not already liked. Used to merge anonymous likes on sign-in. */
