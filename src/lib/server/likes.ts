@@ -76,6 +76,26 @@ export async function setRelation(
 }
 
 /**
+ * Set the user's relation to `kind` unconditionally (upsert, no toggle).
+ * Unlike setRelation, calling it twice with the same kind is idempotent - it
+ * leaves the row in place rather than clearing it. Used by bulk imports where
+ * a name can recur and a re-run must be safe.
+ */
+export async function upsertRelation(
+	userId: string,
+	placeId: string,
+	kind: PlaceRelationKind
+): Promise<void> {
+	await db
+		.insert(placeRelation)
+		.values({ userId, placeId, kind })
+		.onConflictDoUpdate({
+			target: [placeRelation.userId, placeRelation.placeId],
+			set: { kind }
+		});
+}
+
+/**
  * Legacy toggle: flips the place between "liked" and "no relation". Kept
  * so older endpoints still compile during the dislike rollout.
  */
