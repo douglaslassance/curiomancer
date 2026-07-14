@@ -12,6 +12,23 @@ if (PUBLIC_SENTRY_DSN) {
 		// so it protects the free 10k-span/month allotment without thinning
 		// error visibility.
 		tracesSampleRate: 0.25,
-		enableLogs: true
+		enableLogs: true,
+		// Default (false), but pinned explicitly so request headers/cookies and
+		// user data are never attached to events.
+		sendDefaultPii: false,
+		// Strip credential-bearing bits before anything leaves the process: the
+		// Cookie/Authorization headers, and the auth query strings (?token=,
+		// ?next=) that can ride along on request URLs.
+		beforeSend(event) {
+			const headers = event.request?.headers;
+			if (headers) {
+				delete headers.cookie;
+				delete headers.Cookie;
+				delete headers.authorization;
+				delete headers.Authorization;
+			}
+			if (event.request?.query_string) delete event.request.query_string;
+			return event;
+		}
 	});
 }
