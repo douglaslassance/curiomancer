@@ -139,6 +139,11 @@ function getPubSub(): ReturnType<typeof postgres> {
 	return sql;
 }
 
+// How many simultaneous sockets one user may hold on a single conversation.
+// Two devices plus a reconnect overlap is plenty; beyond that it's a bug or
+// abuse, so evict their oldest.
+const MAX_PER_USER_PER_CONVERSATION = 5;
+
 /** Registers a live connection and wires its inbound events and cleanup. */
 export function registerConnection(conversationId: string, userId: string, ws: WebSocket): void {
 	ensureSweep();
@@ -146,6 +151,18 @@ export function registerConnection(conversationId: string, userId: string, ws: W
 	const handle: ConnectionHandle = { ws, userId, lastSeenAt: Date.now() };
 	let set = conversations.get(conversationId);
 	if (!set) conversations.set(conversationId, (set = new Set()));
+
+	// Bound connections per user so a client can't open sockets without limit.
+	const mine = [...set].filter((h) => h.userId === userId).sort((a, b) => a.lastSeenAt - b.lastSeenAt);
+	for (let i = 0; i <= mine.length - MAX_PER_USER_PER_CONVERSATION; i++) {
+		set.delete(mine[i]);
+		try {
+			mine[i].ws.close(1008, 'too many connections');
+		} catch {
+			// already closing
+		}
+	}
+
 	set.add(handle);
 
 	ws.on('message', (raw) => {
