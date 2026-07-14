@@ -9,8 +9,8 @@ import type { Kind } from './relations.svelte';
 export const RELATION_COLOR: Record<Kind, string> = {
 	liked: '#ec4899', // pink-500
 	want_to_go: '#236d4d', // Curiomancer green (brand --primary, oklch(0.48 0.09 161))
-	seen: '#d1d5db', // light grey (gray-300)
-	disliked: '#000000' // black
+	seen: '#3b82f6', // blue-500
+	disliked: '#ef4444' // red-500
 };
 
 /** A place the viewer hasn't rated yet: neutral pin (discovery, Tune queue). */
