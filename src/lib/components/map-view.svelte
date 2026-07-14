@@ -3,8 +3,10 @@
 	import type { Place } from '$lib/server/db/schema';
 	import { categoryGlyphDataUri } from '$lib/map-glyphs';
 	import PlacePopup from './place-popup.svelte';
+	import PoiPopup, { type Poi } from './poi-popup.svelte';
 	import MapSearch from './map-search.svelte';
 	import CategoryFilter from './category-filter.svelte';
+	import { mapAppleCategoryClient } from '$lib/map-category';
 	import { Bookmark, Eye, Sparkles, ThumbsDown, ThumbsUp } from '@lucide/svelte';
 	import { RELATION_COLOR, RELATION_NEUTRAL, RELATION_RECOMMENDED } from '$lib/relation-colors';
 	import type { Component } from 'svelte';
@@ -57,6 +59,8 @@
 	let status = $state<'loading' | 'ready' | 'error'>('loading');
 	let errorMessage = $state<string | null>(null);
 	let selectedPlace = $state<Place | null>(null);
+	// A tapped Apple POI that isn't one of our saved places yet (rate to save it).
+	let selectedPoi = $state<Poi | null>(null);
 
 	const likedSet = $derived(new Set(likedIds));
 	const wantToGoSet = $derived(new Set(wantToGoIds));
@@ -198,6 +202,7 @@
 			selected: true,
 			...(glyph ? { glyphImage: { 1: glyph, 2: glyph, 3: glyph } } : {})
 		});
+		previewMarker.__curioPin = true; // ours - the POI select handler skips it
 		mapRef.addAnnotation(previewMarker);
 	}
 
@@ -206,6 +211,53 @@
 			mapRef.removeAnnotation(previewMarker);
 			previewMarker = null;
 		}
+	}
+
+	/**
+	 * Fires when any feature is selected. Our own pins carry `.data` and are
+	 * handled by their per-annotation listener, so here we only handle Apple's
+	 * native POIs: resolve the tapped feature to a mapkit.Place and open the
+	 * rating popup. Rating it saves the place (deduped by muid, like search).
+	 */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	async function handleFeatureSelect(event: any) {
+		const ann = event?.annotation;
+		// Skip our own annotations (pins + search preview), which we tag with
+		// `__curioPin`. We can't rely on class or `.data`: PlaceAnnotation extends
+		// MarkerAnnotation, and place annotations default `.data` to a truthy `{}`.
+		if (!ann || ann.__curioPin) return;
+
+		// The selected POI exposes a mapkit.Place directly or via a lookup by id.
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		let place: any = ann.place ?? null;
+		if (!place && ann.id && window.mapkit.PlaceLookup) {
+			try {
+				const lookup = new window.mapkit.PlaceLookup();
+				place = await new Promise((resolve) => {
+					lookup.getPlace(ann.id, (err: unknown, data: unknown) => resolve(err ? null : data));
+				});
+			} catch {
+				place = null;
+			}
+		}
+		if (!place || !place.coordinate) return;
+
+		selectedPlace = null;
+		selectedPoi = {
+			muid: String(place.muid ?? place.id),
+			name: place.name ?? 'Place',
+			category: mapAppleCategoryClient(place.pointOfInterestCategory),
+			city: place.locality ?? place.subLocality ?? '',
+			address: place.formattedAddress ?? '',
+			latitude: place.coordinate.latitude,
+			longitude: place.coordinate.longitude
+		};
+	}
+
+	function closePoi() {
+		selectedPoi = null;
+		// Deselect the native feature so tapping it again re-opens the popup.
+		if (mapRef) mapRef.selectedAnnotation = null;
 	}
 
 	onMount(() => {
@@ -249,6 +301,12 @@
 						? window.mapkit.Map.ColorSchemes.Dark
 						: window.mapkit.Map.ColorSchemes.Light
 				});
+
+				// Make Apple's native POIs tappable so any place on the map can be
+				// rated, not just our own pins. handleFeatureSelect turns a tapped
+				// POI into a rating popup.
+				mapRef.selectableMapFeatures = [window.mapkit.MapFeatureType.PointOfInterest];
+				mapRef.addEventListener('select', handleFeatureSelect);
 
 				if (!cancelled) status = 'ready';
 				// Annotation sync below runs in a separate $effect so changes to
@@ -319,7 +377,9 @@
 				callout: { calloutShouldAppearForAnnotation: () => false }
 			});
 			ann.data = p;
+			ann.__curioPin = true; // mark as ours so the POI select handler skips it
 			ann.addEventListener('select', () => {
+				selectedPoi = null;
 				selectedPlace = p;
 			});
 			ann.addEventListener('deselect', () => {
@@ -430,5 +490,7 @@
 
 	{#if selectedPlace}
 		<PlacePopup placeId={selectedPlace.id} onClose={() => (selectedPlace = null)} />
+	{:else if selectedPoi}
+		<PoiPopup poi={selectedPoi} {signedIn} onClose={closePoi} />
 	{/if}
 </div>
