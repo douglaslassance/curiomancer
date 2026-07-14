@@ -5,7 +5,14 @@ import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { user } from '$lib/server/db/schema';
 import { createApiToken } from '$lib/server/api-tokens';
+import { rateLimit } from '$lib/server/rate-limit';
 import type { RequestHandler } from './$types';
+
+// Password guessing is the threat here: cap attempts per IP, and tighter still
+// per IP+email so spraying one account is throttled even behind a shared NAT.
+const WINDOW_MS = 15 * 60 * 1000;
+const MAX_PER_IP = 30;
+const MAX_PER_IP_EMAIL = 8;
 
 /**
  * POST /api/v1/auth/token
@@ -20,7 +27,7 @@ import type { RequestHandler } from './$types';
  *
  * The plaintext token is shown only in this response; store it on device.
  */
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	const body = (await request.json().catch(() => null)) as {
 		email?: unknown;
 		password?: unknown;
@@ -36,6 +43,13 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	if (!email || !password) {
 		throw error(400, 'email and password are required.');
+	}
+
+	const ip = getClientAddress();
+	const byIp = rateLimit(`token:ip:${ip}`, MAX_PER_IP, WINDOW_MS);
+	const byEmail = rateLimit(`token:ip-email:${ip}:${email.toLowerCase()}`, MAX_PER_IP_EMAIL, WINDOW_MS);
+	if (!byIp.ok || !byEmail.ok) {
+		throw error(429, `Too many attempts. Try again in ${byIp.retryAfterSec || byEmail.retryAfterSec}s.`);
 	}
 
 	let result;

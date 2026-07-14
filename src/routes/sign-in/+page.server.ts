@@ -2,7 +2,12 @@ import { fail, redirect } from '@sveltejs/kit';
 import { APIError } from 'better-auth/api';
 import { auth } from '$lib/server/auth';
 import { getPostHogClient } from '$lib/server/posthog';
+import { rateLimit } from '$lib/server/rate-limit';
 import type { Actions, PageServerLoad } from './$types';
+
+const WINDOW_MS = 15 * 60 * 1000;
+const MAX_PER_IP = 30;
+const MAX_PER_IP_EMAIL = 8;
 
 // Where to land after signing in: the `next` the route guard tucked into the
 // URL, if it's a safe internal path (no protocol-relative / external), else
@@ -26,6 +31,21 @@ export const actions: Actions = {
 
 		if (!email || !password) {
 			return fail(400, { email, message: 'Email and password are required.' });
+		}
+
+		const ip = event.getClientAddress();
+		const byIp = rateLimit(`signin:ip:${ip}`, MAX_PER_IP, WINDOW_MS);
+		const byEmail = rateLimit(
+			`signin:ip-email:${ip}:${email.toLowerCase()}`,
+			MAX_PER_IP_EMAIL,
+			WINDOW_MS
+		);
+		if (!byIp.ok || !byEmail.ok) {
+			const retry = byIp.retryAfterSec || byEmail.retryAfterSec;
+			return fail(429, {
+				email,
+				message: `Too many sign-in attempts. Try again in about ${Math.ceil(retry / 60)} min.`
+			});
 		}
 
 		let userId: string | null = null;
