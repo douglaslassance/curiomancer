@@ -48,9 +48,16 @@ server.listen(PORT, HOST, () => {
 	console.log(`Listening on http://${HOST}:${PORT}`);
 });
 
+let shuttingDown = false;
 for (const sig of ['SIGTERM', 'SIGINT'] as const) {
 	process.on(sig, () => {
-		server.close(() => process.exit(0));
+		if (shuttingDown) return;
+		shuttingDown = true;
+		// Close live sockets first so they don't keep server.close() waiting, then
+		// stop accepting connections. A forced-exit timer guarantees the process
+		// still exits if some connection stalls its close.
 		wss.clients.forEach((ws) => ws.close(1001, 'server shutting down'));
+		server.close(() => process.exit(0));
+		setTimeout(() => process.exit(1), 10_000).unref();
 	});
 }
