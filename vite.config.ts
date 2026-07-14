@@ -17,7 +17,12 @@ export default defineConfig(({ mode }) => {
 						sentrySvelteKit({
 							org: env.SENTRY_ORG,
 							project: env.SENTRY_PROJECT,
-							authToken: env.SENTRY_AUTH_TOKEN
+							authToken: env.SENTRY_AUTH_TOKEN,
+							// Delete the client source maps once uploaded so the original
+							// source isn't left served publicly under build/client.
+							sourcemaps: {
+								filesToDeleteAfterUpload: ['./build/client/**/*.map']
+							}
 						})
 					]
 				: []),
