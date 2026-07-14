@@ -1,6 +1,13 @@
 import { error, json } from '@sveltejs/kit';
 import { requireApiUser } from '$lib/server/api-auth';
-import { getMessages, isParticipant, MAX_MESSAGE_LENGTH, sendMessage } from '$lib/server/messages';
+import { isBlocked } from '$lib/server/blocks';
+import {
+	getMessages,
+	isParticipant,
+	MAX_MESSAGE_LENGTH,
+	otherParticipant,
+	sendMessage
+} from '$lib/server/messages';
 import { getReactionsFor } from '$lib/server/reactions';
 import { parseHistoryQuery } from '$lib/server/messages-query';
 import { isSubscriber } from '$lib/server/subscriptions';
@@ -46,7 +53,13 @@ export const GET: RequestHandler = async ({ params, request, url }) => {
 export const POST: RequestHandler = async ({ params, request }) => {
 	const userId = await requireApiUser(request);
 	if (!(await isSubscriber(userId))) throw error(403, 'Subscription required.');
-	if (!(await isParticipant(params.id, userId))) throw error(404, 'Conversation not found.');
+
+	// Resolves the other participant and confirms membership in one lookup, so
+	// we can honor blocks here the same way the web send path does - otherwise a
+	// blocked user could keep messaging through an existing conversation.
+	const otherId = await otherParticipant(params.id, userId);
+	if (!otherId) throw error(404, 'Conversation not found.');
+	if (await isBlocked(userId, otherId)) throw error(403, 'This conversation is unavailable.');
 
 	const payload = (await request.json().catch(() => null)) as {
 		body?: unknown;

@@ -300,6 +300,18 @@ export async function isParticipant(conversationId: string, userId: string): Pro
 	return conv.userAId === userId || conv.userBId === userId;
 }
 
+/** The other participant's id, or null if `userId` isn't in the conversation. */
+export async function otherParticipant(
+	conversationId: string,
+	userId: string
+): Promise<string | null> {
+	const conv = await getConversationById(conversationId);
+	if (!conv) return null;
+	if (conv.userAId === userId) return conv.userBId;
+	if (conv.userBId === userId) return conv.userAId;
+	return null;
+}
+
 /** The conversation a given message belongs to, for authorizing reaction endpoints. */
 export async function getMessageConversationId(messageId: string): Promise<string | null> {
 	const [row] = await db
