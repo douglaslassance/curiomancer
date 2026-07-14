@@ -26,7 +26,10 @@ export function getStripe(): Stripe {
 		throw new Error('STRIPE_SECRET_KEY is not set; billing is disabled.');
 	}
 	if (!client) {
-		client = new Stripe(env.STRIPE_SECRET_KEY);
+		// Pin the API version so a Stripe-side default rollout can't change event
+		// or response shapes under us. Matches the version bundled with this SDK
+		// (stripe@22); bump it deliberately alongside an SDK upgrade.
+		client = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: '2026-06-24.dahlia' });
 	}
 	return client;
 }
