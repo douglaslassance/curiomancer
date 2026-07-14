@@ -19,17 +19,25 @@ import type { Place } from './db/schema';
  *
  *   const dist = haversineKm(34.05, -118.24, 'p.latitude', 'p.longitude');
  *   await db.execute(sql`SELECT * FROM place p WHERE ${dist} < 30`);
+ *
+ * The coordinates are bound as query parameters, not interpolated, so this can
+ * never become a SQL-injection vector even if a caller ever passes a
+ * request-derived number. Only the column names are raw, and those are
+ * hardcoded literals supplied by the callers here.
  */
-export const haversineKm = (lat: number, lng: number, latCol: string, lngCol: string) =>
-	sql.raw(`
+export const haversineKm = (lat: number, lng: number, latCol: string, lngCol: string) => {
+	const latColSql = sql.raw(latCol);
+	const lngColSql = sql.raw(lngCol);
+	return sql`
 		6371.0 * acos(
 			LEAST(1.0,
-				cos(radians(${lat})) * cos(radians(${latCol})) *
-				cos(radians(${lngCol}) - radians(${lng})) +
-				sin(radians(${lat})) * sin(radians(${latCol}))
+				cos(radians(${lat})) * cos(radians(${latColSql})) *
+				cos(radians(${lngColSql}) - radians(${lng})) +
+				sin(radians(${lat})) * sin(radians(${latColSql}))
 			)
 		)
-	`);
+	`;
+};
 
 /**
  * Antipodal distance (pi * 6371) rounded up - the farthest any two points on
