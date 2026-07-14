@@ -1,7 +1,5 @@
-import { error, json } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
-import { userLocation } from '$lib/server/db/schema';
-import { reverseGeocode } from '$lib/server/location';
+import { json } from '@sveltejs/kit';
+import { upsertUserLocation } from '$lib/server/current-location';
 import { requireApiUser } from '$lib/server/api-auth';
 import { getPostHogClient } from '$lib/server/posthog';
 import type { RequestHandler } from './$types';
@@ -25,54 +23,15 @@ export const POST: RequestHandler = async ({ request }) => {
 		timezone?: unknown;
 	} | null;
 
-	const lat = typeof body?.latitude === 'number' ? body.latitude : NaN;
-	const lng = typeof body?.longitude === 'number' ? body.longitude : NaN;
-	const clientTz = typeof body?.timezone === 'string' ? body.timezone : null;
-
-	if (!isFinite(lat) || !isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-		throw error(400, 'latitude and longitude must be valid numbers');
-	}
-
-	let resolved;
-	try {
-		resolved = await reverseGeocode(lat, lng);
-	} catch (err) {
-		console.error('Reverse-geocode failed:', err);
-		throw error(502, 'Could not determine city from coordinates');
-	}
-
-	const row = {
-		userId,
-		city: resolved.city,
-		countryCode: resolved.countryCode,
-		latitude: lat,
-		longitude: lng,
-		timezone: clientTz ?? resolved.timezone,
-		updatedAt: new Date()
-	};
-
-	await db
-		.insert(userLocation)
-		.values(row)
-		.onConflictDoUpdate({
-			target: userLocation.userId,
-			set: {
-				city: row.city,
-				countryCode: row.countryCode,
-				latitude: row.latitude,
-				longitude: row.longitude,
-				timezone: row.timezone,
-				updatedAt: row.updatedAt
-			}
-		});
+	const result = await upsertUserLocation(userId, body?.latitude, body?.longitude, body?.timezone);
 
 	// Mirror the web /api/location capture so native-client location updates are
 	// visible in product analytics too.
 	getPostHogClient()?.capture({
 		distinctId: userId,
 		event: 'location_updated',
-		properties: { city: row.city, country_code: row.countryCode }
+		properties: { city: result.city, country_code: result.countryCode }
 	});
 
-	return json({ city: row.city, countryCode: row.countryCode, timezone: row.timezone });
+	return json(result);
 };
