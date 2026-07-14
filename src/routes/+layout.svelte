@@ -109,7 +109,13 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
-	<title>Curiomancer · taste-matched places</title>
+	<!-- Plain brand title + a real description reads more elegantly as a search
+	     result than a compound title. Inner pages can still override both. -->
+	<title>Curiomancer</title>
+	<meta
+		name="description"
+		content="Discover bars, restaurants, and shops you'll love. Curiomancer matches your taste with people who share it, wherever you are."
+	/>
 	{#if !data.user}
 		<!--
 			The no-flash script in app.html can't know auth state, so it may apply
