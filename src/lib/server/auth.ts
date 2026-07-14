@@ -12,6 +12,21 @@ import {
 	sendVerificationEmail
 } from '$lib/server/email';
 
+/**
+ * Rewrite the `callbackURL` on a better-auth verification link so the user
+ * lands where we want after clicking. Falls back to the original URL if it
+ * can't be parsed.
+ */
+function withCallback(url: string, callbackPath: string): string {
+	try {
+		const u = new URL(url);
+		u.searchParams.set('callbackURL', callbackPath);
+		return u.toString();
+	} catch {
+		return url;
+	}
+}
+
 export const auth = betterAuth({
 	baseURL: env.ORIGIN,
 	secret: env.BETTER_AUTH_SECRET,
@@ -44,7 +59,10 @@ export const auth = betterAuth({
 			if (user.emailVerified) {
 				await sendChangeEmailVerificationEmail(user.email, url);
 			} else {
-				await sendVerificationEmail(user.email, url);
+				// autoSignInAfterVerification signs them in when they click, so send
+				// them straight into onboarding (the skippable import wizard) rather
+				// than the default landing.
+				await sendVerificationEmail(user.email, withCallback(url, '/onboarding'));
 			}
 		}
 	},

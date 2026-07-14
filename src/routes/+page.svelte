@@ -1,10 +1,12 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as Card from '$lib/components/ui/card';
 	import {
 		ArrowRight,
 		Check,
+		Download,
 		LocateFixed,
 		Loader2,
 		Luggage,
@@ -17,6 +19,16 @@
 	import CategoryRail from '$lib/components/category-rail.svelte';
 
 	let { data } = $props();
+
+	// Onboarding: a brand-new user (no likes yet) is offered the Google import.
+	// "Skip for now" is remembered so it doesn't nag on every visit; the card
+	// also stops showing on its own once they have any likes.
+	const IMPORT_SKIP_KEY = 'import-onboarding-dismissed';
+	let importSkipped = $state(browser && localStorage.getItem(IMPORT_SKIP_KEY) === '1');
+	function skipImport() {
+		importSkipped = true;
+		if (browser) localStorage.setItem(IMPORT_SKIP_KEY, '1');
+	}
 
 	// Waitlist signup, inline on the splash.
 	let email = $state('');
@@ -277,6 +289,30 @@
 {:else}
 	<!-- --- Dashboard ------------------------------------------------------- -->
 	<DashboardHeader location={data.location} weather={data.weather} />
+
+	{#if data.myLikeCount === 0 && !importSkipped}
+		<Card.Root class="border-primary/30 bg-primary/5 mb-6">
+			<Card.Content class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div class="flex items-start gap-3">
+					<Download class="text-primary mt-0.5 size-5 shrink-0" />
+					<div>
+						<h2 class="text-base font-medium">Bring your taste with you</h2>
+						<p class="text-muted-foreground mt-1 text-sm">
+							Import your saved places from Google Maps to get matches right away. Favorites become
+							likes, "Want to go" carries across.
+						</p>
+					</div>
+				</div>
+				<div class="flex shrink-0 items-center gap-2 self-end sm:self-auto">
+					<Button variant="ghost" size="sm" onclick={skipImport}>Skip for now</Button>
+					<Button href="/import" size="sm">
+						Import
+						<ArrowRight class="size-4" />
+					</Button>
+				</div>
+			</Card.Content>
+		</Card.Root>
+	{/if}
 
 	<CategoryRail
 		title="Recommended Eat"
