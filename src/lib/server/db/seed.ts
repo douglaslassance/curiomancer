@@ -37,6 +37,13 @@ import { mapAppleCategory, searchAppleMaps, type AppleSearchResult } from '../ma
 /** Matches both the current demo domain and the pre-rename "Bond" one. */
 const DEMO_EMAIL_PATTERNS = ['%@demo.curiomancer', '%@demo.bond'];
 
+// This script deletes personas and clears the `event` table. Refuse to run it
+// against a production database - a stray prod DATABASE_URL in .env must never
+// let a demo seed touch real data.
+if (process.env.NODE_ENV === 'production') {
+	throw new Error('Refusing to run the demo seed in production.');
+}
+
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('DATABASE_URL is not set');
 

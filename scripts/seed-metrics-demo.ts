@@ -40,10 +40,14 @@ const daysAgo = (d: number) => new Date(now - d * dayMs);
 const cumulative = (t: number) => Math.round(TARGET_USERS * Math.pow(t / WINDOW, 1.8));
 
 // --- Purge prior demo artifacts (idempotent) -----------------------------
-// Deleting demo users cascades to their subscriptions and activity rows.
+// Deleting demo users cascades to their subscriptions and activity rows, so
+// this is enough to clear the previous run's data. It is deliberately scoped
+// to the demo domain: never a blanket `DELETE FROM subscription` /
+// `metric_snapshot`, which would wipe real paying subscribers and the real
+// metrics history if this ever ran against a production database. The snapshot
+// and heartbeat inserts below are day/user-keyed upserts, so re-running just
+// overwrites the demo window in place.
 await sql`DELETE FROM "user" WHERE email LIKE ${'%@' + DEMO_DOMAIN}`;
-await sql`DELETE FROM subscription`;
-await sql`DELETE FROM metric_snapshot`;
 
 // --- Fake users along the growth curve -----------------------------------
 type Row = { id: string; name: string; email: string; created_at: Date; updated_at: Date };
