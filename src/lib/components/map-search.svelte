@@ -3,7 +3,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Badge } from '$lib/components/ui/badge';
 	import { invalidateAll } from '$app/navigation';
-	import { mapAppleCategoryClient } from '$lib/map-category';
+	import { mapAppleCategory } from '$lib/map-category';
 	import { categoryLabel } from '$lib/place-category';
 	import type { Component } from 'svelte';
 
@@ -92,7 +92,7 @@
 				address: p.formattedAddress ?? '',
 				latitude: p.coordinate?.latitude ?? 0,
 				longitude: p.coordinate?.longitude ?? 0,
-				category: mapAppleCategoryClient(p.pointOfInterestCategory),
+				category: mapAppleCategory(p.pointOfInterestCategory),
 				locality: p.locality ?? p.subLocality ?? undefined
 			}));
 		} catch (err) {

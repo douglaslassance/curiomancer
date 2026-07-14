@@ -205,68 +205,7 @@ export async function autocompletePlaces(query: string): Promise<PlaceCompletion
 		.filter((r) => r.title);
 }
 
-/**
- * Map Apple's poiCategory strings to our category enum (eat / drink / shop /
- * visit). Keep in sync with mapAppleCategoryClient.
- *
- * Matched exactly, not by substring: substring matching classified
- * "PublicTransport" as drink (contains "pub"), "Parking" as visit (contains
- * "park"), and so on. Unknown categories return null and the caller decides.
- * The extra tokens beyond the MapKit JS vocabulary cover synonyms the Server
- * API may return (e.g. CoffeeShop, GroceryStore).
- */
-const EAT_CATEGORIES = new Set(['bakery', 'cafe', 'restaurant', 'coffeeshop', 'coffee', 'dessert']);
-const DRINK_CATEGORIES = new Set([
-	'brewery',
-	'distillery',
-	'nightlife',
-	'winery',
-	'bar',
-	'pub',
-	'brewpub'
-]);
-const SHOP_CATEGORIES = new Set([
-	'store',
-	'foodmarket',
-	'bookstore',
-	'clothingstore',
-	'mall',
-	'market',
-	'grocerystore'
-]);
-const VISIT_CATEGORIES = new Set([
-	'amusementpark',
-	'aquarium',
-	'beach',
-	'campground',
-	'castle',
-	'fairground',
-	'fortress',
-	'landmark',
-	'library',
-	'marina',
-	'movietheater',
-	'museum',
-	'musicvenue',
-	'nationalmonument',
-	'nationalpark',
-	'park',
-	'planetarium',
-	'stadium',
-	'theater',
-	'zoo',
-	'monument',
-	'garden',
-	'gallery',
-	'observatory'
-]);
-
-export function mapAppleCategory(poiCategory?: string): 'eat' | 'drink' | 'shop' | 'visit' | null {
-	if (!poiCategory) return null;
-	const c = poiCategory.toLowerCase();
-	if (EAT_CATEGORIES.has(c)) return 'eat';
-	if (DRINK_CATEGORIES.has(c)) return 'drink';
-	if (SHOP_CATEGORIES.has(c)) return 'shop';
-	if (VISIT_CATEGORIES.has(c)) return 'visit';
-	return null;
-}
+// The Apple-category mapping lives in the shared, client-safe module so the
+// client (MapKit JS) and this server-side importer bucket identically. Re-export
+// it here so existing server callers (seed.ts, import/google) don't change.
+export { mapAppleCategory } from '../map-category';

@@ -18,7 +18,7 @@
 	import { ensureMapKit } from '$lib/mapkit-client';
 	import PlaceMiniMap from '$lib/components/place-mini-map.svelte';
 	import { RELATION_COLOR } from '$lib/relation-colors';
-	import { mapAppleCategoryClient } from '$lib/map-category';
+	import { mapAppleCategory } from '$lib/map-category';
 	import { categoryLabel } from '$lib/place-category';
 	import type { Component } from 'svelte';
 
@@ -154,7 +154,7 @@
 					continue;
 				}
 				for (const p of results) {
-					const cat = mapAppleCategoryClient(p.pointOfInterestCategory);
+					const cat = mapAppleCategory(p.pointOfInterestCategory);
 					if (!cat || !p.coordinate) continue;
 					const muid = String(p.muid ?? '');
 					if (!muid || seenExternalIds.has(muid)) continue;

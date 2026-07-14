@@ -6,7 +6,7 @@
 	import PoiPopup, { type Poi } from './poi-popup.svelte';
 	import MapSearch from './map-search.svelte';
 	import CategoryFilter from './category-filter.svelte';
-	import { mapAppleCategoryClient } from '$lib/map-category';
+	import { mapAppleCategory } from '$lib/map-category';
 	import { Bookmark, Eye, Sparkles, ThumbsDown, ThumbsUp } from '@lucide/svelte';
 	import { RELATION_COLOR, RELATION_NEUTRAL, RELATION_RECOMMENDED } from '$lib/relation-colors';
 	import type { Component } from 'svelte';
@@ -246,7 +246,7 @@
 		selectedPoi = {
 			muid: String(place.muid ?? place.id),
 			name: place.name ?? 'Place',
-			category: mapAppleCategoryClient(place.pointOfInterestCategory),
+			category: mapAppleCategory(place.pointOfInterestCategory),
 			city: place.locality ?? place.subLocality ?? '',
 			address: place.formattedAddress ?? '',
 			latitude: place.coordinate.latitude,
