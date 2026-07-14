@@ -2,7 +2,9 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-RUN corepack enable && corepack prepare pnpm@10 --activate
+# Pre-fetch the exact pnpm pinned in package.json's "packageManager" field, so
+# corepack never has to download (and prompt) mid-install in the TTY-less build.
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
@@ -42,7 +44,7 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-RUN apk add --no-cache curl && corepack enable && corepack prepare pnpm@10 --activate
+RUN apk add --no-cache curl && corepack enable && corepack prepare pnpm@10.33.0 --activate
 
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile --prod
@@ -66,4 +68,8 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
 	CMD curl -fsS http://localhost:3000/ || exit 1
 
-CMD ["sh", "-c", "node migrate.mjs && pnpm start"]
+# Run the server through the installed tsx binary directly rather than
+# `pnpm start`: as the non-root `node` user, `pnpm` sends corepack looking for
+# its cache in a different home, pulls a newer pnpm, and its pre-run deps check
+# aborts in the TTY-less container before the server ever starts.
+CMD ["sh", "-c", "node migrate.mjs && node_modules/.bin/tsx server.ts"]
