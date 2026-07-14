@@ -147,9 +147,18 @@ export const actions: Actions = {
 		}
 
 		// Redeem the invite atomically; if somebody beat us to it, roll back
-		// so the email is free for another attempt.
+		// so the email is free for another attempt. Any error while redeeming
+		// must also roll the user back - otherwise a thrown redeem would orphan
+		// a created account with the email taken and no way to retry.
 		if (code && newUserId) {
-			const redeemed = await redeemInvite(code, newUserId);
+			let redeemed = false;
+			try {
+				redeemed = await redeemInvite(code, newUserId);
+			} catch (err) {
+				console.error('Invite redemption threw after sign-up; rolling back user:', err);
+				await db.delete(user).where(eq(user.id, newUserId));
+				return fail(500, { name, email, message: 'Unexpected error. Try again.' });
+			}
 			if (!redeemed) {
 				await db.delete(user).where(eq(user.id, newUserId));
 				return fail(400, {
