@@ -1,8 +1,6 @@
-import { error, json } from '@sveltejs/kit';
-import { setRelation } from '$lib/server/likes';
+import { json } from '@sveltejs/kit';
+import { ratePlace } from '$lib/server/likes';
 import { requireApiUser } from '$lib/server/api-auth';
-import { getPostHogClient } from '$lib/server/posthog';
-import type { PlaceRelationKind } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
 
 /**
@@ -15,33 +13,11 @@ import type { RequestHandler } from './$types';
  *   body: { placeId, kind: 'liked' | 'disliked' | 'seen' | 'want_to_go' }
  *   returns: { placeId, kind: <kind> | null }
  */
-const VALID_KINDS = ['liked', 'disliked', 'seen', 'want_to_go'] as const;
-
 export const POST: RequestHandler = async ({ request }) => {
 	const userId = await requireApiUser(request);
-
 	const body = (await request.json().catch(() => null)) as {
 		placeId?: unknown;
 		kind?: unknown;
 	} | null;
-
-	const placeId = typeof body?.placeId === 'string' ? body.placeId : null;
-	const kind = body?.kind;
-
-	if (!placeId) throw error(400, 'placeId required.');
-	if (typeof kind !== 'string' || !VALID_KINDS.includes(kind as PlaceRelationKind)) {
-		throw error(400, `kind must be one of: ${VALID_KINDS.join(', ')}.`);
-	}
-
-	const result = await setRelation(userId, placeId, kind as PlaceRelationKind);
-
-	// Mirror the web /api/relations capture so ratings made from native clients
-	// show up in product analytics too.
-	getPostHogClient()?.capture({
-		distinctId: userId,
-		event: 'place_rated',
-		properties: { place_id: placeId, kind: result }
-	});
-
-	return json({ placeId, kind: result });
+	return json(await ratePlace(userId, body?.placeId, body?.kind));
 };
