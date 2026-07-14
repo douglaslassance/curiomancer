@@ -5,10 +5,12 @@
  * subscription (see subscriptions.ts) at the route/endpoint layer, not
  * in here.
  */
+import { error } from '@sveltejs/kit';
 import { and, asc, desc, eq, gt, lt, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from './db';
 import { conversation, message, messageReaction } from './db/schema';
+import { broadcast } from './ws/registry';
 
 const replyMessage = alias(message, 'reply_message');
 
@@ -320,4 +322,49 @@ export async function getMessageConversationId(messageId: string): Promise<strin
 		.where(eq(message.id, messageId))
 		.limit(1);
 	return row?.conversationId ?? null;
+}
+
+/**
+ * Edit `userId`'s own message, enforcing ownership and length, then broadcast
+ * the edit to the other participant. Shared by the web and native message
+ * endpoints so the two can't drift on this data-sensitive path. Throws a
+ * SvelteKit `error` (401/400/404/403) the route handler can propagate as-is.
+ */
+export async function editOwnMessage(
+	messageId: string,
+	userId: string,
+	rawBody: unknown
+): Promise<{ body: string; editedAt: string }> {
+	const body = typeof rawBody === 'string' ? rawBody.trim() : '';
+	if (!body) throw error(400, 'body required.');
+	if (body.length > MAX_MESSAGE_LENGTH) {
+		throw error(400, `body must be ${MAX_MESSAGE_LENGTH} characters or fewer.`);
+	}
+
+	const existing = await getMessageForMutation(messageId);
+	if (!existing || existing.deletedAt) throw error(404, 'Message not found.');
+	if (existing.senderId !== userId) throw error(403, 'Not your message.');
+
+	const editedAt = (await editMessage(messageId, body)).toISOString();
+	// Exclude the actor: they apply their own edit optimistically, so echoing it
+	// back would be redundant.
+	broadcast(existing.conversationId, { type: 'message:edited', messageId, body, editedAt }, userId);
+	return { body, editedAt };
+}
+
+/**
+ * Soft-delete `userId`'s own message, enforcing ownership, then broadcast the
+ * deletion. Shared by the web and native endpoints (see editOwnMessage).
+ */
+export async function deleteOwnMessage(
+	messageId: string,
+	userId: string
+): Promise<{ deletedAt: string }> {
+	const existing = await getMessageForMutation(messageId);
+	if (!existing || existing.deletedAt) throw error(404, 'Message not found.');
+	if (existing.senderId !== userId) throw error(403, 'Not your message.');
+
+	const deletedAt = (await deleteMessage(messageId)).toISOString();
+	broadcast(existing.conversationId, { type: 'message:deleted', messageId, deletedAt }, userId);
+	return { deletedAt };
 }
