@@ -5,10 +5,15 @@ import { building } from '$app/environment';
 import { PUBLIC_POSTHOG_PROJECT_TOKEN, PUBLIC_POSTHOG_HOST } from '$env/static/public';
 import { auth } from '$lib/server/auth';
 import { isAdmin } from '$lib/server/admin';
+import { assertRequiredEnv } from '$lib/server/env';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { startMetricsCron } from '$lib/server/cron';
 import { touchUserActivity } from '$lib/server/metrics';
 import { resolvePostHogHosts } from '$lib/posthog';
+
+// Fail the deploy fast if a required secret is missing, rather than 500ing on
+// the first request that happens to need it.
+assertRequiredEnv();
 
 // Pages anyone can reach signed out: the marketing/legal pages and the whole
 // auth flow. Everything else is account-only and bounces to /sign-in. API
