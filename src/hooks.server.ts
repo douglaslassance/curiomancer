@@ -1,9 +1,10 @@
-import { redirect, type Handle, type HandleServerError } from '@sveltejs/kit';
+import { error, redirect, type Handle, type HandleServerError } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import * as Sentry from '@sentry/sveltekit';
 import { building } from '$app/environment';
 import { PUBLIC_POSTHOG_PROJECT_TOKEN, PUBLIC_POSTHOG_HOST } from '$env/static/public';
 import { auth } from '$lib/server/auth';
+import { isAdmin } from '$lib/server/admin';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { startMetricsCron } from '$lib/server/cron';
 import { touchUserActivity } from '$lib/server/metrics';
@@ -98,6 +99,17 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 		pathname === '/favicon.svg';
 	if (!isExempt && !event.locals.user) {
 		throw redirect(302, `/sign-in?next=${encodeURIComponent(requestedPath)}`);
+	}
+
+	// Guard the whole /admin area here, for form actions as much as page loads.
+	// A parent layout's `load` does not run before a child page's action, so
+	// admin/+layout.server.ts alone would leave every POST action open to any
+	// signed-in user. This central check covers both. (Signed-out visitors are
+	// already redirected to sign-in above; /api/admin/* self-guards and is
+	// exempt so stop-impersonating still works while impersonating a non-admin.)
+	const isAdminArea = requestedPath === '/admin' || requestedPath.startsWith('/admin/');
+	if (isAdminArea && !isAdmin(event.locals.user)) {
+		throw error(403, 'Admin access only.');
 	}
 
 	return svelteKitHandler({ event, resolve, auth, building });

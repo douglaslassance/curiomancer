@@ -96,7 +96,7 @@ export const load: PageServerLoad = async ({ params }) => {
 export const actions: Actions = {
 	impersonate: async ({ params, request, locals }) => {
 		if (!dev) return fail(403, { message: 'Impersonation is only available in development.' });
-		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+		if (!isAdmin(locals.user)) return fail(403, { message: 'Admins only.' });
 		if (params.id === locals.user.id) {
 			return fail(400, { message: "You can't impersonate yourself." });
 		}

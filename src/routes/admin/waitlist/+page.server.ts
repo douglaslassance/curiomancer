@@ -1,6 +1,7 @@
 import { fail } from '@sveltejs/kit';
 import { desc, eq } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
+import { isAdmin } from '$lib/server/admin';
 import { db } from '$lib/server/db';
 import { invite, waitlist } from '$lib/server/db/schema';
 import { sendInviteEmail } from '$lib/server/email';
@@ -31,7 +32,7 @@ export const load: PageServerLoad = async () => {
 
 export const actions: Actions = {
 	add: async ({ request, locals }) => {
-		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+		if (!isAdmin(locals.user)) return fail(403, { message: 'Admins only.' });
 
 		const data = await request.formData();
 		const email = data.get('email')?.toString() ?? '';
@@ -44,7 +45,7 @@ export const actions: Actions = {
 	},
 
 	invite: async ({ request, locals }) => {
-		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+		if (!isAdmin(locals.user)) return fail(403, { message: 'Admins only.' });
 
 		const data = await request.formData();
 		const id = data.get('id')?.toString() ?? '';
@@ -73,7 +74,7 @@ export const actions: Actions = {
 	},
 
 	remove: async ({ request, locals }) => {
-		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+		if (!isAdmin(locals.user)) return fail(403, { message: 'Admins only.' });
 
 		const data = await request.formData();
 		const id = data.get('id')?.toString() ?? '';
