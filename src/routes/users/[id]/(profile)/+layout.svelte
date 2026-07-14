@@ -6,7 +6,6 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import AvatarMatch from '$lib/components/avatar-match.svelte';
 	import {
-		ArrowLeft,
 		Ban,
 		Bookmark,
 		Loader2,
@@ -82,11 +81,6 @@
 </script>
 
 <div>
-	<Button href="/" variant="ghost" size="sm" class="mb-4">
-		<ArrowLeft class="size-4" />
-		Back
-	</Button>
-
 	<!-- Header: avatar (ringed with the match score), identity, grouped actions -->
 	<header class="mb-8 flex items-start gap-4">
 		<AvatarMatch
