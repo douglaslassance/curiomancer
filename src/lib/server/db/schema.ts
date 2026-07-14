@@ -91,7 +91,13 @@ export const placeRelation = pgTable(
 			.default('liked'),
 		createdAt: timestamp('created_at').notNull().defaultNow()
 	},
-	(t) => [uniqueIndex('place_relation_user_place_idx').on(t.userId, t.placeId)]
+	(t) => [
+		uniqueIndex('place_relation_user_place_idx').on(t.userId, t.placeId),
+		// The composite above serves userId-prefixed lookups, but place-popup
+		// like-counts query by placeId alone; without this they seq-scan the
+		// core table.
+		index('place_relation_place_idx').on(t.placeId)
+	]
 );
 
 export type PlaceRelation = typeof placeRelation.$inferSelect;
@@ -255,6 +261,9 @@ export const conversation = pgTable(
 	},
 	(t) => [
 		uniqueIndex('conversation_pair_idx').on(t.userAId, t.userBId),
+		// The pair index serves the userAId side; the inbox query filters
+		// `userAId = ? OR userBId = ?`, so the userBId half needs its own index.
+		index('conversation_user_b_idx').on(t.userBId),
 		check('conversation_ordered_pair', sql`${t.userAId} < ${t.userBId}`)
 	]
 );
