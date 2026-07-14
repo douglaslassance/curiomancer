@@ -11,6 +11,7 @@
 import { sql } from 'drizzle-orm';
 import { db } from './db';
 import type { Place } from './db/schema';
+import { AGREEMENT_EXPR, matchScoreExpr } from './similarity';
 
 /**
  * SQL fragment computing great-circle distance in km between a fixed
@@ -144,17 +145,29 @@ export async function getPeopleNearby(
 			  	SELECT blocker_id FROM "block" WHERE blocked_id = ${viewerUserId ?? ''}
 			  ))
 		),
+		viewer_total AS (SELECT COUNT(*)::float AS n FROM viewer_relations),
+		their_totals AS (
+			SELECT user_id, COUNT(*)::float AS n
+			FROM "place_relation"
+			WHERE kind IN ('liked', 'disliked')
+			GROUP BY user_id
+		),
 		pair_stats AS (
 			SELECT
 				theirs.user_id,
 				COUNT(*)::int AS shared_count,
-				SUM(CASE WHEN mine.kind = theirs.kind THEN 1 ELSE -1 END)::float
-					/ NULLIF(COUNT(*), 0)::float AS score
+				${matchScoreExpr(
+					sql`SUM(${AGREEMENT_EXPR})`,
+					sql`COUNT(*)`,
+					sql`(SELECT n FROM viewer_total)`,
+					sql`tt.n`
+				)} AS score
 			FROM "place_relation" theirs
 			JOIN viewer_relations mine ON mine.place_id = theirs.place_id
+			JOIN their_totals tt ON tt.user_id = theirs.user_id
 			WHERE theirs.user_id IN (SELECT user_id FROM nearby_users)
 			  AND theirs.kind IN ('liked', 'disliked')
-			GROUP BY theirs.user_id
+			GROUP BY theirs.user_id, tt.n
 		)
 		SELECT
 			u.id,

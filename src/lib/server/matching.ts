@@ -1,24 +1,28 @@
 /**
- * Taste-matching using signed similarity over the place_relation graph.
+ * Taste-matching using cosine similarity over the place_relation graph.
  *
- * We treat each (user, place) row as a ±1 vote: 'liked' = +1, 'disliked' = -1,
- * 'want_to_go' = ignored (it's a wishlist marker, not a taste signal).
- * Similarity between two users is then:
+ * Each (user, place) row is a ±1 vote: 'liked' = +1, 'disliked' = -1.
+ * 'seen' and 'want_to_go' carry no taste signal and are ignored. Modeling
+ * each user as a sparse ±1 vector over places, the similarity of two users
+ * is the cosine of those vectors, damped by significance weighting:
  *
- *     score(A, B) = agreements - disagreements
- *                  -----------------------------
- *                       |places A and B both have an opinion on|
+ *              agreements - disagreements
+ *     cosine = ---------------------------------      (dot product over shared
+ *              sqrt(|A opinions| * |B opinions|)        places over the product
+ *                                                       of norms; each norm is
+ *                                                       sqrt(count) since every
+ *                                                       weight is ±1)
  *
- * Agreement means both rows have the same kind on the same place (both
- * liked OR both disliked); disagreement means opposite kinds. Range is
- * -1..+1; we display Math.max(0, score) as a 0..100 % match badge.
+ *     score  = cosine * min(sharedCount, N) / N        (N = SIGNIFICANCE_FLOOR)
  *
- * Why this shape:
- *  - Pure Jaccard over likes only sees positive signal.
- *  - Cosine on ±1 vectors does roughly the same thing but punishes sparse
- *    overlap (both have an opinion on only 1 place but agree) less than
- *    Jaccard does. The denominator above keeps the same dampening Jaccard
- *    had - you need to overlap on multiple places to get a high score.
+ * Unlike a plain agreement ratio, the sqrt-of-totals denominator makes your
+ * non-overlapping opinions count: agreeing on 3 of your 8 places no longer
+ * reads as a perfect match. The significance term then keeps a lucky
+ * agreement on one or two places from reading as a strong match, damping the
+ * score linearly below N shared opinions (Herlocker et al. 1999, "significance
+ * weighting" for user-user collaborative filtering).
+ *
+ * Range is -1..+1; the UI clamps to Math.max(0, score) as a 0..100 % badge.
  *
  * Computed per-request via raw SQL. At our beta scale (hundreds of users,
  * thousands of relations) this is cheap. Migration path is a nightly job
@@ -29,6 +33,7 @@ import { sql } from 'drizzle-orm';
 import { db } from './db';
 import { recommendationImpression, type Place, type RecommendationReason } from './db/schema';
 import { haversineKm } from './nearby';
+import { AGREEMENT_EXPR, matchScoreExpr } from './similarity';
 
 /**
  * Where to look for candidate places: an exact city match (what /places and
@@ -86,21 +91,6 @@ export async function logRecommendationImpressions(
 const TWIN_LIMIT = 20;
 
 /**
- * SQL fragment that, joined twice (alias `mine` for the viewer, `theirs`
- * for the candidate), produces `agreement` (+1/-1) for each overlapping
- * place. Encapsulated so we can drop dislikes into more queries later.
- *
- *   sum(agreement) = (agreements) - (disagreements)
- *   count(*)       = (overlapping opinions)
- */
-const AGREEMENT_EXPR = sql`
-	CASE
-		WHEN mine.kind = theirs.kind THEN 1
-		ELSE -1
-	END
-`;
-
-/**
  * Signed-similarity score between two specific users, using the exact same
  * formula as the people list (getPeopleNearby). Keeping one definition means
  * a pair's "match %" is identical wherever it's shown - profile page and
@@ -122,11 +112,20 @@ export async function getPairScore(
 		WITH viewer_relations AS (
 			SELECT place_id, kind FROM "place_relation"
 			WHERE user_id = ${viewerId} AND kind IN ('liked', 'disliked')
+		),
+		target_total AS (
+			SELECT COUNT(*)::float AS n FROM "place_relation"
+			WHERE user_id = ${targetId} AND kind IN ('liked', 'disliked')
 		)
 		SELECT
 			(SELECT COUNT(*)::int FROM viewer_relations) AS viewer_total,
 			COUNT(*)::int AS shared_count,
-			SUM(${AGREEMENT_EXPR})::float / NULLIF(COUNT(*), 0)::float AS score
+			${matchScoreExpr(
+				sql`SUM(${AGREEMENT_EXPR})`,
+				sql`COUNT(*)`,
+				sql`(SELECT COUNT(*)::float FROM viewer_relations)`,
+				sql`(SELECT n FROM target_total)`
+			)} AS score
 		FROM "place_relation" theirs
 		JOIN viewer_relations mine ON mine.place_id = theirs.place_id
 		WHERE theirs.user_id = ${targetId} AND theirs.kind IN ('liked', 'disliked')
@@ -161,11 +160,18 @@ export async function getMatchedPeopleInCity(
 			SELECT place_id, kind FROM "place_relation"
 			WHERE user_id = ${userId} AND kind IN ('liked', 'disliked')
 		),
+		my_total AS (SELECT COUNT(*)::float AS n FROM my_relations),
+		their_totals AS (
+			SELECT user_id, COUNT(*)::float AS n
+			FROM "place_relation"
+			WHERE kind IN ('liked', 'disliked')
+			GROUP BY user_id
+		),
 		pair_stats AS (
 			SELECT
 				theirs.user_id,
 				COUNT(*)::int AS shared_count,
-				SUM(${AGREEMENT_EXPR})::float / COUNT(*)::float AS score
+				SUM(${AGREEMENT_EXPR})::float AS agreement_sum
 			FROM "place_relation" theirs
 			JOIN my_relations mine
 				ON mine.place_id = theirs.place_id
@@ -178,8 +184,14 @@ export async function getMatchedPeopleInCity(
 			u.name,
 			u.image,
 			ps.shared_count,
-			ps.score
+			${matchScoreExpr(
+				sql`ps.agreement_sum`,
+				sql`ps.shared_count`,
+				sql`(SELECT n FROM my_total)`,
+				sql`tt.n`
+			)} AS score
 		FROM pair_stats ps
+		JOIN their_totals tt ON tt.user_id = ps.user_id
 		JOIN "user" u ON u.id = ps.user_id
 		JOIN user_location ul ON ul.user_id = ps.user_id
 		WHERE ul.city = ${city}
@@ -188,7 +200,7 @@ export async function getMatchedPeopleInCity(
 		  	UNION
 		  	SELECT blocker_id FROM "block" WHERE blocked_id = ${userId}
 		  )
-		ORDER BY ps.score DESC, ps.shared_count DESC
+		ORDER BY score DESC, ps.shared_count DESC
 		LIMIT ${limit}
 	`);
 
@@ -228,40 +240,52 @@ export async function getSharedTwins(
 			SELECT place_id, kind FROM "place_relation"
 			WHERE user_id = ${userIdB} AND kind IN ('liked', 'disliked')
 		),
+		a_total AS (SELECT COUNT(*)::float AS n FROM a_rel),
+		b_total AS (SELECT COUNT(*)::float AS n FROM b_rel),
+		their_totals AS (
+			SELECT user_id, COUNT(*)::float AS n
+			FROM "place_relation"
+			WHERE kind IN ('liked', 'disliked')
+			GROUP BY user_id
+		),
 		a_scores AS (
 			SELECT
 				theirs.user_id,
 				COUNT(*)::int AS shared_count,
-				SUM(${AGREEMENT_EXPR})::float / COUNT(*)::float AS score
+				SUM(${AGREEMENT_EXPR})::float AS agreement_sum
 			FROM "place_relation" theirs
 			JOIN a_rel mine ON mine.place_id = theirs.place_id
 			WHERE theirs.user_id NOT IN (${userIdA}, ${userIdB})
 			  AND theirs.kind IN ('liked', 'disliked')
 			GROUP BY theirs.user_id
+			HAVING SUM(${AGREEMENT_EXPR}) > 0
 		),
 		b_scores AS (
 			SELECT
 				theirs.user_id,
 				COUNT(*)::int AS shared_count,
-				SUM(${AGREEMENT_EXPR})::float / COUNT(*)::float AS score
+				SUM(${AGREEMENT_EXPR})::float AS agreement_sum
 			FROM "place_relation" theirs
 			JOIN b_rel mine ON mine.place_id = theirs.place_id
 			WHERE theirs.user_id NOT IN (${userIdA}, ${userIdB})
 			  AND theirs.kind IN ('liked', 'disliked')
 			GROUP BY theirs.user_id
+			HAVING SUM(${AGREEMENT_EXPR}) > 0
 		)
 		SELECT
 			u.id,
 			u.name,
 			u.image,
 			(a.shared_count + b.shared_count) AS shared_count,
-			LEAST(a.score, b.score) AS score
+			LEAST(
+				${matchScoreExpr(sql`a.agreement_sum`, sql`a.shared_count`, sql`(SELECT n FROM a_total)`, sql`tt.n`)},
+				${matchScoreExpr(sql`b.agreement_sum`, sql`b.shared_count`, sql`(SELECT n FROM b_total)`, sql`tt.n`)}
+			) AS score
 		FROM a_scores a
 		JOIN b_scores b ON b.user_id = a.user_id
+		JOIN their_totals tt ON tt.user_id = a.user_id
 		JOIN "user" u ON u.id = a.user_id
-		WHERE a.score > 0
-		  AND b.score > 0
-		  AND u.id NOT IN (
+		WHERE u.id NOT IN (
 		  	SELECT blocked_id FROM "block" WHERE blocker_id IN (${userIdA}, ${userIdB})
 		  	UNION
 		  	SELECT blocker_id FROM "block" WHERE blocked_id IN (${userIdA}, ${userIdB})
@@ -318,12 +342,25 @@ export async function getRecommendedPlaces(
 		all_my_relations AS (
 			SELECT place_id FROM "place_relation" WHERE user_id = ${userId}
 		),
+		my_total AS (SELECT COUNT(*)::float AS n FROM my_relations),
+		their_totals AS (
+			SELECT user_id, COUNT(*)::float AS n
+			FROM "place_relation"
+			WHERE kind IN ('liked', 'disliked')
+			GROUP BY user_id
+		),
 		pair_stats AS (
 			SELECT
 				theirs.user_id,
-				SUM(${AGREEMENT_EXPR})::float / NULLIF(COUNT(*), 0)::float AS score
+				${matchScoreExpr(
+					sql`SUM(${AGREEMENT_EXPR})`,
+					sql`COUNT(*)`,
+					sql`(SELECT n FROM my_total)`,
+					sql`tt.n`
+				)} AS score
 			FROM "place_relation" theirs
 			JOIN my_relations mine ON mine.place_id = theirs.place_id
+			JOIN their_totals tt ON tt.user_id = theirs.user_id
 			WHERE theirs.user_id <> ${userId}
 			  AND theirs.kind IN ('liked', 'disliked')
 			  AND theirs.user_id NOT IN (
@@ -331,7 +368,7 @@ export async function getRecommendedPlaces(
 			  	UNION
 			  	SELECT blocker_id FROM "block" WHERE blocked_id = ${userId}
 			  )
-			GROUP BY theirs.user_id
+			GROUP BY theirs.user_id, tt.n
 		),
 		twins AS (
 			SELECT user_id, score

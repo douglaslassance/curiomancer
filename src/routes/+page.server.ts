@@ -10,6 +10,7 @@ import {
 	type MatchedPerson,
 	type RecommendedPlace
 } from '$lib/server/matching';
+import { MATCH_THRESHOLD } from '$lib/server/similarity';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -60,7 +61,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		}),
 		myLikeCount > 0
 			? getMatchedPeopleInCity(userId, loc.city).then((people) =>
-					people.filter((p) => p.score > 0.5)
+					people.filter((p) => p.score > MATCH_THRESHOLD)
 				)
 			: Promise.resolve([] as MatchedPerson[]),
 		placesFor('eat'),

@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { userLocation } from '$lib/server/db/schema';
 import { getPeopleNearby, MAX_RADIUS_KM, type NearbyPerson } from '$lib/server/nearby';
+import { MATCH_THRESHOLD } from '$lib/server/similarity';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
@@ -26,10 +27,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		Math.min(MAX_RADIUS_KM, Number(url.searchParams.get('radius') ?? '') || 30)
 	);
 
-	// Surface genuine taste-twins: signed similarity above 50%.
+	// Surface genuine taste-twins: cosine similarity clearing MATCH_THRESHOLD.
 	const people = (
 		await getPeopleNearby(loc.latitude, loc.longitude, radiusKm, locals.user.id)
-	).filter((p) => p.score !== null && p.score > 0.5);
+	).filter((p) => p.score !== null && p.score > MATCH_THRESHOLD);
 
 	return {
 		center: { latitude: loc.latitude, longitude: loc.longitude },
