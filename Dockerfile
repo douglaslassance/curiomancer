@@ -54,6 +54,16 @@ COPY migrate.mjs server.ts ./
 
 ENV NODE_ENV=production
 
+# Drop root: the node images ship an unprivileged `node` user. Own /app by it
+# so the runtime process (and tsx's cache under $HOME) has what it needs.
+RUN chown -R node:node /app
+USER node
+
 EXPOSE 3000
+
+# Let the orchestrator tell a wedged process from a healthy one. `/` is public
+# (served to signed-out visitors), so a 200 means the server is up.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+	CMD curl -fsS http://localhost:3000/ || exit 1
 
 CMD ["sh", "-c", "node migrate.mjs && pnpm start"]

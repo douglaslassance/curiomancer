@@ -12,3 +12,10 @@ build
 README.md
 local.db
 local.db-*
+# Never copy local secrets (Apple .p8 keys) or local avatar storage into the
+# build context, even though this is a multi-stage build.
+secrets/
+*.p8
+storage/
+.playwright-mcp/
+.claude/
