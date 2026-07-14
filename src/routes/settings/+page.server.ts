@@ -3,7 +3,7 @@ import { APIError } from 'better-auth/api';
 import { eq } from 'drizzle-orm';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { placeRelation, userLocation } from '$lib/server/db/schema';
+import { placeRelation, user, userLocation } from '$lib/server/db/schema';
 import { getInvitesFor } from '$lib/server/invites';
 import { createApiToken, listApiTokens, revokeApiToken } from '$lib/server/api-tokens';
 import { listBlockedUsers, unblockUser } from '$lib/server/blocks';
@@ -228,5 +228,23 @@ export const actions: Actions = {
 			return_url: `${url.origin}/settings`
 		});
 		throw redirect(303, session.url);
+	},
+
+	// Permanently delete the account. This cascades to the user's ratings and
+	// their conversations/messages (both sides) - see the schema FKs. There is
+	// no undo, so the UI gates it behind a confirmation dialog.
+	deleteAccount: async ({ locals }) => {
+		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+		const userId = locals.user.id;
+
+		// Drop the avatar from R2 while we still have the reference.
+		await deleteAvatar(locals.user.image).catch(() => {});
+
+		// Deleting the user row cascades place_relation, conversation, message,
+		// session, account, and location rows via ON DELETE CASCADE.
+		await db.delete(user).where(eq(user.id, userId));
+
+		getPostHogClient()?.capture({ distinctId: userId, event: 'account_deleted' });
+		throw redirect(303, '/');
 	}
 };

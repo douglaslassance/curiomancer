@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { page } from '$app/state';
 	import { enhance, applyAction } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import * as Avatar from '$lib/components/ui/avatar';
 	import * as Card from '$lib/components/ui/card';
+	import * as Dialog from '$lib/components/ui/dialog';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
@@ -17,6 +18,7 @@
 		Camera,
 		Copy,
 		CreditCard,
+		Download,
 		KeyRound,
 		Loader2,
 		Lock,
@@ -49,6 +51,15 @@
 	// their new inbox; by then data.profile.email is already the new address.
 	const emailChanged = $derived(page.url.searchParams.get('emailChanged') === '1');
 
+	// Email field: prefilled with the current address, with the Change button
+	// disabled until it's edited to a different, valid address. untrack() seeds
+	// the initial value without registering a reactive dependency.
+	let emailValue = $state(untrack(() => data.profile.email));
+	const emailValid = $derived(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue.trim()));
+	const emailDiffers = $derived(
+		emailValue.trim().toLowerCase() !== data.profile.email.toLowerCase()
+	);
+
 	const subscriptionDateFmt = new Intl.DateTimeFormat('en-US', {
 		year: 'numeric',
 		month: 'short',
@@ -69,6 +80,22 @@
 				return;
 			}
 			portalLoading = false;
+			await applyAction(result);
+		};
+	};
+
+	// Delete account: confirmation dialog + full navigation on the redirect (the
+	// session is gone once the row is deleted, so goto() can't be trusted).
+	let deleteDialogOpen = $state(false);
+	let deletingAccount = $state(false);
+	const submitDelete: SubmitFunction = () => {
+		deletingAccount = true;
+		return async ({ result }) => {
+			if (result.type === 'redirect') {
+				window.location.href = result.location;
+				return;
+			}
+			deletingAccount = false;
 			await applyAction(result);
 		};
 	};
@@ -240,10 +267,6 @@
 							<Badge variant="default">Admin</Badge>
 						{/if}
 					</Card.Title>
-					<Card.Description class="mt-0.5 flex items-center gap-1.5 text-xs">
-						<Mail class="size-3" />
-						{data.profile.email}
-					</Card.Description>
 					{#if data.profile.image}
 						<form method="post" action="?/removeAvatar" use:enhance>
 							<button
@@ -270,7 +293,150 @@
 					<Mail class="text-primary size-4 shrink-0" />
 					Your email was updated to {data.profile.email}.
 				</div>
+				<Separator />
 			{/if}
+
+			<!-- Display name -->
+			<form method="post" action="?/updateName" use:enhance class="flex items-start gap-3">
+				<User class="text-muted-foreground mt-0.5 size-4" />
+				<div class="min-w-0 flex-1 space-y-2">
+					<Label for="name" class="text-sm font-medium">Name</Label>
+					<div class="flex items-center gap-2">
+						<Input
+							id="name"
+							name="name"
+							placeholder="Your name"
+							autocomplete="name"
+							value={form?.name ?? data.profile.name}
+							class="max-w-xs"
+						/>
+						<Button type="submit" size="sm" variant="outline">Save</Button>
+					</div>
+					{#if form?.nameError}
+						<p class="text-destructive text-xs">{form.nameError}</p>
+					{:else if form?.nameOk}
+						<p class="text-muted-foreground text-xs">Saved.</p>
+					{:else}
+						<p class="text-muted-foreground text-xs">Shown on your profile and to taste-twins.</p>
+					{/if}
+				</div>
+			</form>
+
+			<Separator />
+
+			<!-- Current location -->
+			<div class="flex items-start gap-3">
+				<MapPin class="text-muted-foreground mt-0.5 size-4" />
+				<div class="min-w-0 flex-1">
+					<div class="flex items-center justify-between gap-2">
+						<div class="text-sm font-medium">Current location</div>
+						<Button
+							size="sm"
+							variant="outline"
+							onclick={refreshLocation}
+							disabled={refreshingLocation}
+						>
+							{#if refreshingLocation}
+								<Loader2 class="size-3.5 animate-spin" />
+								Updating…
+							{:else}
+								<RefreshCw class="size-3.5" />
+								Update
+							{/if}
+						</Button>
+					</div>
+					{#if data.location}
+						<p class="text-muted-foreground mt-1 text-sm">
+							{data.location.city}{data.location.countryCode
+								? `, ${data.location.countryCode}`
+								: ''}
+							{#if data.location.timezone}
+								<span class="text-muted-foreground">· {data.location.timezone}</span>
+							{/if}
+						</p>
+					{:else}
+						<p class="text-muted-foreground mt-1 text-sm">
+							Not set. The dashboard prompts on first visit.
+						</p>
+					{/if}
+					{#if locationError}
+						<p class="text-destructive mt-2 text-xs">{locationError}</p>
+						{#if locationHint}
+							<p class="text-muted-foreground mt-1 text-xs">{locationHint}</p>
+						{/if}
+					{/if}
+				</div>
+			</div>
+
+			<Separator />
+
+			<!-- Email -->
+			<form method="post" action="?/updateEmail" use:enhance class="flex items-start gap-3">
+				<Mail class="text-muted-foreground mt-0.5 size-4" />
+				<div class="min-w-0 flex-1 space-y-2">
+					<Label for="email" class="text-sm font-medium">Email</Label>
+					<div class="flex items-center gap-2">
+						<Input
+							id="email"
+							name="email"
+							type="email"
+							placeholder="you@example.com"
+							autocomplete="email"
+							bind:value={emailValue}
+							class="max-w-xs"
+						/>
+						<Button type="submit" size="sm" variant="outline" disabled={!emailValid || !emailDiffers}>
+							Change
+						</Button>
+					</div>
+					{#if form?.emailError}
+						<p class="text-destructive text-xs">{form.emailError}</p>
+					{:else if form?.emailPending}
+						<p class="text-muted-foreground text-xs">
+							Check <span class="font-medium">{form.email}</span> for a link to confirm the change.
+							Your current email stays until you do.
+						</p>
+					{:else}
+						<p class="text-muted-foreground text-xs">
+							We'll email a confirmation link to the new address before switching.
+						</p>
+					{/if}
+				</div>
+			</form>
+
+			<Separator />
+
+			<!-- Change password -->
+			<form method="post" action="?/changePassword" use:enhance class="flex items-start gap-3">
+				<Lock class="text-muted-foreground mt-0.5 size-4" />
+				<div class="min-w-0 flex-1 space-y-2">
+					<div class="text-sm font-medium">Change password</div>
+					<div class="grid max-w-xs gap-2">
+						<Input
+							type="password"
+							name="currentPassword"
+							placeholder="Current password"
+							autocomplete="current-password"
+							required
+						/>
+						<Input
+							type="password"
+							name="newPassword"
+							placeholder="New password (min 8 characters)"
+							autocomplete="new-password"
+							required
+						/>
+						<Button type="submit" size="sm" variant="outline" class="justify-self-start">
+							Update password
+						</Button>
+					</div>
+					{#if form?.passwordError}
+						<p class="text-destructive text-xs">{form.passwordError}</p>
+					{:else if form?.passwordOk}
+						<p class="text-muted-foreground text-xs">Password updated.</p>
+					{/if}
+				</div>
+			</form>
 
 			<Separator />
 
@@ -293,35 +459,6 @@
 							</Button>
 						{/each}
 					</div>
-				</div>
-			</div>
-
-			<Separator />
-
-			<div class="flex items-start gap-3">
-				<MessageCircle class="text-muted-foreground mt-0.5 size-4" />
-				<div class="min-w-0 flex-1">
-					<div class="flex items-center justify-between gap-2">
-						<div class="text-sm font-medium">Allow messages</div>
-						<form
-							method="post"
-							action="?/updateMessageable"
-							use:enhance
-							bind:this={messageableForm}
-						>
-							<input type="hidden" name="messageable" value={(!messageable).toString()} />
-							<Switch
-								checked={messageable}
-								onCheckedChange={() => messageableForm?.requestSubmit()}
-							/>
-						</form>
-					</div>
-					<p class="text-muted-foreground mt-1 text-sm">
-						When on, other Curiomancer users can start a chat with you from your profile.
-					</p>
-					{#if form?.messageableError}
-						<p class="text-destructive mt-1 text-xs">{form.messageableError}</p>
-					{/if}
 				</div>
 			</div>
 
@@ -367,48 +504,35 @@
 			<Separator />
 
 			<div class="flex items-start gap-3">
-				<MapPin class="text-muted-foreground mt-0.5 size-4" />
+				<MessageCircle class="text-muted-foreground mt-0.5 size-4" />
 				<div class="min-w-0 flex-1">
 					<div class="flex items-center justify-between gap-2">
-						<div class="text-sm font-medium">Current location</div>
-						<Button
-							size="sm"
-							variant="outline"
-							onclick={refreshLocation}
-							disabled={refreshingLocation}
+						<div class="text-sm font-medium">Allow messages</div>
+						<form
+							method="post"
+							action="?/updateMessageable"
+							use:enhance
+							bind:this={messageableForm}
 						>
-							{#if refreshingLocation}
-								<Loader2 class="size-3.5 animate-spin" />
-								Updating…
-							{:else}
-								<RefreshCw class="size-3.5" />
-								Update
-							{/if}
-						</Button>
+							<input type="hidden" name="messageable" value={(!messageable).toString()} />
+							<Switch
+								checked={messageable}
+								onCheckedChange={() => messageableForm?.requestSubmit()}
+							/>
+						</form>
 					</div>
-					{#if data.location}
-						<p class="text-muted-foreground mt-1 text-sm">
-							{data.location.city}{data.location.countryCode
-								? `, ${data.location.countryCode}`
-								: ''}
-							{#if data.location.timezone}
-								<span class="text-muted-foreground">· {data.location.timezone}</span>
-							{/if}
-						</p>
-					{:else}
-						<p class="text-muted-foreground mt-1 text-sm">
-							Not set. The dashboard prompts on first visit.
-						</p>
-					{/if}
-					{#if locationError}
-						<p class="text-destructive mt-2 text-xs">{locationError}</p>
-						{#if locationHint}
-							<p class="text-muted-foreground mt-1 text-xs">{locationHint}</p>
-						{/if}
+					<p class="text-muted-foreground mt-1 text-sm">
+						Subscribed Curiomancer users can start a conversation with you.
+					</p>
+					{#if form?.messageableError}
+						<p class="text-destructive mt-1 text-xs">{form.messageableError}</p>
 					{/if}
 				</div>
 			</div>
 
+			<Separator />
+
+			<!-- Likes: share + import -->
 			<div class="flex items-start gap-3">
 				<ThumbsUp class="text-muted-foreground mt-0.5 size-4" />
 				<div class="min-w-0 flex-1">
@@ -417,13 +541,17 @@
 						You've liked {data.likeCount} place{data.likeCount === 1 ? '' : 's'}.
 					</p>
 					<p class="text-muted-foreground mt-1 text-sm">
-						Share a link to your likes on the map. Only people with a Curiomancer account can open
-						it - everyone else is sent to sign in first.
+						Share a link to your likes on the map, or import your Google Maps saved places
+						(favorites become likes, "Want to go" carries across).
 					</p>
-					<div class="mt-2">
+					<div class="mt-2 flex flex-wrap gap-2">
 						<Button type="button" size="sm" variant="outline" onclick={shareLikes}>
 							<Share2 class="size-3.5" />
-							{likesLinkCopied ? 'Link copied' : 'Share my likes'}
+							{likesLinkCopied ? 'Copied' : 'Share'}
+						</Button>
+						<Button href="/import" size="sm" variant="outline">
+							<Download class="size-3.5" />
+							Import
 						</Button>
 					</div>
 				</div>
@@ -470,69 +598,6 @@
 
 			<Separator />
 
-			<!-- Display name -->
-			<form method="post" action="?/updateName" use:enhance class="flex items-start gap-3">
-				<User class="text-muted-foreground mt-0.5 size-4" />
-				<div class="min-w-0 flex-1 space-y-2">
-					<Label for="name" class="text-sm font-medium">Name</Label>
-					<div class="flex items-center gap-2">
-						<Input
-							id="name"
-							name="name"
-							placeholder="Your name"
-							autocomplete="name"
-							value={form?.name ?? data.profile.name}
-							class="max-w-xs"
-						/>
-						<Button type="submit" size="sm" variant="outline">Save</Button>
-					</div>
-					{#if form?.nameError}
-						<p class="text-destructive text-xs">{form.nameError}</p>
-					{:else if form?.nameOk}
-						<p class="text-muted-foreground text-xs">Saved.</p>
-					{:else}
-						<p class="text-muted-foreground text-xs">Shown on your profile and to taste-twins.</p>
-					{/if}
-				</div>
-			</form>
-
-			<Separator />
-
-			<!-- Email -->
-			<form method="post" action="?/updateEmail" use:enhance class="flex items-start gap-3">
-				<Mail class="text-muted-foreground mt-0.5 size-4" />
-				<div class="min-w-0 flex-1 space-y-2">
-					<Label for="email" class="text-sm font-medium">Email</Label>
-					<div class="flex items-center gap-2">
-						<Input
-							id="email"
-							name="email"
-							type="email"
-							placeholder="you@example.com"
-							autocomplete="email"
-							value={form?.email ?? ''}
-							class="max-w-xs"
-						/>
-						<Button type="submit" size="sm" variant="outline">Change</Button>
-					</div>
-					{#if form?.emailError}
-						<p class="text-destructive text-xs">{form.emailError}</p>
-					{:else if form?.emailPending}
-						<p class="text-muted-foreground text-xs">
-							Check <span class="font-medium">{form.email}</span> for a link to confirm the change.
-							Your current email stays until you do.
-						</p>
-					{:else}
-						<p class="text-muted-foreground text-xs">
-							Currently {data.profile.email}. We'll email a confirmation link to the new address
-							before switching.
-						</p>
-					{/if}
-				</div>
-			</form>
-
-			<Separator />
-
 			<!-- Invites -->
 			<div class="flex items-start gap-3">
 				<Sparkles class="text-muted-foreground mt-0.5 size-4" />
@@ -572,9 +637,7 @@
 						<div class="bg-muted mt-3 rounded-lg border p-3">
 							<p class="text-xs font-medium">New token. Copy it now, it won't be shown again.</p>
 							<div class="mt-2 flex items-center gap-2">
-								<code
-									class="bg-background min-w-0 flex-1 truncate rounded border px-2 py-1 text-xs"
-								>
+								<code class="bg-background min-w-0 flex-1 truncate rounded border px-2 py-1 text-xs">
 									{form.tokenCreated}
 								</code>
 								<Button
@@ -638,40 +701,6 @@
 				</div>
 			</div>
 
-			<Separator />
-
-			<!-- Change password -->
-			<form method="post" action="?/changePassword" use:enhance class="flex items-start gap-3">
-				<Lock class="text-muted-foreground mt-0.5 size-4" />
-				<div class="min-w-0 flex-1 space-y-2">
-					<div class="text-sm font-medium">Change password</div>
-					<div class="grid max-w-xs gap-2">
-						<Input
-							type="password"
-							name="currentPassword"
-							placeholder="Current password"
-							autocomplete="current-password"
-							required
-						/>
-						<Input
-							type="password"
-							name="newPassword"
-							placeholder="New password (min 8 characters)"
-							autocomplete="new-password"
-							required
-						/>
-						<Button type="submit" size="sm" variant="outline" class="justify-self-start">
-							Update password
-						</Button>
-					</div>
-					{#if form?.passwordError}
-						<p class="text-destructive text-xs">{form.passwordError}</p>
-					{:else if form?.passwordOk}
-						<p class="text-muted-foreground text-xs">Password updated.</p>
-					{/if}
-				</div>
-			</form>
-
 			<!-- Hidden file picker + form carrying the downscaled data URI. -->
 			<input
 				bind:this={avatarInput}
@@ -694,13 +723,48 @@
 				<input type="hidden" name="image" bind:value={avatarData} />
 			</form>
 		</Card.Content>
-		<Card.Footer>
+		<Card.Footer class="justify-between">
 			<form method="post" action="/sign-out" use:enhance class="contents">
 				<Button type="submit" variant="outline">
 					<LogOut class="size-4" />
 					Sign out
 				</Button>
 			</form>
+
+			<Button
+				variant="ghost"
+				class="text-destructive hover:text-destructive"
+				onclick={() => (deleteDialogOpen = true)}
+			>
+				<Trash2 class="size-4" />
+				Delete account
+			</Button>
 		</Card.Footer>
 	</Card.Root>
+
+	<Dialog.Root bind:open={deleteDialogOpen}>
+		<Dialog.Content>
+			<Dialog.Header>
+				<Dialog.Title>Delete your account?</Dialog.Title>
+				<Dialog.Description>
+					This permanently deletes your account, your likes and ratings, and your messages. It
+					can't be undone.
+				</Dialog.Description>
+			</Dialog.Header>
+			<Dialog.Footer>
+				<Button variant="outline" onclick={() => (deleteDialogOpen = false)}>Cancel</Button>
+				<form method="post" action="?/deleteAccount" use:enhance={submitDelete}>
+					<Button type="submit" variant="destructive" disabled={deletingAccount}>
+						{#if deletingAccount}
+							<Loader2 class="size-4 animate-spin" />
+							Deleting…
+						{:else}
+							<Trash2 class="size-4" />
+							Delete account
+						{/if}
+					</Button>
+				</form>
+			</Dialog.Footer>
+		</Dialog.Content>
+	</Dialog.Root>
 </div>
