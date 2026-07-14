@@ -1,7 +1,5 @@
-import { error, json } from '@sveltejs/kit';
-import { count, eq } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { placeRelation, place } from '$lib/server/db/schema';
+import { json } from '@sveltejs/kit';
+import { getPlaceContext } from '$lib/server/places';
 import type { RequestHandler } from './$types';
 
 /**
@@ -12,13 +10,6 @@ import type { RequestHandler } from './$types';
  * with them.
  */
 export const GET: RequestHandler = async ({ params }) => {
-	const [row] = await db.select().from(place).where(eq(place.id, params.id)).limit(1);
-	if (!row) throw error(404, 'Place not found');
-
-	const [{ likeCount }] = await db
-		.select({ likeCount: count() })
-		.from(placeRelation)
-		.where(eq(placeRelation.placeId, params.id));
-
-	return json({ place: row, likeCount });
+	const { place, likeCount } = await getPlaceContext(params.id);
+	return json({ place, likeCount });
 };

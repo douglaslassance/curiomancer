@@ -1,7 +1,5 @@
-import { error, json } from '@sveltejs/kit';
-import { and, count, eq } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { place, placeRelation } from '$lib/server/db/schema';
+import { json } from '@sveltejs/kit';
+import { getPlaceContext } from '$lib/server/places';
 import { requireApiUser } from '$lib/server/api-auth';
 import type { RequestHandler } from './$types';
 
@@ -17,21 +15,5 @@ import type { RequestHandler } from './$types';
  */
 export const GET: RequestHandler = async ({ request, params }) => {
 	const userId = await requireApiUser(request);
-
-	const [row] = await db.select().from(place).where(eq(place.id, params.id)).limit(1);
-	if (!row) throw error(404, 'Place not found');
-
-	const [[{ likeCount }], [mine]] = await Promise.all([
-		db
-			.select({ likeCount: count() })
-			.from(placeRelation)
-			.where(eq(placeRelation.placeId, params.id)),
-		db
-			.select({ kind: placeRelation.kind })
-			.from(placeRelation)
-			.where(and(eq(placeRelation.userId, userId), eq(placeRelation.placeId, params.id)))
-			.limit(1)
-	]);
-
-	return json({ place: row, likeCount, relation: mine?.kind ?? null });
+	return json(await getPlaceContext(params.id, userId));
 };
