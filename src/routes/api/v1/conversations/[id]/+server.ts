@@ -2,14 +2,12 @@ import { error, json } from '@sveltejs/kit';
 import { requireApiUser } from '$lib/server/api-auth';
 import { isBlocked } from '$lib/server/blocks';
 import {
-	getMessages,
 	isParticipant,
 	MAX_MESSAGE_LENGTH,
 	otherParticipant,
 	sendMessage
 } from '$lib/server/messages';
-import { getReactionsFor } from '$lib/server/reactions';
-import { parseHistoryQuery } from '$lib/server/messages-query';
+import { getConversationHistory } from '$lib/server/messages-query';
 import { isSubscriber } from '$lib/server/subscriptions';
 import { toMessagePayload } from '$lib/server/ws/protocol';
 import { broadcast } from '$lib/server/ws/registry';
@@ -28,15 +26,7 @@ export const GET: RequestHandler = async ({ params, request, url }) => {
 	if (!(await isSubscriber(userId))) throw error(403, 'Subscription required.');
 	if (!(await isParticipant(params.id, userId))) throw error(404, 'Conversation not found.');
 
-	const { since, before, limit } = parseHistoryQuery(url);
-	const messages = await getMessages(params.id, { since, before, limit });
-	const reactions = await getReactionsFor(messages.map((m) => m.id));
-
-	return json({
-		messages: messages.map(toMessagePayload),
-		reactionsByMessage: Object.fromEntries(reactions),
-		hasMore: !since && messages.length === limit
-	});
+	return json(await getConversationHistory(params.id, url));
 };
 
 /**

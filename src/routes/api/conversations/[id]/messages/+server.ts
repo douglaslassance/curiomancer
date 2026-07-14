@@ -1,9 +1,7 @@
 import { error, json } from '@sveltejs/kit';
-import { findConversation, getMessages } from '$lib/server/messages';
-import { getReactionsFor } from '$lib/server/reactions';
-import { parseHistoryQuery } from '$lib/server/messages-query';
+import { findConversation } from '$lib/server/messages';
+import { getConversationHistory } from '$lib/server/messages-query';
 import { isSubscriber } from '$lib/server/subscriptions';
-import { toMessagePayload } from '$lib/server/ws/protocol';
 import type { RequestHandler } from './$types';
 
 /**
@@ -23,15 +21,5 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 	const conversationId = await findConversation(locals.user.id, params.id);
 	if (!conversationId) return json({ messages: [], reactionsByMessage: {}, hasMore: false });
 
-	const { since, before, limit } = parseHistoryQuery(url);
-	const messages = await getMessages(conversationId, { since, before, limit });
-	const reactions = await getReactionsFor(messages.map((m) => m.id));
-
-	return json({
-		messages: messages.map(toMessagePayload),
-		reactionsByMessage: Object.fromEntries(reactions),
-		// A full page implies there may be older messages still. Never "more"
-		// on a `since` resync, which returns the whole gap.
-		hasMore: !since && messages.length === limit
-	});
+	return json(await getConversationHistory(conversationId, url));
 };

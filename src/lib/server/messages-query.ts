@@ -5,7 +5,9 @@
  * can ask for an unbounded page.
  */
 import { error } from '@sveltejs/kit';
-import { DEFAULT_PAGE_SIZE } from './messages';
+import { DEFAULT_PAGE_SIZE, getMessages } from './messages';
+import { getReactionsFor } from './reactions';
+import { toMessagePayload } from './ws/protocol';
 
 const MAX_PAGE_SIZE = 100;
 
@@ -33,4 +35,25 @@ export function parseHistoryQuery(url: URL): {
 	}
 
 	return { since, before, limit };
+}
+
+/**
+ * Assemble a conversation's message-history page (messages + their reactions +
+ * a `hasMore` flag) for a known conversation id. Shared by the cookie route
+ * (api/conversations/[id]/messages) and the token route
+ * (api/v1/conversations/[id]) so the response shape can't drift; each caller
+ * does its own auth and conversation-id resolution first.
+ */
+export async function getConversationHistory(conversationId: string, url: URL) {
+	const { since, before, limit } = parseHistoryQuery(url);
+	const messages = await getMessages(conversationId, { since, before, limit });
+	const reactions = await getReactionsFor(messages.map((m) => m.id));
+
+	return {
+		messages: messages.map(toMessagePayload),
+		reactionsByMessage: Object.fromEntries(reactions),
+		// A full page implies there may be older messages still. Never "more" on a
+		// `since` resync, which returns the whole gap.
+		hasMore: !since && messages.length === limit
+	};
 }
