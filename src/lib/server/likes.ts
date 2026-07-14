@@ -55,24 +55,32 @@ export async function setRelation(
 	placeId: string,
 	kind: PlaceRelationKind
 ): Promise<PlaceRelationKind | null> {
-	const [existing] = await db
-		.select({ id: placeRelation.id, kind: placeRelation.kind })
-		.from(placeRelation)
-		.where(and(eq(placeRelation.userId, userId), eq(placeRelation.placeId, placeId)))
-		.limit(1);
+	// Toggle semantics mean this is a read-decide-write, so run it in a
+	// transaction with a row lock (`FOR UPDATE`) on the existing relation.
+	// Otherwise two rapid taps on the same place can interleave read and write
+	// and leave a surprising final state in the one table that must never
+	// corrupt (a user's ratings).
+	return db.transaction(async (tx) => {
+		const [existing] = await tx
+			.select({ id: placeRelation.id, kind: placeRelation.kind })
+			.from(placeRelation)
+			.where(and(eq(placeRelation.userId, userId), eq(placeRelation.placeId, placeId)))
+			.for('update')
+			.limit(1);
 
-	if (existing) {
-		// Clicking the same kind a second time clears it.
-		if (existing.kind === kind) {
-			await db.delete(placeRelation).where(eq(placeRelation.id, existing.id));
-			return null;
+		if (existing) {
+			// Clicking the same kind a second time clears it.
+			if (existing.kind === kind) {
+				await tx.delete(placeRelation).where(eq(placeRelation.id, existing.id));
+				return null;
+			}
+			await tx.update(placeRelation).set({ kind }).where(eq(placeRelation.id, existing.id));
+			return kind;
 		}
-		await db.update(placeRelation).set({ kind }).where(eq(placeRelation.id, existing.id));
-		return kind;
-	}
 
-	await db.insert(placeRelation).values({ userId, placeId, kind }).onConflictDoNothing();
-	return kind;
+		await tx.insert(placeRelation).values({ userId, placeId, kind }).onConflictDoNothing();
+		return kind;
+	});
 }
 
 /**

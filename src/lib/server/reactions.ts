@@ -12,25 +12,30 @@ export async function toggleReaction(
 	userId: string,
 	emoji: string
 ): Promise<{ added: boolean }> {
-	const existing = await db
-		.select({ id: messageReaction.id })
-		.from(messageReaction)
-		.where(
-			and(
-				eq(messageReaction.messageId, messageId),
-				eq(messageReaction.userId, userId),
-				eq(messageReaction.emoji, emoji)
+	// Same read-decide-write toggle as setRelation: run it in a transaction with
+	// a row lock so two rapid taps on the same reaction can't interleave.
+	return db.transaction(async (tx) => {
+		const existing = await tx
+			.select({ id: messageReaction.id })
+			.from(messageReaction)
+			.where(
+				and(
+					eq(messageReaction.messageId, messageId),
+					eq(messageReaction.userId, userId),
+					eq(messageReaction.emoji, emoji)
+				)
 			)
-		)
-		.limit(1);
+			.for('update')
+			.limit(1);
 
-	if (existing.length > 0) {
-		await db.delete(messageReaction).where(eq(messageReaction.id, existing[0].id));
-		return { added: false };
-	}
+		if (existing.length > 0) {
+			await tx.delete(messageReaction).where(eq(messageReaction.id, existing[0].id));
+			return { added: false };
+		}
 
-	await db.insert(messageReaction).values({ messageId, userId, emoji }).onConflictDoNothing();
-	return { added: true };
+		await tx.insert(messageReaction).values({ messageId, userId, emoji }).onConflictDoNothing();
+		return { added: true };
+	});
 }
 
 export type ReactionSummary = { emoji: string; userIds: string[] };
