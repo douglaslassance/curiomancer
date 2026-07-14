@@ -61,7 +61,24 @@ export const load: PageServerLoad = async ({ params, locals, url }) => {
 		getPlaceIdsByKind(locals.user.id, 'want_to_go')
 	]);
 
-	const center = loc ?? { latitude: 34.0522, longitude: -118.2437 };
+	// Never expose the user's exact home coordinates: everywhere else the app
+	// deliberately shows only city-level location. Frame the map on the centroid
+	// of their liked places (already returned above, so nothing new leaks), and
+	// only if they have none, fall back to a coarsened (~11km grid) version of
+	// their stored location, then a default.
+	const coarsen = (n: number) => Math.round(n * 10) / 10;
+	const located = places.filter((p) => p.latitude != null && p.longitude != null);
+	let center: { latitude: number; longitude: number };
+	if (located.length > 0) {
+		center = {
+			latitude: located.reduce((sum, p) => sum + p.latitude!, 0) / located.length,
+			longitude: located.reduce((sum, p) => sum + p.longitude!, 0) / located.length
+		};
+	} else if (loc) {
+		center = { latitude: coarsen(loc.latitude), longitude: coarsen(loc.longitude) };
+	} else {
+		center = { latitude: 34.0522, longitude: -118.2437 };
+	}
 
 	return {
 		profile,
