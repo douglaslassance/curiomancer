@@ -8,6 +8,12 @@ export const actions: Actions = {
 	// row is created later by the webhook (customer.subscription.created), not
 	// here - this only kicks off the hosted payment page. Managing an existing
 	// subscription lives in Settings, not here.
+	//
+	// managed_payments makes Stripe the merchant of record: Stripe (not us)
+	// calculates, collects, and remits sales tax/VAT/GST worldwide and issues
+	// the invoices, so we carry no cross-border tax liability. The product must
+	// carry a Managed-Payments-eligible tax code and the feature must be active
+	// in the Dashboard (Settings > Managed Payments) for this to take effect.
 	checkout: async ({ locals, url }) => {
 		if (!locals.user) throw redirect(302, '/sign-in?next=/subscribe');
 		if (!stripeEnabled()) return fail(503, { message: 'Billing is not available right now.' });
@@ -22,6 +28,10 @@ export const actions: Actions = {
 		const stripe = getStripe();
 		const session = await stripe.checkout.sessions.create({
 			mode: 'subscription',
+			// Merchant of record: Stripe handles all indirect tax. Keep the rest of
+			// this call free of the params Managed Payments disallows (automatic_tax,
+			// tax_id_collection, customer_update, custom statement descriptors).
+			managed_payments: { enabled: true },
 			line_items: [{ price: stripePriceId(), quantity: 1 }],
 			success_url: `${url.origin}/subscribe?checkout=success`,
 			cancel_url: `${url.origin}/subscribe?checkout=canceled`,
