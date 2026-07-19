@@ -58,9 +58,9 @@ export const load: PageServerLoad = async ({ params }) => {
 			(SELECT COUNT(*)::int FROM place_relation WHERE user_id = u.id AND kind = 'disliked') AS dislikes,
 			(SELECT COUNT(*)::int FROM place_relation WHERE user_id = u.id AND kind = 'want_to_go') AS want_to_go,
 			(SELECT COUNT(*)::int FROM place_relation WHERE user_id = u.id AND kind = 'seen') AS seen,
-			(SELECT COUNT(*)::int FROM "invite" WHERE created_by_user_id = u.id AND redeemed_by_user_id IS NULL) AS invites_remaining,
-			(SELECT COUNT(*)::int FROM "invite" WHERE created_by_user_id = u.id) AS invites_total,
-			(SELECT inviter.name FROM "invite" i JOIN "user" inviter ON inviter.id = i.created_by_user_id WHERE i.redeemed_by_user_id = u.id LIMIT 1) AS referred_by_name,
+			(SELECT COUNT(*)::int FROM "invite" WHERE owner_id = u.id AND redeemed_by_user_id IS NULL) AS invites_remaining,
+			(SELECT COUNT(*)::int FROM "invite" WHERE owner_id = u.id) AS invites_total,
+			(SELECT inviter.name FROM "invite" i JOIN "user" inviter ON inviter.id = i.owner_id WHERE i.redeemed_by_user_id = u.id LIMIT 1) AS referred_by_name,
 			EXISTS (SELECT 1 FROM subscription s WHERE s.user_id = u.id AND s.status = 'active') AS is_subscriber
 		FROM "user" u
 		LEFT JOIN user_location ul ON ul.user_id = u.id

@@ -5,7 +5,7 @@ import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
 import { db } from '$lib/server/db';
-import { createInvitesFor } from '$lib/server/invites';
+import { grantSignupInvites } from '$lib/server/invites';
 import {
 	sendChangeEmailVerificationEmail,
 	sendPasswordResetEmail,
@@ -68,8 +68,14 @@ export const auth = betterAuth({
 	},
 	user: {
 		additionalFields: {
-			/** Whether other users can start a chat with them. Set from Settings. */
-			messageable: { type: 'boolean', defaultValue: true }
+			/**
+			 * Incognito mode. An incognito user still counts toward
+			 * recommendations (their likes anonymously power others' recs) but is
+			 * hidden from other people: they don't surface as anyone's twin, and
+			 * their profile is private (404s for everyone but themselves and
+			 * admins). Set from Settings; replaces the old `messageable` flag.
+			 */
+			incognito: { type: 'boolean', defaultValue: false }
 		},
 		// Let users change their email from Settings. With no confirmation hook set,
 		// a verified user gets a single verification link sent to the NEW address;
@@ -83,7 +89,7 @@ export const auth = betterAuth({
 		user: {
 			create: {
 				after: async (newUser) => {
-					await createInvitesFor(newUser.id, 3);
+					await grantSignupInvites(newUser.id, 3);
 				}
 			}
 		}

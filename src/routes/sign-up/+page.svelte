@@ -107,6 +107,11 @@
 							<Sparkles class="text-primary size-4" />
 							{data.inviter.name} is inviting you to Curiomancer.
 						</span>
+					{:else if data.inviteState === 'valid'}
+						<span class="flex items-center gap-1.5">
+							<Sparkles class="text-primary size-4" />
+							You've been invited to Curiomancer.
+						</span>
 					{:else if data.inviteState === 'invalid'}
 						That invite code is invalid or already used.
 					{:else}

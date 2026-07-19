@@ -1,5 +1,5 @@
 import { fail } from '@sveltejs/kit';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { isAdmin } from '$lib/server/admin';
 import { db } from '$lib/server/db';
@@ -50,22 +50,33 @@ export const actions: Actions = {
 		const data = await request.formData();
 		const id = data.get('id')?.toString() ?? '';
 
-		const [entry] = await db.select().from(waitlist).where(eq(waitlist.id, id)).limit(1);
-		if (!entry) return fail(404, { message: 'Entry not found.' });
-		if (entry.status === 'invited') return { ok: true };
-
-		// Mint an invite owned by the admitting admin, then mark the entry.
-		const code = await createInviteReturningCode(locals.user.id);
-		await db
+		// Atomically claim the entry (pending -> invited) so a double-submit can't
+		// mint two invites for the same person: only the request that flips the
+		// status here goes on to mint. inviteId is backfilled once minted.
+		const [claimed] = await db
 			.update(waitlist)
-			.set({ status: 'invited', inviteId: code, invitedAt: new Date() })
-			.where(eq(waitlist.id, id));
+			.set({ status: 'invited', invitedAt: new Date() })
+			.where(and(eq(waitlist.id, id), eq(waitlist.status, 'pending')))
+			.returning({ email: waitlist.email });
+
+		if (!claimed) {
+			// Lost the race, already invited, or unknown id. Distinguish the last.
+			const [entry] = await db.select().from(waitlist).where(eq(waitlist.id, id)).limit(1);
+			if (!entry) return fail(404, { message: 'Entry not found.' });
+			return { ok: true };
+		}
+
+		// Mint an unowned (platform) invite - the admitting admin is recorded as
+		// creator, but no one owns it, so it stays out of anyone's Settings and the
+		// email reads as a platform invite. Link it to the waitlist entry.
+		const code = await createInviteReturningCode(locals.user.id, null);
+		await db.update(waitlist).set({ inviteId: code }).where(eq(waitlist.id, id));
 
 		// Best-effort: the invite is already minted and copyable from the admin
 		// table, so a delivery hiccup here shouldn't block the admit action.
 		try {
 			const inviteUrl = `${env.ORIGIN}/sign-up?invite=${encodeURIComponent(code)}`;
-			await sendInviteEmail(entry.email, inviteUrl);
+			await sendInviteEmail(claimed.email, inviteUrl);
 		} catch (err) {
 			console.error('Invite email failed:', err);
 		}
