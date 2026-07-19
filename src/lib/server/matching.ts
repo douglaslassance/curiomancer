@@ -33,7 +33,7 @@ import { sql } from 'drizzle-orm';
 import { db } from './db';
 import { recommendationImpression, type Place, type RecommendationReason } from './db/schema';
 import { haversineKm } from './nearby';
-import { AGREEMENT_EXPR, matchScoreExpr } from './similarity';
+import { AGREEMENT_EXPR, MATCH_THRESHOLD, matchScoreExpr } from './similarity';
 
 /**
  * Where to look for candidate places: an exact city match (what /places and
@@ -140,6 +140,16 @@ export async function getPairScore(
 }
 
 /**
+ * Whether two users are taste-twins: their match score is above
+ * MATCH_THRESHOLD, the same bar the people list and profile access use. The
+ * score is symmetric, so argument order doesn't matter.
+ */
+export async function areTwins(userIdA: string, userIdB: string): Promise<boolean> {
+	const { score } = await getPairScore(userIdA, userIdB);
+	return score !== null && score > MATCH_THRESHOLD;
+}
+
+/**
  * Top N people in `city` with the highest signed similarity to `userId`.
  * Excludes the user themselves; only considers candidates we overlap with
  * on ≥1 place (either kind).
@@ -195,6 +205,7 @@ export async function getMatchedPeopleInCity(
 		JOIN "user" u ON u.id = ps.user_id
 		JOIN user_location ul ON ul.user_id = ps.user_id
 		WHERE ul.city = ${city}
+		  AND u.incognito IS NOT TRUE
 		  AND u.id NOT IN (
 		  	SELECT blocked_id FROM "block" WHERE blocker_id = ${userId}
 		  	UNION
@@ -285,7 +296,8 @@ export async function getSharedTwins(
 		JOIN b_scores b ON b.user_id = a.user_id
 		JOIN their_totals tt ON tt.user_id = a.user_id
 		JOIN "user" u ON u.id = a.user_id
-		WHERE u.id NOT IN (
+		WHERE u.incognito IS NOT TRUE
+		  AND u.id NOT IN (
 		  	SELECT blocked_id FROM "block" WHERE blocker_id IN (${userIdA}, ${userIdB})
 		  	UNION
 		  	SELECT blocker_id FROM "block" WHERE blocked_id IN (${userIdA}, ${userIdB})
@@ -373,7 +385,12 @@ export async function getRecommendedPlaces(
 		twins AS (
 			SELECT user_id, score
 			FROM pair_stats
-			WHERE score > 0
+			-- Only real taste-twins drive recommendations: the same
+			-- MATCH_THRESHOLD the people rail and /twins use, not any positive
+			-- overlap. A user with no twins above this bar gets no recs (the
+			-- dashboard then nudges them to Tune) rather than recs built from
+			-- near-noise agreement.
+			WHERE score > ${MATCH_THRESHOLD}
 			ORDER BY score DESC
 			LIMIT ${TWIN_LIMIT}
 		)
@@ -418,72 +435,5 @@ export async function getRecommendedPlaces(
 		score: Number(r.score) || 0,
 		twinCount: r.twin_count,
 		reason: 'twin_match' as const
-	}));
-}
-
-/**
- * Fallback when the user has no signal yet (cold start): top places within
- * `scope` by raw like count. Same shape so the UI doesn't branch.
- */
-export async function getPopularPlaces(
-	userId: string,
-	scope: PlaceScope,
-	category: 'eat' | 'drink' | 'shop' | 'visit',
-	limit = 8
-): Promise<RecommendedPlace[]> {
-	const rows = await db.execute<{
-		id: string;
-		name: string;
-		category: 'eat' | 'drink' | 'shop' | 'visit';
-		city: string;
-		neighborhood: string | null;
-		description: string;
-		latitude: number | null;
-		longitude: number | null;
-		source: 'apple' | 'seed' | 'manual';
-		external_id: string | null;
-		created_at: Date;
-		like_count: number;
-	}>(sql`
-		SELECT
-			p.id,
-			p.name,
-			p.category,
-			p.city,
-			p.neighborhood,
-			p.description,
-			p.latitude,
-			p.longitude,
-			p.source,
-			p.external_id,
-			p.created_at,
-			COUNT(l.id) FILTER (WHERE l.kind = 'liked')::int AS like_count
-		FROM place p
-		LEFT JOIN "place_relation" l ON l.place_id = p.id
-		WHERE ${placeScopeClause(scope)}
-		  AND p.category = ${category}
-		  AND p.id NOT IN (
-		  	SELECT place_id FROM "place_relation" WHERE user_id = ${userId}
-		  )
-		GROUP BY p.id
-		ORDER BY like_count DESC, p.name ASC
-		LIMIT ${limit}
-	`);
-
-	return rows.map((r) => ({
-		id: r.id,
-		name: r.name,
-		category: r.category,
-		city: r.city,
-		neighborhood: r.neighborhood,
-		description: r.description,
-		latitude: r.latitude,
-		longitude: r.longitude,
-		source: r.source,
-		externalId: r.external_id,
-		createdAt: new Date(r.created_at),
-		score: 0,
-		twinCount: r.like_count,
-		reason: 'popular_fallback'
 	}));
 }

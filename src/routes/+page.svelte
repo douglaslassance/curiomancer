@@ -11,7 +11,8 @@
 		Loader2,
 		Luggage,
 		MessageCircle,
-		ShieldCheck
+		ShieldCheck,
+		SlidersHorizontal
 	} from '@lucide/svelte';
 	import DashboardHeader from '$lib/components/dashboard-header.svelte';
 	import LocationPrompt from '$lib/components/location-prompt.svelte';
@@ -305,7 +306,7 @@
 				</div>
 				<div class="flex shrink-0 items-center gap-2 self-end sm:self-auto">
 					<Button variant="ghost" size="sm" onclick={skipImport}>Skip for now</Button>
-					<Button href="/import" size="sm">
+					<Button href="/import/google" size="sm">
 						Import
 						<ArrowRight class="size-4" />
 					</Button>
@@ -314,29 +315,66 @@
 		</Card.Root>
 	{/if}
 
-	<CategoryRail
-		title="Recommended Eat"
-		places={data.eat}
-		empty={`Nowhere to eat in ${data.location.city} yet.`}
-	/>
+	{@const hasRecommendations =
+		data.eat.length > 0 ||
+		data.drink.length > 0 ||
+		data.shop.length > 0 ||
+		data.visit.length > 0}
 
-	<CategoryRail
-		title="Recommended Drink"
-		places={data.drink}
-		empty={`Nowhere to drink in ${data.location.city} yet.`}
-	/>
+	{#if hasRecommendations}
+		<CategoryRail
+			title="Recommended Eat"
+			places={data.eat}
+			empty={`Nowhere to eat in ${data.location.city} yet.`}
+		/>
 
-	<CategoryRail
-		title="Recommended Shop"
-		places={data.shop}
-		empty={`Nowhere to shop in ${data.location.city} yet.`}
-	/>
+		<CategoryRail
+			title="Recommended Drink"
+			places={data.drink}
+			empty={`Nowhere to drink in ${data.location.city} yet.`}
+		/>
 
-	<CategoryRail
-		title="Recommended Experience"
-		places={data.visit}
-		empty={`Nowhere to visit in ${data.location.city} yet.`}
-	/>
+		<CategoryRail
+			title="Recommended Shop"
+			places={data.shop}
+			empty={`Nowhere to shop in ${data.location.city} yet.`}
+		/>
 
-	<MatchedPeopleRail people={data.matchedPeople} />
+		<CategoryRail
+			title="Recommended Experience"
+			places={data.visit}
+			empty={`Nowhere to visit in ${data.location.city} yet.`}
+		/>
+	{:else}
+		<!-- Cold start: no taste-twins yet, so there's nothing honest to
+		     recommend and no twins to show. Everything gives way to a single hero
+		     nudge to Tune, rather than a page of empty sections. -->
+		<Card.Root class="border-primary/30 bg-primary/5">
+			<Card.Content class="flex flex-col items-center gap-4 py-12 text-center">
+				<div class="bg-primary/10 flex size-14 items-center justify-center rounded-full">
+					<SlidersHorizontal class="text-primary size-7" />
+				</div>
+				<div class="max-w-md">
+					<h2 class="text-xl font-semibold tracking-tight">
+						Tune your taste to unlock recommendations
+					</h2>
+					<p class="text-muted-foreground mt-2 text-sm">
+						{data.myLikeCount === 0
+							? "Rate a few places you know and we'll find the people who share your taste, then recommend the spots they love."
+							: "Not enough taste matches near you yet. Rate more places to sharpen your matches and unlock recommendations."}
+					</p>
+				</div>
+				<Button href="/tune" size="lg">
+					Start tuning
+					<ArrowRight class="size-4" />
+				</Button>
+			</Card.Content>
+		</Card.Root>
+	{/if}
+
+	<!-- Only show Twins once there are matches; an empty rail is just noise next
+	     to the Tune nudge (see the cold-start branch above). -->
+	{#if data.matchedPeople.length > 0}
+		<MatchedPeopleRail people={data.matchedPeople} />
+	{/if}
 {/if}

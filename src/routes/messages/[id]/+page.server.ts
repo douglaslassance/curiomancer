@@ -3,7 +3,8 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { user } from '$lib/server/db/schema';
 import { isBlocked } from '$lib/server/blocks';
-import { getPairScore } from '$lib/server/matching';
+import { areTwins, getPairScore } from '$lib/server/matching';
+import { MATCH_THRESHOLD } from '$lib/server/similarity';
 import {
 	createConversation,
 	DEFAULT_PAGE_SIZE,
@@ -24,7 +25,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	if (locals.user.id === params.id) throw error(400, "You can't message yourself.");
 
 	const [other] = await db
-		.select({ id: user.id, name: user.name, image: user.image, messageable: user.messageable })
+		.select({ id: user.id, name: user.name, image: user.image, incognito: user.incognito })
 		.from(user)
 		.where(eq(user.id, params.id))
 		.limit(1);
@@ -36,8 +37,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	// so the ring around their avatar here never disagrees with those.
 	const pair = await getPairScore(locals.user.id, params.id);
 
+	// You can only START a chat with a taste-twin who isn't incognito. Existing
+	// conversations keep working regardless (you may have drifted apart, or they
+	// may have gone incognito, since you first connected).
+	const canStart = !other.incognito && pair.score !== null && pair.score > MATCH_THRESHOLD;
 	const existingId = await findConversation(locals.user.id, params.id);
-	if (!existingId && !other.messageable) {
+	if (!existingId && !canStart) {
 		return {
 			other,
 			score: pair.score,
@@ -87,12 +92,12 @@ export const actions: Actions = {
 		const existingId = await findConversation(locals.user.id, params.id);
 		if (!existingId) {
 			const [recipient] = await db
-				.select({ messageable: user.messageable })
+				.select({ incognito: user.incognito })
 				.from(user)
 				.where(eq(user.id, params.id))
 				.limit(1);
-			if (!recipient?.messageable) {
-				return fail(403, { error: "This person isn't accepting messages right now." });
+			if (recipient?.incognito || !(await areTwins(locals.user.id, params.id))) {
+				return fail(403, { error: 'You can only message your taste-twins.' });
 			}
 		}
 

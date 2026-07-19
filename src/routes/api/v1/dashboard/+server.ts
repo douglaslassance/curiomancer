@@ -7,7 +7,6 @@ import { getUserLocation } from '$lib/server/current-location';
 import { getCurrentWeather, type Weather } from '$lib/server/weather';
 import {
 	getMatchedPeopleInCity,
-	getPopularPlaces,
 	getRecommendedPlaces,
 	logRecommendationImpressions,
 	type MatchedPerson
@@ -18,9 +17,12 @@ import type { RequestHandler } from './$types';
  * GET /api/v1/dashboard
  *
  * The home surface: current location, weather, matched people, and one
- * recommended-places rail per category. Mirrors the root page load, including
- * its cold-start fallback from personalised recommendations to raw popularity
- * so the rails never come back empty.
+ * recommended-places rail per category. Mirrors the root page load.
+ *
+ * Recommendations come purely from the taste-twin recommender: a cold-start
+ * user with no twins yet gets empty rails (clients should then nudge them to
+ * Tune), not popular places passed off as recommendations. `myLikeCount` lets
+ * a client tailor that cold-start copy.
  *
  *   returns: { location, weather, matchedPeople, eat, drink, shop, visit, myLikeCount }
  */
@@ -47,11 +49,8 @@ export const GET: RequestHandler = async ({ request }) => {
 		longitude: loc.longitude,
 		radiusKm: 30
 	};
-	const placesFor = async (category: 'eat' | 'drink' | 'shop' | 'visit') => {
-		const recommended = await getRecommendedPlaces(userId, scope, category);
-		if (recommended.length > 0) return recommended;
-		return getPopularPlaces(userId, scope, category);
-	};
+	const placesFor = (category: 'eat' | 'drink' | 'shop' | 'visit') =>
+		getRecommendedPlaces(userId, scope, category);
 
 	const [weather, matchedPeople, eat, drink, shop, visit] = await Promise.all([
 		getCurrentWeather(loc.latitude, loc.longitude).catch((err) => {

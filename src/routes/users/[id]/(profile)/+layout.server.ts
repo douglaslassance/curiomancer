@@ -11,19 +11,29 @@ import {
 } from '$lib/server/db/schema';
 import { isBlocked } from '$lib/server/blocks';
 import { getPairScore } from '$lib/server/matching';
+import { MATCH_THRESHOLD } from '$lib/server/similarity';
+import { isAdmin } from '$lib/server/admin';
 import { isSubscriber } from '$lib/server/subscriptions';
 import type { LayoutServerLoad } from './$types';
 
 export type SharedPlace = Place & { kind: PlaceRelationKind };
 
 /**
- * Public profile for a Curiomancer user - shared across the Likes (default),
- * Want to go, Disliked, and Twins tabs. Public to everyone (signed in or
- * not), except a blocked pair: blocking is mutual, so the profile 404s for
- * whichever side is involved, same as if the account didn't exist. When a
- * viewer is signed in we also compute their Jaccard similarity + every place
- * where you both landed on the same stance, so the page is the natural
- * answer to "why is this person in my matches?"
+ * Profile for a Curiomancer user - shared across the Likes (default), Want to
+ * go, Disliked, and Twins tabs. Gated behind sign-in by the central guard in
+ * hooks.server.ts (/users/* is not a public path).
+ *
+ * Access is twins-only: unless you're viewing yourself (or you're an admin),
+ * you can only see a profile if you're an actual taste-twin of theirs (match
+ * above MATCH_THRESHOLD). Guessing someone's URL as a non-twin 404s. An
+ * incognito user is hidden from everyone but themselves, so their profile
+ * 404s for all others too. Blocked pairs 404 either way.
+ *
+ * A viewer only ever sees their OWN full lists. On someone else's profile we
+ * return match score + the places where you both landed on the same stance
+ * (viewer.sharedPlaces) - the "why is this person in my matches?" view - and
+ * deliberately NOT their full like/dislike lists, so a match can't be gamed or
+ * mined by browsing what someone likes.
  */
 export const load: LayoutServerLoad = async ({ params, locals }) => {
 	const [profile] = await db
@@ -32,15 +42,28 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 			name: user.name,
 			image: user.image,
 			createdAt: user.createdAt,
-			messageable: user.messageable
+			incognito: user.incognito
 		})
 		.from(user)
 		.where(eq(user.id, params.id))
 		.limit(1);
 	if (!profile) throw error(404, 'User not found');
 
-	if (locals.user && locals.user.id !== params.id) {
+	const isSelf = locals.user?.id === params.id;
+
+	// Access gate. Admins bypass it (moderation); the owner always sees their
+	// own profile. Everyone else must be an un-blocked, non-incognito taste-twin.
+	// `pair` is reused below for the viewer's match badge so we don't score twice.
+	let pair: { score: number | null; sharedCount: number } | null = null;
+	if (!isSelf && !isAdmin(locals.user)) {
+		// locals.user is guaranteed here by the central sign-in guard.
+		if (!locals.user) throw error(404, 'User not found');
 		if (await isBlocked(locals.user.id, params.id)) throw error(404, 'User not found');
+		if (profile.incognito) throw error(404, 'User not found');
+		pair = await getPairScore(locals.user.id, params.id);
+		if (pair.score === null || pair.score <= MATCH_THRESHOLD) {
+			throw error(404, 'User not found');
+		}
 	}
 
 	const [location] = await db
@@ -55,12 +78,17 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 
 	// Despite the name, this covers all four relation kinds, not just liked -
 	// the per-kind tabs (Likes/Want to go/Disliked) filter it client-side.
-	const likedPlaces: SharedPlace[] = await db
+	// We query it for everyone (to count likes for the header) but only ever
+	// send the full list back to the owner: a non-owner's UI shows shared
+	// overlaps, so shipping the full list would just leak it via the page data.
+	const allRelations: SharedPlace[] = await db
 		.select({ ...getTableColumns(place), kind: placeRelation.kind })
 		.from(place)
 		.innerJoin(placeRelation, eq(placeRelation.placeId, place.id))
 		.where(eq(placeRelation.userId, params.id))
 		.orderBy(asc(place.city), asc(place.name));
+	const likedCount = allRelations.filter((p) => p.kind === 'liked').length;
+	const likedPlaces = isSelf ? allRelations : [];
 
 	// Compute similarity with the viewer (if signed in and not viewing self).
 	let viewer: {
@@ -72,15 +100,16 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 	} | null = null;
 
 	if (locals.user) {
-		const isSelf = locals.user.id === params.id;
 		if (!isSelf) {
 			// Score comes from the shared matching helper so it can't disagree
 			// with the people list. `shared` is every place where both of you
 			// landed on the SAME kind (both liked, both disliked, both seen,
 			// both want-to-go) - a different thing from the score's liked+
 			// disliked overlap, so we still query it separately.
-			const [pair, subscriber] = await Promise.all([
-				getPairScore(locals.user.id, params.id),
+			// The gate already scored the pair for non-admins; admins skipped it,
+			// so fall back to computing it here.
+			const [resolvedPair, subscriber] = await Promise.all([
+				pair ?? getPairScore(locals.user.id, params.id),
 				isSubscriber(locals.user.id)
 			]);
 			const shared = await db.execute<{
@@ -107,8 +136,8 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 			viewer = {
 				isSelf: false,
 				isSubscriber: subscriber,
-				score: pair.score,
-				sharedCount: pair.sharedCount,
+				score: resolvedPair.score,
+				sharedCount: resolvedPair.sharedCount,
 				sharedPlaces: shared.map((r) => ({
 					id: r.id,
 					name: r.name,
@@ -129,5 +158,5 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 		}
 	}
 
-	return { profile, location, likedPlaces, viewer };
+	return { profile, location, likedPlaces, likedCount, viewer };
 };

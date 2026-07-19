@@ -40,9 +40,10 @@ export async function findConversation(userIdA: string, userIdB: string): Promis
 }
 
 /**
- * Creates a new conversation between the two users. Callers should check
- * the recipient's `messageable` flag first - this doesn't re-check it, so
- * an existing conversation can keep going even if that flag flips off later.
+ * Creates a new conversation between the two users. Callers must enforce the
+ * "twins-only, not incognito" rule for STARTING a chat first - this doesn't
+ * re-check it, so an existing conversation keeps going even if the two later
+ * drift below the twin threshold or one goes incognito.
  */
 export async function createConversation(userIdA: string, userIdB: string): Promise<string> {
 	const [a, b] = orderedPair(userIdA, userIdB);

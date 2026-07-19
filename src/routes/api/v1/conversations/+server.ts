@@ -4,6 +4,7 @@ import { requireApiUser } from '$lib/server/api-auth';
 import { db } from '$lib/server/db';
 import { user } from '$lib/server/db/schema';
 import { isBlocked } from '$lib/server/blocks';
+import { areTwins } from '$lib/server/matching';
 import {
 	createConversation,
 	findConversation,
@@ -63,15 +64,19 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 	if (await isBlocked(userId, otherUserId)) throw error(404, 'User not found.');
 
+	// Starting a NEW conversation is twins-only, and not with an incognito user.
+	// Existing conversations keep working regardless.
 	const existingId = await findConversation(userId, otherUserId);
 	if (!existingId) {
 		const [recipient] = await db
-			.select({ messageable: user.messageable })
+			.select({ incognito: user.incognito })
 			.from(user)
 			.where(eq(user.id, otherUserId))
 			.limit(1);
 		if (!recipient) throw error(404, 'User not found.');
-		if (!recipient.messageable) throw error(403, "This person isn't accepting messages right now.");
+		if (recipient.incognito || !(await areTwins(userId, otherUserId))) {
+			throw error(403, 'You can only message your taste-twins.');
+		}
 	}
 
 	const conversationId = existingId ?? (await createConversation(userId, otherUserId));

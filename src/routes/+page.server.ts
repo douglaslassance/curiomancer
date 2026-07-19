@@ -4,7 +4,6 @@ import { placeRelation, userLocation } from '$lib/server/db/schema';
 import { getCurrentWeather, type Weather } from '$lib/server/weather';
 import {
 	getMatchedPeopleInCity,
-	getPopularPlaces,
 	getRecommendedPlaces,
 	logRecommendationImpressions,
 	type MatchedPerson,
@@ -36,10 +35,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.where(eq(placeRelation.userId, userId))
 	).length;
 
-	// Try the personalised recommender first - it pulls from algorithmic
-	// taste-twins. If there's no twin signal yet (cold-start user with no
-	// likes), fall back to raw popularity so the dashboard never renders
-	// empty rails.
+	// Recommendations come purely from the personalised recommender, which
+	// draws only from real taste-twins (match above MATCH_THRESHOLD). A user
+	// with no twins yet gets empty rails on purpose - the dashboard then nudges
+	// them to Tune rather than passing off popular places as recommendations.
 	// Radius-scoped (not an exact city match) so a place just across a city
 	// line isn't invisible just because of an address field.
 	const scope = {
@@ -48,11 +47,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		longitude: loc.longitude,
 		radiusKm: 30
 	};
-	const placesFor = async (category: 'eat' | 'drink' | 'shop' | 'visit') => {
-		const recommended = await getRecommendedPlaces(userId, scope, category);
-		if (recommended.length > 0) return recommended;
-		return getPopularPlaces(userId, scope, category);
-	};
+	const placesFor = (category: 'eat' | 'drink' | 'shop' | 'visit') =>
+		getRecommendedPlaces(userId, scope, category);
 
 	const [weather, matchedPeople, eat, drink, shop, visit] = await Promise.all([
 		getCurrentWeather(loc.latitude, loc.longitude).catch((err) => {

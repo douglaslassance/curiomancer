@@ -20,9 +20,9 @@
 
 	let { data, children } = $props();
 	const profile = $derived(data.profile);
-	// likedPlaces actually holds all four relation kinds (the per-kind tabs
-	// filter it), so the header count needs its own filter to stay accurate.
-	const likedCount = $derived(data.likedPlaces.filter((p) => p.kind === 'liked').length);
+	// Owner-total liked count, computed server-side so the header stays accurate
+	// even though a non-owner is no longer sent the full likedPlaces list.
+	const likedCount = $derived(data.likedCount);
 
 	// "Shared" only makes sense when comparing against someone else; on your
 	// own profile there's no one to share with, so it's just your own list.
@@ -120,21 +120,15 @@
 						</Button>
 					</form>
 				{:else if data.viewer && !data.viewer.isSelf}
-					{@const canMessage = profile.messageable && data.viewer.isSubscriber}
+					<!-- You can only reach this profile if you're a (non-incognito) twin,
+					     so the Message button always applies; it only gates on whether
+					     the viewer subscribes. -->
+					{@const canMessage = data.viewer.isSubscriber}
 					<Button
 						size="sm"
 						variant="default"
-						href={profile.messageable
-							? canMessage
-								? `/messages/${profile.id}`
-								: '/subscribe'
-							: undefined}
-						disabled={!profile.messageable}
-						title={!profile.messageable
-							? 'Not accepting messages right now'
-							: canMessage
-								? undefined
-								: 'Subscribe to message people'}
+						href={canMessage ? `/messages/${profile.id}` : '/subscribe'}
+						title={canMessage ? undefined : 'Subscribe to message people'}
 					>
 						<MessageCircle class="size-4" />
 						Message

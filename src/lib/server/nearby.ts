@@ -183,6 +183,7 @@ export async function getPeopleNearby(
 		FROM nearby_users nu
 		JOIN "user" u ON u.id = nu.user_id
 		LEFT JOIN pair_stats ps ON ps.user_id = nu.user_id
+		WHERE u.incognito IS NOT TRUE
 		ORDER BY score DESC NULLS LAST, distance_km ASC
 	`);
 

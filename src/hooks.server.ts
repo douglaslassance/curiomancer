@@ -116,6 +116,9 @@ const handleBetterAuth: Handle = async ({ event, resolve }) => {
 		pathname.startsWith('/api/') ||
 		pathname.startsWith('/_app/') ||
 		pathname.startsWith('/.well-known/') ||
+		// Capability-token share links (/s/<token>): public by design so anyone
+		// with the link (and preview crawlers) can view the owner's likes map.
+		pathname.startsWith('/s/') ||
 		pathname === '/sign-out' ||
 		pathname === '/favicon.svg';
 	if (!isExempt && !event.locals.user) {
