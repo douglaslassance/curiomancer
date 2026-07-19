@@ -31,7 +31,7 @@
 			seen: false
 		},
 		selectPlaceId = null,
-		zoom = 12
+		frameAllPlaces = false
 	}: {
 		places: Place[];
 		center: { latitude: number; longitude: number };
@@ -52,7 +52,9 @@
 		showCategoryFilter?: boolean;
 		/** Initial state of the relation filter chips, before the viewer touches them. */
 		defaultFilters?: Record<'recommended' | 'liked' | 'wantToGo' | 'disliked' | 'seen', boolean>;
-		zoom?: number;
+		/** Fit the camera to all pins once loaded (used when there's no better
+		 *  center, e.g. a shared map viewed by someone with no known location). */
+		frameAllPlaces?: boolean;
 	} = $props();
 
 	let mapElement: HTMLDivElement;
@@ -137,6 +139,27 @@
 		return rel === 'other' ? true : filters[rel];
 	}
 
+	// Level of detail: far out we draw simplified pins (no category glyph, no
+	// name label) so hundreds of markers stay cheap to lay out and the map reads
+	// clean; zoomed in we show the full glyph + adaptive label. Gauged by the
+	// camera distance in meters (smaller = closer), kept current via
+	// region-change-end.
+	// Switch to full-detail pins once closer than this (~city/neighborhood).
+	const DETAIL_CAMERA_DISTANCE = 40_000;
+	// A location-centered map opens framed on this span around the center. Chosen
+	// so the resulting camera distance lands just inside the detail band (~28km,
+	// under DETAIL_CAMERA_DISTANCE), so full pins (glyph + label) show from the
+	// first paint instead of far-zoom dots - i.e. the opening zoom and the detail
+	// threshold coincide. We open via a region (not center + cameraDistance):
+	// MapKit reliably honors a constructor region, but a constructor cameraDistance
+	// can get dropped during the initial settle. (When fitting all pins the framing
+	// code computes its own region and this span is ignored.)
+	const OPEN_REGION_SPAN = 0.15;
+	// Seed the detail state to a detailed value so pins build in full before the
+	// first region-change-end reports the real distance.
+	let cameraDistance = $state(30_000);
+	const detailed = $derived(cameraDistance < DETAIL_CAMERA_DISTANCE);
+
 	// Map handle held outside onMount so other functions can drive the camera.
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let mapRef: any = null;
@@ -147,6 +170,12 @@
 	// than tearing everything down on every render.
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const placeAnnotations = new Map<string, any>();
+	// The detail band the current annotations were built for. When `detailed`
+	// flips we swap every pin between its two forms (full marker <-> dot), which
+	// means recreating them, so we track what's on the map to know when to.
+	let renderedDetailed: boolean | null = null;
+	// Fit-to-all-pins runs once, after the first pins are on the map.
+	let framedAll = false;
 
 	function loadMapKitScript(): Promise<void> {
 		if (typeof window === 'undefined') return Promise.resolve();
@@ -184,6 +213,58 @@
 	 */
 	function pinColor(placeId: string): string {
 		return REL_COLOR[relationOf(placeId)];
+	}
+
+	/** A far-zoom pin: just a colored dot with a white outline (an SVG data URI).
+	 *  Vector, so a single scale stays crisp on retina - passing it as the 2x/3x
+	 *  entry too would make MapKit render it at half size. */
+	function dotDataUri(color: string): string {
+		const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"><circle cx="9" cy="9" r="6" fill="${color}" stroke="white" stroke-width="2.5"/></svg>`;
+		return 'data:image/svg+xml,' + encodeURIComponent(svg);
+	}
+
+	/**
+	 * Two levels of detail, as distinct MapKit annotation types (a MarkerAnnotation
+	 * is always a teardrop, so "far" can't just be a stripped-down marker):
+	 *  - close: MarkerAnnotation with the category glyph + adaptive name label
+	 *  - far:   ImageAnnotation of a colored dot, no label
+	 * Both carry the same select behaviour and `data`/`__curioPin` tagging.
+	 */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	function makePin(p: Place, color: string, isDetailed: boolean): any {
+		const coord = new window.mapkit.Coordinate(p.latitude, p.longitude);
+		let ann;
+		if (isDetailed) {
+			const glyph = categoryGlyphDataUri(p.category);
+			ann = new window.mapkit.MarkerAnnotation(coord, {
+				color,
+				glyphImage: { 1: glyph, 2: glyph, 3: glyph },
+				// Show the place name; MapKit hides it adaptively when crowded.
+				title: p.name,
+				titleVisibility: window.mapkit.FeatureVisibility.Adaptive,
+				subtitleVisibility: window.mapkit.FeatureVisibility.Hidden,
+				callout: { calloutShouldAppearForAnnotation: () => false }
+			});
+		} else {
+			const uri = dotDataUri(color);
+			ann = new window.mapkit.ImageAnnotation(coord, {
+				url: { 1: uri },
+				callout: { calloutShouldAppearForAnnotation: () => false }
+			});
+		}
+		ann.data = p;
+		ann.__curioPin = true; // mark as ours so the POI select handler skips it
+		ann.__curioColor = color;
+		ann.addEventListener('select', () => {
+			selectedPoi = null;
+			selectedPlace = p;
+		});
+		ann.addEventListener('deselect', () => {
+			setTimeout(() => {
+				if (selectedPlace?.id === p.id) selectedPlace = null;
+			}, 100);
+		});
+		return ann;
 	}
 
 	function previewSelected(hit: {
@@ -339,9 +420,20 @@
 					window.mapkit.__ccInited = true;
 				}
 
+				// When asked to frame the whole collection, start the map at that
+				// region so nothing competes with it. Otherwise center on the given
+				// point at the detail-band opening distance. (`framedAll` marks the
+				// one-time framing as done.)
+				const fitRegion = frameAllPlaces ? computeFitAllRegion() : null;
+				if (fitRegion) framedAll = true;
+
 				mapRef = new window.mapkit.Map(mapElement, {
-					center: new window.mapkit.Coordinate(center.latitude, center.longitude),
-					cameraDistance: 50_000 / Math.pow(2, zoom - 12),
+					region:
+						fitRegion ??
+						new window.mapkit.CoordinateRegion(
+							new window.mapkit.Coordinate(center.latitude, center.longitude),
+							new window.mapkit.CoordinateSpan(OPEN_REGION_SPAN, OPEN_REGION_SPAN)
+						),
 					showsCompass: window.mapkit.FeatureVisibility.Hidden,
 					showsZoomControl: false,
 					showsMapTypeControl: false,
@@ -365,6 +457,9 @@
 				mapRef.addEventListener('region-change-end', () => {
 					const c = mapRef.center;
 					if (c) focus = { latitude: c.latitude, longitude: c.longitude };
+					// Drives the level-of-detail switch (simple pins far out, full
+					// glyph + label zoomed in).
+					if (typeof mapRef.cameraDistance === 'number') cameraDistance = mapRef.cameraDistance;
 				});
 
 				if (!cancelled) status = 'ready';
@@ -404,6 +499,16 @@
 	$effect(() => {
 		if (status !== 'ready' || !mapRef || !window.mapkit) return;
 
+		// Reads `detailed` (reactive): crossing the zoom threshold flips every pin
+		// between marker and dot. They're different annotation types, so we tear
+		// the whole set down and let the diff below rebuild it in the new form.
+		const wantDetailed = detailed;
+		if (renderedDetailed !== wantDetailed) {
+			if (placeAnnotations.size > 0) mapRef.removeAnnotations([...placeAnnotations.values()]);
+			placeAnnotations.clear();
+			renderedDetailed = wantDetailed;
+		}
+
 		const incoming = new Set<string>();
 		const toAdd: unknown[] = [];
 
@@ -416,36 +521,20 @@
 			const desiredColor = pinColor(p.id);
 
 			const existing = placeAnnotations.get(p.id);
-			if (existing) {
-				if (existing.color !== desiredColor) existing.color = desiredColor;
-				continue;
+			if (existing && existing.__curioColor !== desiredColor) {
+				// Recolor. A marker recolors in place; a dot's colour is baked into
+				// its image, so drop it and let it be recreated below.
+				if (wantDetailed) {
+					existing.color = desiredColor;
+					existing.__curioColor = desiredColor;
+				} else {
+					mapRef.removeAnnotation(existing);
+					placeAnnotations.delete(p.id);
+				}
 			}
+			if (placeAnnotations.has(p.id)) continue;
 
-			const coord = new window.mapkit.Coordinate(p.latitude, p.longitude);
-			const glyph = categoryGlyphDataUri(p.category);
-			const ann = new window.mapkit.MarkerAnnotation(coord, {
-				color: desiredColor,
-				glyphImage: { 1: glyph, 2: glyph, 3: glyph },
-				// Show the place name as a label; MapKit reveals it when zoomed in
-				// enough and hides it when far out or crowded, so you can read pins
-				// without clicking. Detail still lives in PlacePopup on select, so
-				// we suppress MapKit's own callout to avoid a redundant bubble.
-				title: p.name,
-				titleVisibility: window.mapkit.FeatureVisibility.Adaptive,
-				subtitleVisibility: window.mapkit.FeatureVisibility.Hidden,
-				callout: { calloutShouldAppearForAnnotation: () => false }
-			});
-			ann.data = p;
-			ann.__curioPin = true; // mark as ours so the POI select handler skips it
-			ann.addEventListener('select', () => {
-				selectedPoi = null;
-				selectedPlace = p;
-			});
-			ann.addEventListener('deselect', () => {
-				setTimeout(() => {
-					if (selectedPlace?.id === p.id) selectedPlace = null;
-				}, 100);
-			});
+			const ann = makePin(p, desiredColor, wantDetailed);
 			placeAnnotations.set(p.id, ann);
 			toAdd.push(ann);
 		}
@@ -463,6 +552,59 @@
 		}
 		if (toRemove.length > 0) mapRef.removeAnnotations(toRemove);
 	});
+
+	/**
+	 * Compute a CoordinateRegion that frames every pin, for a shared map that
+	 * should show the whole collection (even a globe-spanning one) rather than
+	 * guessing a "home" region. Returns null if there's nothing to frame.
+	 *
+	 * We feed this to the Map constructor so the map STARTS at this region.
+	 * Setting the region after construction races the constructor's own camera
+	 * animation (to center/cameraDistance), which clobbers it; starting there
+	 * avoids the race entirely.
+	 */
+	function computeFitAllRegion() {
+		if (!window.mapkit) return null;
+		const pts = places.filter((p) => p.latitude !== null && p.longitude !== null);
+		if (pts.length === 0) return null;
+
+		// Latitude is bounded (-90..90), so a plain min/max is fine.
+		let minLat = 90;
+		let maxLat = -90;
+		for (const p of pts) {
+			minLat = Math.min(minLat, p.latitude!);
+			maxLat = Math.max(maxLat, p.latitude!);
+		}
+
+		// Longitude wraps at ±180, so a plain min/max frames the wrong way around
+		// the globe for spread-out likes (e.g. LA + Tokyo would center on Africa).
+		// Find the largest empty longitude gap; the tightest window that holds
+		// every pin is its complement, centered opposite that gap.
+		const lngs = pts.map((p) => p.longitude!).sort((a, b) => a - b);
+		let gapStart = 0;
+		let maxGap = -1;
+		for (let i = 0; i < lngs.length; i++) {
+			const next = i === lngs.length - 1 ? lngs[0] + 360 : lngs[i + 1];
+			const gap = next - lngs[i];
+			if (gap > maxGap) {
+				maxGap = gap;
+				gapStart = i;
+			}
+		}
+		const lngWindow = 360 - maxGap; // width of the arc that contains all pins
+		let centerLng = lngs[(gapStart + 1) % lngs.length] + lngWindow / 2;
+		if (centerLng > 180) centerLng -= 360;
+
+		// Pad so pins aren't jammed against the edges, with a floor so a single
+		// city (or one pin) doesn't zoom in absurdly far, and a ceiling inside
+		// MapKit's valid span range.
+		const latSpan = Math.min(Math.max((maxLat - minLat) * 1.4, 0.08), 170);
+		const lngSpan = Math.min(Math.max(lngWindow * 1.4, 0.08), 350);
+		return new window.mapkit.CoordinateRegion(
+			new window.mapkit.Coordinate((minLat + maxLat) / 2, centerLng),
+			new window.mapkit.CoordinateSpan(latSpan, lngSpan)
+		);
+	}
 
 	// Deep link: when arriving with ?place=<id>, fly to that place and open its
 	// popup once the map is ready. Guarded so it only runs per distinct id.

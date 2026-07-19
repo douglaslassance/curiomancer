@@ -2,7 +2,7 @@
 	import { Bookmark, Eye, ThumbsDown, ThumbsUp } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { relations, type Kind } from '$lib/relations.svelte';
-	import { invalidateAll } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 
 	let {
@@ -20,17 +20,16 @@
 		e.preventDefault();
 		e.stopPropagation();
 
-		const previous = current;
-		const next = relations.apply(placeId, kind);
-
 		if (!signedIn) {
-			// Anonymous mode: localStorage persists likes only. Roll back
-			// other kinds since we don't persist them.
-			if (kind !== 'liked') {
-				relations.apply(placeId, kind);
-			}
+			// Rating needs an account. On a shared /s/ map an anonymous viewer can
+			// reach these buttons, so send them to sign in (and back) rather than
+			// pretending to save something.
+			goto(`/sign-in?next=${encodeURIComponent(page.url.pathname)}`);
 			return;
 		}
+
+		const previous = current;
+		const next = relations.apply(placeId, kind);
 
 		try {
 			// Posting the same kind that was current = clearing it; the store
