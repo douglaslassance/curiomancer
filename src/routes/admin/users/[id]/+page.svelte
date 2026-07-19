@@ -7,6 +7,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Separator } from '$lib/components/ui/separator';
 	import { Check, ExternalLink, Gift, Loader2, Mail, MapPin, VenetianMask } from '@lucide/svelte';
+	import { PLAN_NAME } from '$lib/subscription';
 
 	let { data, form } = $props();
 	const u = $derived(data.user);
@@ -161,7 +162,7 @@
 					<div class="flex items-center gap-2 text-sm font-medium">
 						Subscription
 						{#if u.subscriptionStatus === 'active'}
-							<Badge variant="secondary" class="gap-1"><Check class="size-3" />Active</Badge>
+							<Badge variant="secondary" class="gap-1"><Check class="size-3" />{PLAN_NAME}</Badge>
 						{:else if u.subscriptionStatus === 'granted'}
 							<Badge variant="outline" class="gap-1"><Gift class="size-3" />Granted</Badge>
 						{:else}
@@ -169,7 +170,7 @@
 						{/if}
 					</div>
 					<p class="text-muted-foreground mt-1 text-sm">
-						Grant a complimentary subscription or revoke it.
+						Grant complimentary {PLAN_NAME} or revoke it.
 					</p>
 				</div>
 				<form

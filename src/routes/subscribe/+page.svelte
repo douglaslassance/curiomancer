@@ -4,6 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import { ArrowRight, Heart, Loader2, MessageCircle, Ticket } from '@lucide/svelte';
+	import { PLAN_NAME } from '$lib/subscription';
 	import type { SubmitFunction } from '@sveltejs/kit';
 
 	let { form } = $props();
@@ -37,15 +38,15 @@
 </script>
 
 <svelte:head>
-	<title>Subscribe to Curiomancer</title>
+	<title>Curiomancer {PLAN_NAME}</title>
 </svelte:head>
 
 <div class="mx-auto max-w-5xl py-10">
 	<div class="text-center">
-		<h1 class="text-3xl font-semibold tracking-tight">Become a subscriber</h1>
+		<h1 class="text-3xl font-semibold tracking-tight">Become a {PLAN_NAME} member</h1>
 		<p class="text-muted-foreground mx-auto mt-3 max-w-md text-balance">
-			Curiomancer is free to explore. Subscribe to connect with your taste-twins and help keep the
-			platform going.
+			Curiomancer is free to explore. Go {PLAN_NAME} to connect with your taste-twins and help keep
+			the platform going.
 		</p>
 	</div>
 
@@ -79,25 +80,25 @@
 								<Loader2 class="size-4 animate-spin" />
 								Redirecting…
 							{:else}
-								Subscribe for $4.99/month
+								Get {PLAN_NAME} for $4.99/month
 								<ArrowRight class="size-4" />
 							{/if}
 						</Button>
 					</form>
 				{:else}
 					<Button class="w-full" href="/sign-up?next=/subscribe">
-						Create an account to subscribe
+						Create an account to get {PLAN_NAME}
 						<ArrowRight class="size-4" />
 					</Button>
 				{/if}
 
 				{#if checkoutState === 'success' && !isSubscriber}
 					<p class="text-muted-foreground mt-3 text-center text-xs">
-						Payment received. Activating your subscription…
+						Payment received. Activating {PLAN_NAME}…
 					</p>
 				{:else if checkoutState === 'canceled'}
 					<p class="text-muted-foreground mt-3 text-center text-xs">
-						Checkout canceled. You can subscribe whenever you're ready.
+						Checkout canceled. You can go {PLAN_NAME} whenever you're ready.
 					</p>
 				{/if}
 

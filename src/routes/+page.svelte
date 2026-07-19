@@ -3,6 +3,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import * as Card from '$lib/components/ui/card';
+	import { PLAN_NAME } from '$lib/subscription';
 	import {
 		ArrowRight,
 		Check,
@@ -191,7 +192,7 @@
 				<span
 					class="bg-primary text-primary-foreground absolute -top-2 -right-2 rounded-full px-2 py-0.5 text-xs font-medium"
 				>
-					Subscriber
+					{PLAN_NAME}
 				</span>
 			</div>
 		</section>

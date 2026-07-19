@@ -3,6 +3,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Input } from '$lib/components/ui/input';
 	import { Check, Gift, Search, ThumbsUp } from '@lucide/svelte';
+	import { PLAN_NAME } from '$lib/subscription';
 
 	let { data } = $props();
 
@@ -67,7 +68,7 @@
 						{#if u.subscriptionStatus === 'active'}
 							<Badge variant="secondary" class="gap-1">
 								<Check class="size-3" />
-								Active
+								{PLAN_NAME}
 							</Badge>
 						{:else if u.subscriptionStatus === 'granted'}
 							<Badge variant="outline" class="gap-1">

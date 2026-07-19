@@ -5,6 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import AvatarMatch from '$lib/components/avatar-match.svelte';
+	import { PLAN_NAME } from '$lib/subscription';
 	import {
 		Ban,
 		Bookmark,
@@ -128,7 +129,7 @@
 						size="sm"
 						variant="default"
 						href={canMessage ? `/messages/${profile.id}` : '/subscribe'}
-						title={canMessage ? undefined : 'Subscribe to message people'}
+						title={canMessage ? undefined : `Get ${PLAN_NAME} to message people`}
 					>
 						<MessageCircle class="size-4" />
 						Message
