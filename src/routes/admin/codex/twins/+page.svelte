@@ -20,12 +20,12 @@
 			<p class="text-muted-foreground">
 				A <strong>twin</strong> is anyone whose Match score with you clears
 				<strong class="tabular-nums">{m.MATCH_THRESHOLD}</strong>. That one bar is used everywhere
-				twins appear - the people list, the profile "match %", and who can reach you.
+				twins appear: the people list, the profile "match %", and who can reach you.
 			</p>
 			<p class="text-muted-foreground">
 				Twins power your <strong>recommendations</strong>: places your top
 				<strong class="tabular-nums">{t.TWIN_LIMIT}</strong> twins liked that you haven't rated yet,
-				weighted by how strong each twin is. No twins above the bar means no recommendations - the
+				weighted by how strong each twin is. No twins above the bar means no recommendations, so the
 				dashboard nudges you to Tune instead.
 			</p>
 			<p class="text-muted-foreground">
@@ -33,7 +33,7 @@
 				a stranger can't browse or message you.
 			</p>
 			<p class="text-muted-foreground">
-				<strong>Incognito</strong> users are the exception to visibility - they never surface as
+				<strong>Incognito</strong> users are the exception to visibility: they never surface as
 				anyone's twin and their profile stays private, but their likes still count toward other
 				people's recommendations.
 			</p>

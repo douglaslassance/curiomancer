@@ -17,14 +17,14 @@
 	<Card.Root>
 		<Card.Content class="flex flex-col gap-3 text-sm">
 			<pre class="bg-muted overflow-x-auto rounded-lg p-3 text-xs leading-relaxed"><code
-					>cosine = (agreements − disagreements) / √(your opinions × their opinions)
+					>cosine = (agreements - disagreements) / √(your opinions × their opinions)
 score  = cosine × min(shared, {m.SIGNIFICANCE_FLOOR}) / {m.SIGNIFICANCE_FLOOR}</code
 				></pre>
 			<p class="text-muted-foreground">
-				Each place you both rated is a ±1 vote - liked is +1, disliked is −1 (a "been there" or
-				"want to go" carries no taste signal). The score is the cosine similarity of those two
+				Each place you both rated is a vote of +1 or -1: liked is +1, disliked is -1 (a "been there"
+				or "want to go" carries no taste signal). The score is the cosine similarity of those two
 				vectors, so lining up on distinctive places counts more than agreeing on everything. Range is
-				−1 to +1, shown as a 0-100% badge (negatives clamp to 0).
+				-1 to +1, shown as a 0 to 100% badge (negatives clamp to 0).
 			</p>
 			<p class="text-muted-foreground">
 				The second factor is significance weighting: below <strong
