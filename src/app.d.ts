@@ -5,7 +5,7 @@ import type { User, Session } from 'better-auth/minimal';
 // locals.user / data.user automatically sees role.
 type CuriomancerUser = User & {
 	role?: 'user' | 'admin';
-	messageable?: boolean;
+	incognito?: boolean;
 };
 
 // Set when the admin plugin's impersonateUser created this session - the id
@@ -24,8 +24,14 @@ declare global {
 			session?: CuriomancerSession;
 		}
 
+		// Optional rich-link (Open Graph) overrides a page can return from its
+		// load; the root layout renders one set of OG/Twitter tags from these,
+		// falling back to site-wide defaults. See src/routes/+layout.svelte.
+		interface PageData {
+			meta?: { title?: string; description?: string };
+		}
+
 		// interface Error {}
-		// interface PageData {}
 		// interface PageState {}
 		// interface Platform {}
 	}

@@ -21,6 +21,14 @@
 
 	let { data, children } = $props();
 
+	// Rich-link (Open Graph / Twitter) metadata, emitted once below. Defaults
+	// describe the whole app; a page can override by returning
+	// `meta: { title, description }` from its load (e.g. /s/[token]).
+	const SITE_DESCRIPTION =
+		"Discover bars, restaurants, and shops you'll love. Curiomancer matches your taste with people who share it, wherever you are.";
+	const metaTitle = $derived(page.data.meta?.title ?? 'Curiomancer');
+	const metaDescription = $derived(page.data.meta?.description ?? SITE_DESCRIPTION);
+
 	// Ends an impersonation session (started from /admin/users, dev-only) and
 	// restores the original admin's session. Full navigation rather than
 	// invalidateAll() - the session cookie itself changed server-side.
@@ -36,9 +44,9 @@
 
 	// The map routes are full-bleed (fixed overlay), so a footer would sit
 	// behind them. Hide it there; show it on every normal page. Covers /places
-	// (the main map) and /users/[id]/map (someone's shared likes map).
+	// (the main map) and /s/<token> (someone's shared likes map).
 	const hideFooter = $derived(
-		page.url.pathname === '/places' || page.url.pathname.endsWith('/map')
+		page.url.pathname === '/places' || page.url.pathname.startsWith('/s/')
 	);
 	const year = new Date().getFullYear();
 
@@ -112,10 +120,18 @@
 	<!-- Plain brand title + a real description reads more elegantly as a search
 	     result than a compound title. Inner pages can still override both. -->
 	<title>Curiomancer</title>
-	<meta
-		name="description"
-		content="Discover bars, restaurants, and shops you'll love. Curiomancer matches your taste with people who share it, wherever you are."
-	/>
+	<meta name="description" content={metaDescription} />
+	<!-- Rich link previews (iMessage / Slack / Twitter). One site-wide set; a
+	     page overrides the title/description via `meta` from its load. Text only
+	     for now - no og:image asset yet. -->
+	<meta property="og:title" content={metaTitle} />
+	<meta property="og:description" content={metaDescription} />
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content={`${page.url.origin}${page.url.pathname}`} />
+	<meta property="og:site_name" content="Curiomancer" />
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content={metaTitle} />
+	<meta name="twitter:description" content={metaDescription} />
 	{#if !data.user}
 		<!--
 			The no-flash script in app.html can't know auth state, so it may apply
