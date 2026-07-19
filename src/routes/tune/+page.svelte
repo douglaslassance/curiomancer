@@ -50,7 +50,9 @@
 		{ kind: 'want_to_go', label: 'Want to go', icon: Bookmark }
 	];
 
-	// Seed the queue with nearby DB places the viewer hasn't rated, closest first.
+	// Seed the queue with nearby DB places the viewer hasn't rated. The server
+	// already ranked `data.places` by the tune blend (proximity + taste match +
+	// popularity), so we keep that order - filtering rated places preserves it.
 	// svelte-ignore state_referenced_locally
 	const ratedIds = new Set([
 		...data.likedIds,
@@ -61,7 +63,6 @@
 	// svelte-ignore state_referenced_locally
 	const initialQueue: RateItem[] = data.places
 		.filter((p) => !ratedIds.has(p.id))
-		.sort((a, b) => a.distanceKm - b.distanceKm)
 		.map((p) => ({
 			key: `db:${p.id}`,
 			name: p.name,
@@ -87,8 +88,10 @@
 
 	// Non-reactive dedupe + sweep state. muids we've already surfaced (DB apple
 	// places, plus every POI we enqueue) so Apple searches never repeat a place.
+	// Also seeded with Apple POIs the viewer skipped (still in cooldown) so the
+	// sweep honors skips across sessions, not just for DB places.
 	// svelte-ignore state_referenced_locally
-	const seenExternalIds = new Set<string>(data.knownExternalIds);
+	const seenExternalIds = new Set<string>([...data.knownExternalIds, ...data.skippedExternalIds]);
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let mapkit = $state<any>(null);
 	let sweep: { lat: number; lng: number }[] = [];
@@ -258,16 +261,35 @@
 		}
 	}
 
-	function skip() {
-		if (current) {
-			posthog.capture('place_skipped', {
-				place_id: current.placeId,
-				place_name: current.name,
-				place_category: current.category,
-				distance_km: Math.round(current.distanceKm)
-			});
-			index += 1;
-			maybePrefetch();
+	async function skip() {
+		const item = current;
+		if (!item) return;
+		posthog.capture('place_skipped', {
+			place_id: item.placeId,
+			place_name: item.name,
+			place_category: item.category,
+			distance_km: Math.round(item.distanceKm)
+		});
+		index += 1;
+		maybePrefetch();
+		// Persist the skip so the place backs off (hidden a while, then resurfaces,
+		// retires after enough skips). Fire-and-forget; a failure just means it
+		// isn't remembered next session.
+		try {
+			const body = item.placeId
+				? { placeId: item.placeId }
+				: item.apple
+					? { externalId: item.apple.externalId }
+					: null;
+			if (body) {
+				await fetch('/api/tune/skip', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify(body)
+				});
+			}
+		} catch (err) {
+			console.error('Failed to record skip:', err);
 		}
 	}
 </script>
@@ -373,7 +395,8 @@
 				{#if mapkitError}
 					Couldn't load more places right now.
 				{:else}
-					That's every place within {data.radiusKm} km for now. Check back as new ones appear.
+					That's everything worth rating near you for now. Check back later as your matches and new
+					places grow.
 				{/if}
 			</p>
 			<Button href="/places" variant="outline" size="sm" class="mt-4">Browse places</Button>

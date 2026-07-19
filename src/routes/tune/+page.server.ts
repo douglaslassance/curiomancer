@@ -2,19 +2,24 @@ import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { userLocation, type PlaceRelationKind } from '$lib/server/db/schema';
 import { getRelationMap } from '$lib/server/likes';
-import { getPlacesNearby, MAX_RADIUS_KM, type NearbyPlace } from '$lib/server/nearby';
+import { type NearbyPlace } from '$lib/server/nearby';
+import { getSkippedExternalIds, getTuneQueue, NEGATIVE_AT_KM } from '$lib/server/tune';
 import type { PageServerLoad } from './$types';
 
-// Quick-rate flow: hand the client every place near the viewer plus the ids
-// they've already rated, so it can walk them through the unrated ones. Mirrors
-// the places page loader, minus the recommendation scoring it doesn't need.
-export const load: PageServerLoad = async ({ locals, url }) => {
+// Quick-rate flow: hand the client the places worth rating near the viewer
+// (ranked by proximity + taste match + popularity; only places scoring > 0)
+// plus the ids they've already rated, so it can walk the unrated ones
+// best-first. `radiusKm` is NEGATIVE_AT_KM - the distance where proximity stops
+// being a positive - which is as far as a raw Apple POI (proximity-only, no
+// signal) can score above zero, so the client's Apple sweep stays within it.
+export const load: PageServerLoad = async ({ locals }) => {
 	const empty = {
 		center: null,
 		city: null as string | null,
-		radiusKm: 30,
+		radiusKm: NEGATIVE_AT_KM,
 		places: [] as NearbyPlace[],
 		knownExternalIds: [] as string[],
+		skippedExternalIds: [] as string[],
 		likedIds: [] as string[],
 		dislikedIds: [] as string[],
 		seenIds: [] as string[],
@@ -35,15 +40,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 
 	if (!loc) return { ...empty, signedIn: true as const };
 
-	const radiusKm = Math.max(
-		5,
-		Math.min(MAX_RADIUS_KM, Number(url.searchParams.get('radius') ?? '') || 30)
-	);
-
 	// One relation lookup instead of four getPlaceIdsByKind round trips.
-	const [allNearby, relations] = await Promise.all([
-		getPlacesNearby(loc.latitude, loc.longitude, radiusKm),
-		getRelationMap(locals.user.id)
+	const [allNearby, relations, skippedExternalIds] = await Promise.all([
+		getTuneQueue(locals.user.id, loc.latitude, loc.longitude),
+		getRelationMap(locals.user.id),
+		getSkippedExternalIds(locals.user.id)
 	]);
 	const idsOf = (kind: PlaceRelationKind) =>
 		Object.keys(relations).filter((id) => relations[id] === kind);
@@ -57,9 +58,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	return {
 		center: { latitude: loc.latitude, longitude: loc.longitude },
 		city: loc.city,
-		radiusKm,
+		// The client sweeps Apple POIs only within NEGATIVE_AT_KM - past that a
+		// signal-less POI scores <= 0 and wouldn't be shown anyway.
+		radiusKm: NEGATIVE_AT_KM,
 		places: allNearby,
 		knownExternalIds,
+		// Apple POIs the viewer skipped (still in cooldown) so the sweep skips them.
+		skippedExternalIds,
 		likedIds: idsOf('liked'),
 		dislikedIds: idsOf('disliked'),
 		seenIds: idsOf('seen'),
