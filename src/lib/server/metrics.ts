@@ -49,8 +49,8 @@ export async function getHeadlineMetrics(): Promise<HeadlineMetrics> {
 			(SELECT COUNT(*)::int FROM user_activity WHERE last_seen_at >= now() - interval '1 day') AS dau,
 			(SELECT COUNT(*)::int FROM user_activity WHERE last_seen_at >= now() - interval '7 days') AS wau,
 			(SELECT COUNT(*)::int FROM user_activity WHERE last_seen_at >= now() - interval '30 days') AS mau,
-			(SELECT COUNT(*)::int FROM subscription WHERE status = 'active') AS subscribers,
-			(SELECT COALESCE(SUM(price_cents), 0)::int FROM subscription WHERE status = 'active') AS mrr_cents
+			(SELECT COUNT(*)::int FROM subscription WHERE status = 'active' AND stripe_customer_id IS NOT NULL) AS subscribers,
+			(SELECT COALESCE(SUM(price_cents), 0)::int FROM subscription WHERE status = 'active' AND stripe_customer_id IS NOT NULL) AS mrr_cents
 	`);
 	return {
 		totalUsers: row.total_users,
@@ -88,9 +88,11 @@ export async function getSubscriberSeries(days: number): Promise<SubscriberPoint
 			d.day,
 			(SELECT COUNT(*)::int FROM subscription s
 				WHERE s.created_at::date <= d.day
+				AND s.stripe_customer_id IS NOT NULL
 				AND (s.canceled_at IS NULL OR s.canceled_at::date > d.day)) AS subscribers,
 			(SELECT COALESCE(SUM(s.price_cents), 0)::int FROM subscription s
 				WHERE s.created_at::date <= d.day
+				AND s.stripe_customer_id IS NOT NULL
 				AND (s.canceled_at IS NULL OR s.canceled_at::date > d.day)) AS mrr_cents
 		FROM d
 		ORDER BY d.day
