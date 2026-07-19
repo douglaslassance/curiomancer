@@ -2,16 +2,24 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import * as Tabs from '$lib/components/ui/tabs';
-	import { BarChart3, ClipboardList, Mail, TrendingUp, Users } from '@lucide/svelte';
+	import {
+		BarChart3,
+		BookOpen,
+		ClipboardList,
+		Mail,
+		TrendingUp,
+		Users
+	} from '@lucide/svelte';
 
 	let { children } = $props();
 
 	const tabs = [
 		{ href: '/admin', label: 'Overview', icon: BarChart3 },
-		{ href: '/admin/metrics', label: 'Growth', icon: TrendingUp },
 		{ href: '/admin/users', label: 'Users', icon: Users },
 		{ href: '/admin/invites', label: 'Invites', icon: Mail },
-		{ href: '/admin/waitlist', label: 'Waitlist', icon: ClipboardList }
+		{ href: '/admin/waitlist', label: 'Waitlist', icon: ClipboardList },
+		{ href: '/admin/metrics', label: 'Growth', icon: TrendingUp },
+		{ href: '/admin/codex', label: 'Codex', icon: BookOpen }
 	];
 
 	// Match the deepest tab whose href prefixes the current path so nested
