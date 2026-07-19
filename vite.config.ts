@@ -27,6 +27,15 @@ export default defineConfig(({ mode }) => {
 							// source isn't left served publicly under build/client.
 							sourcemaps: {
 								filesToDeleteAfterUpload: ['./build/client/**/*.map']
+							},
+							// Never let a Sentry hiccup (source map upload or release step)
+							// fail the whole deploy. The errorHandler swallows the error so
+							// the build continues; worst case we lose readable stack traces
+							// for that one release, not the ship.
+							unstable_sentryVitePluginOptions: {
+								errorHandler: (err) => {
+									console.warn('[sentry] source map upload failed, continuing build:', err);
+								}
 							}
 						})
 					]
