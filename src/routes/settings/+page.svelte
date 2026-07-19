@@ -40,6 +40,7 @@
 	} from '@lucide/svelte';
 	import { updateLocation, type LocationUpdateError } from '$lib/location-update';
 	import { theme, type ThemePreference } from '$lib/theme.svelte';
+	import { PLAN_NAME } from '$lib/subscription';
 
 	const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
 		{ value: 'system', label: 'System', icon: Monitor },
@@ -482,8 +483,42 @@
 			<div class="flex items-start gap-3">
 				<CreditCard class="text-muted-foreground mt-0.5 size-4" />
 				<div class="min-w-0 flex-1">
-					<div class="flex items-center justify-between gap-2">
-						<div class="text-sm font-medium">Subscription</div>
+					<div class="text-sm font-medium">Subscription</div>
+					<div
+						class="mt-2 flex items-center justify-between gap-3 rounded-xl border p-4 {data.subscription
+							? 'border-primary/30 bg-primary/5'
+							: ''}"
+					>
+						<div class="flex min-w-0 items-center gap-3">
+							<div
+								class="flex size-10 shrink-0 items-center justify-center rounded-lg {data.subscription
+									? 'bg-primary text-primary-foreground'
+									: 'bg-muted text-muted-foreground'}"
+							>
+								<Sparkles class="size-5" />
+							</div>
+							<div class="min-w-0">
+								<div class="flex flex-wrap items-center gap-2">
+									<span class="font-medium">
+										{data.subscription ? `Curiomancer ${PLAN_NAME}` : 'Free plan'}
+									</span>
+									{#if data.subscription?.isComp}
+										<Badge variant="secondary" class="text-[0.7rem]">Complimentary</Badge>
+									{/if}
+								</div>
+								<p class="text-muted-foreground mt-0.5 text-xs">
+									{#if !data.subscription}
+										Get {PLAN_NAME} to message your taste-twins.
+									{:else if data.subscription.isComp}
+										Thanks for being here.
+									{:else if data.subscription.cancelAtPeriodEnd}
+										Cancels on {formatPeriodEnd(data.subscription.currentPeriodEnd)}.
+									{:else}
+										Renews on {formatPeriodEnd(data.subscription.currentPeriodEnd)}.
+									{/if}
+								</p>
+							</div>
+						</div>
 						{#if data.subscription?.canManage}
 							<form method="post" action="?/portal" use:enhance={openPortal}>
 								<Button type="submit" size="sm" variant="outline" disabled={portalLoading}>
@@ -496,20 +531,9 @@
 								</Button>
 							</form>
 						{:else if !data.subscription}
-							<Button href="/subscribe" size="sm" variant="outline">Subscribe</Button>
+							<Button href="/subscribe" size="sm" class="shrink-0">Upgrade</Button>
 						{/if}
 					</div>
-					<p class="text-muted-foreground mt-1 text-sm">
-						{#if !data.subscription}
-							Free plan. Subscribe to message your taste-twins.
-						{:else if data.subscription.isComp}
-							Complimentary subscription. Thanks for being here.
-						{:else if data.subscription.cancelAtPeriodEnd}
-							Active. Cancels on {formatPeriodEnd(data.subscription.currentPeriodEnd)}.
-						{:else}
-							Active. Renews on {formatPeriodEnd(data.subscription.currentPeriodEnd)}.
-						{/if}
-					</p>
 					{#if form?.message}
 						<p class="text-destructive mt-1 text-xs">{form.message}</p>
 					{/if}
