@@ -17,6 +17,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { relations } from '$lib/relations.svelte';
 	import { theme } from '$lib/theme.svelte';
+	import { PLAN_NAME } from '$lib/subscription';
 	import posthog from 'posthog-js';
 
 	let { data, children } = $props();
@@ -256,7 +257,7 @@
 			>
 				<span>© {year} Curiomancer</span>
 				<nav class="flex flex-wrap items-center gap-x-4 gap-y-2">
-					<a href="/subscribe" class="hover:text-foreground transition-colors">Subscribe</a>
+					<a href="/subscribe" class="hover:text-foreground transition-colors">{PLAN_NAME}</a>
 					<a href="/terms" class="hover:text-foreground transition-colors">Terms</a>
 					<a href="/privacy" class="hover:text-foreground transition-colors">Privacy</a>
 					<a href="/contact" class="hover:text-foreground transition-colors">Contact</a>
