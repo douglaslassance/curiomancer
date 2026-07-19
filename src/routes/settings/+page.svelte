@@ -19,21 +19,23 @@
 		Copy,
 		CreditCard,
 		Download,
+		HatGlasses,
 		KeyRound,
 		Loader2,
 		Lock,
 		LogOut,
 		Mail,
 		MapPin,
-		MessageCircle,
 		Monitor,
 		Moon,
 		RefreshCw,
+		RotateCcw,
 		Share2,
 		Sparkles,
 		Sun,
 		ThumbsUp,
 		Trash2,
+		Upload,
 		User
 	} from '@lucide/svelte';
 	import { updateLocation, type LocationUpdateError } from '$lib/location-update';
@@ -97,6 +99,19 @@
 			}
 			deletingAccount = false;
 			await applyAction(result);
+		};
+	};
+
+	// Reset ratings: confirmation dialog; on success rerun the load so the
+	// liked-count updates.
+	let resetDialogOpen = $state(false);
+	let resettingRatings = $state(false);
+	const submitReset: SubmitFunction = () => {
+		resettingRatings = true;
+		return async ({ update }) => {
+			await update();
+			resettingRatings = false;
+			resetDialogOpen = false;
 		};
 	};
 
@@ -191,11 +206,12 @@
 		}
 	}
 
-	// Viewing the link requires a Curiomancer account - anyone without one
-	// lands on /sign-in (which offers sign-up/waitlist) before seeing the map.
+	// An unguessable capability link: anyone who has it can view the map (no
+	// account needed, so link previews work), but it can't be derived from the
+	// user id, so the map isn't discoverable by guessing.
 	let likesLinkCopied = $state(false);
 	async function shareLikes() {
-		const url = `${window.location.origin}/users/${data.profile.id}/map`;
+		const url = `${window.location.origin}/s/${data.mapShareToken}`;
 		if (navigator.share) {
 			try {
 				await navigator.share({ title: 'My likes on Curiomancer', url });
@@ -223,8 +239,8 @@
 	);
 
 	const invitesRemaining = $derived(data.invites.filter((i) => i.redeemedByUserId === null).length);
-	const messageable = $derived(form?.messageable ?? data.profile.messageable);
-	let messageableForm: HTMLFormElement | undefined;
+	const incognito = $derived(form?.incognito ?? data.profile.incognito);
+	let incognitoForm: HTMLFormElement | undefined;
 </script>
 
 <svelte:head>
@@ -504,28 +520,22 @@
 			<Separator />
 
 			<div class="flex items-start gap-3">
-				<MessageCircle class="text-muted-foreground mt-0.5 size-4" />
+				<HatGlasses class="text-muted-foreground mt-0.5 size-4" />
 				<div class="min-w-0 flex-1">
 					<div class="flex items-center justify-between gap-2">
-						<div class="text-sm font-medium">Allow messages</div>
-						<form
-							method="post"
-							action="?/updateMessageable"
-							use:enhance
-							bind:this={messageableForm}
-						>
-							<input type="hidden" name="messageable" value={(!messageable).toString()} />
-							<Switch
-								checked={messageable}
-								onCheckedChange={() => messageableForm?.requestSubmit()}
-							/>
+						<div class="text-sm font-medium">Incognito</div>
+						<form method="post" action="?/updateIncognito" use:enhance bind:this={incognitoForm}>
+							<input type="hidden" name="incognito" value={(!incognito).toString()} />
+							<Switch checked={incognito} onCheckedChange={() => incognitoForm?.requestSubmit()} />
 						</form>
 					</div>
 					<p class="text-muted-foreground mt-1 text-sm">
-						Subscribed Curiomancer users can start a conversation with you.
+						Hide yourself from other people. You won't appear as anyone's taste-twin and your profile
+						stays private, so no one can view it or message you. Your taste still informs others'
+						recommendations.
 					</p>
-					{#if form?.messageableError}
-						<p class="text-destructive mt-1 text-xs">{form.messageableError}</p>
+					{#if form?.incognitoError}
+						<p class="text-destructive mt-1 text-xs">{form.incognitoError}</p>
 					{/if}
 				</div>
 			</div>
@@ -536,13 +546,13 @@
 			<div class="flex items-start gap-3">
 				<ThumbsUp class="text-muted-foreground mt-0.5 size-4" />
 				<div class="min-w-0 flex-1">
-					<div class="text-sm font-medium">Likes</div>
+					<div class="text-sm font-medium">Ratings</div>
 					<p class="text-muted-foreground text-sm">
-						You've liked {data.likeCount} place{data.likeCount === 1 ? '' : 's'}.
+						You rated {data.ratingCount} place{data.ratingCount === 1 ? '' : 's'}.
 					</p>
 					<p class="text-muted-foreground mt-1 text-sm">
-						Share a link to your likes on the map, or import your Google Maps saved places
-						(favorites become likes, "Want to go" carries across).
+						Share a link to your likes, export your ratings for safekeeping, or import them from a
+						Curiomancer file or your Google Maps saved places.
 					</p>
 					<div class="mt-2 flex flex-wrap gap-2">
 						<Button type="button" size="sm" variant="outline" onclick={shareLikes}>
@@ -552,6 +562,20 @@
 						<Button href="/import" size="sm" variant="outline">
 							<Download class="size-3.5" />
 							Import
+						</Button>
+						<Button href="/api/ratings/export" size="sm" variant="outline">
+							<Upload class="size-3.5" />
+							Export
+						</Button>
+						<Button
+							type="button"
+							size="sm"
+							variant="ghost"
+							class="text-destructive hover:text-destructive"
+							onclick={() => (resetDialogOpen = true)}
+						>
+							<RotateCcw class="size-3.5" />
+							Reset
 						</Button>
 					</div>
 				</div>
@@ -741,6 +765,32 @@
 			</Button>
 		</Card.Footer>
 	</Card.Root>
+
+	<Dialog.Root bind:open={resetDialogOpen}>
+		<Dialog.Content>
+			<Dialog.Header>
+				<Dialog.Title>Reset all your ratings?</Dialog.Title>
+				<Dialog.Description>
+					This permanently deletes every place you've liked, disliked, been to, or saved. It can't be
+					undone, export your ratings first if you'd like a backup.
+				</Dialog.Description>
+			</Dialog.Header>
+			<Dialog.Footer>
+				<Button variant="outline" onclick={() => (resetDialogOpen = false)}>Cancel</Button>
+				<form method="post" action="?/resetRatings" use:enhance={submitReset}>
+					<Button type="submit" variant="destructive" disabled={resettingRatings}>
+						{#if resettingRatings}
+							<Loader2 class="size-4 animate-spin" />
+							Resetting…
+						{:else}
+							<RotateCcw class="size-4" />
+							Reset ratings
+						{/if}
+					</Button>
+				</form>
+			</Dialog.Footer>
+		</Dialog.Content>
+	</Dialog.Root>
 
 	<Dialog.Root bind:open={deleteDialogOpen}>
 		<Dialog.Content>

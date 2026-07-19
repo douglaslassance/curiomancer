@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { db } from './db';
-import { placeRelation, type PlaceRelationKind } from './db/schema';
+import { place, placeRelation, type PlaceRelationKind } from './db/schema';
 import { getPostHogClient } from './posthog';
 
 const VALID_KINDS = ['liked', 'disliked', 'seen', 'want_to_go'] as const satisfies PlaceRelationKind[];
@@ -128,6 +128,50 @@ export async function upsertRelation(
 			target: [placeRelation.userId, placeRelation.placeId],
 			set: { kind }
 		});
+}
+
+export type ExportedRating = {
+	placeId: string;
+	source: 'apple' | 'seed' | 'manual';
+	externalId: string | null;
+	name: string;
+	category: 'eat' | 'drink' | 'shop' | 'visit';
+	city: string;
+	neighborhood: string | null;
+	latitude: number | null;
+	longitude: number | null;
+	kind: PlaceRelationKind;
+};
+
+/** Every rating the user has, with the rated place's details - the shape the
+ *  JSON export ships and the native import reads back. */
+export async function getRatingsForExport(userId: string): Promise<ExportedRating[]> {
+	return db
+		.select({
+			placeId: place.id,
+			source: place.source,
+			externalId: place.externalId,
+			name: place.name,
+			category: place.category,
+			city: place.city,
+			neighborhood: place.neighborhood,
+			latitude: place.latitude,
+			longitude: place.longitude,
+			kind: placeRelation.kind
+		})
+		.from(placeRelation)
+		.innerJoin(place, eq(place.id, placeRelation.placeId))
+		.where(eq(placeRelation.userId, userId));
+}
+
+/** Delete every one of the user's ratings. Returns how many were removed.
+ *  Destructive and irreversible - callers must confirm first. */
+export async function clearRatings(userId: string): Promise<number> {
+	const rows = await db
+		.delete(placeRelation)
+		.where(eq(placeRelation.userId, userId))
+		.returning({ id: placeRelation.id });
+	return rows.length;
 }
 
 /** Insert any place IDs not already liked. Used to merge anonymous likes on sign-in. */

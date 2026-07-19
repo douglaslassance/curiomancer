@@ -5,6 +5,8 @@ import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { placeRelation, user, userLocation } from '$lib/server/db/schema';
 import { getInvitesFor } from '$lib/server/invites';
+import { clearRatings } from '$lib/server/likes';
+import { getOrCreateMapShareToken } from '$lib/server/map-share';
 import { createApiToken, listApiTokens, revokeApiToken } from '$lib/server/api-tokens';
 import { listBlockedUsers, unblockUser } from '$lib/server/blocks';
 import { getActiveSubscription, latestCustomerId } from '$lib/server/subscriptions';
@@ -16,17 +18,20 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.user) throw redirect(302, '/sign-in?next=/settings');
 
-	const [[location], likes, invites, apiTokens, blockedUsers, subscription] = await Promise.all([
-		db.select().from(userLocation).where(eq(userLocation.userId, locals.user.id)).limit(1),
-		db
-			.select({ id: placeRelation.id })
-			.from(placeRelation)
-			.where(eq(placeRelation.userId, locals.user.id)),
-		getInvitesFor(locals.user.id),
-		listApiTokens(locals.user.id),
-		listBlockedUsers(locals.user.id),
-		getActiveSubscription(locals.user.id)
-	]);
+	const [[location], ratings, invites, apiTokens, blockedUsers, subscription, mapShareToken] =
+		await Promise.all([
+			db.select().from(userLocation).where(eq(userLocation.userId, locals.user.id)).limit(1),
+			// Every kind counts as a rating (liked/disliked/seen/want-to-go).
+			db
+				.select({ id: placeRelation.id })
+				.from(placeRelation)
+				.where(eq(placeRelation.userId, locals.user.id)),
+			getInvitesFor(locals.user.id),
+			listApiTokens(locals.user.id),
+			listBlockedUsers(locals.user.id),
+			getActiveSubscription(locals.user.id),
+			getOrCreateMapShareToken(locals.user.id)
+		]);
 
 	return {
 		profile: {
@@ -35,14 +40,15 @@ export const load: PageServerLoad = async ({ locals }) => {
 			email: locals.user.email,
 			image: locals.user.image ?? null,
 			role: locals.user.role ?? 'user',
-			messageable: locals.user.messageable ?? true
+			incognito: locals.user.incognito ?? false
 		},
 		location: location ?? null,
-		likeCount: likes.length,
+		ratingCount: ratings.length,
 		invites,
 		apiTokens,
 		blockedUsers,
-		subscription
+		subscription,
+		mapShareToken
 	};
 };
 
@@ -190,19 +196,19 @@ export const actions: Actions = {
 		return { tokenRevoked: true };
 	},
 
-	updateMessageable: async ({ request, locals }) => {
+	updateIncognito: async ({ request, locals }) => {
 		if (!locals.user) return fail(401, { message: 'Not signed in.' });
 
 		const data = await request.formData();
-		const messageable = data.get('messageable') === 'true';
+		const incognito = data.get('incognito') === 'true';
 
 		try {
-			await auth.api.updateUser({ body: { messageable }, headers: request.headers });
+			await auth.api.updateUser({ body: { incognito }, headers: request.headers });
 		} catch (error) {
-			if (error instanceof APIError) return fail(400, { messageableError: error.message });
-			return fail(500, { messageableError: 'Could not update this setting.' });
+			if (error instanceof APIError) return fail(400, { incognitoError: error.message });
+			return fail(500, { incognitoError: 'Could not update this setting.' });
 		}
-		return { messageableOk: true, messageable };
+		return { incognitoOk: true, incognito };
 	},
 
 	unblockUser: async ({ request, locals }) => {
@@ -228,6 +234,20 @@ export const actions: Actions = {
 			return_url: `${url.origin}/settings`
 		});
 		throw redirect(303, session.url);
+	},
+
+	// Delete every one of the user's ratings (place_relation rows). Destructive
+	// and irreversible - the UI gates it behind a confirmation dialog and offers
+	// an export first.
+	resetRatings: async ({ locals }) => {
+		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+		const removed = await clearRatings(locals.user.id);
+		getPostHogClient()?.capture({
+			distinctId: locals.user.id,
+			event: 'ratings_reset',
+			properties: { removed }
+		});
+		return { ratingsReset: true, removed };
 	},
 
 	// Permanently delete the account. This cascades to the user's ratings and
