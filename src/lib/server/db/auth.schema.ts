@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, integer, index } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -17,6 +17,11 @@ export const user = pgTable("user", {
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires"),
   incognito: boolean("incognito").default(false),
+  // How many invites this user may have outstanding at once (pending + redeemed).
+  // Cancelling a pending invite frees a slot; default set in auth.ts.
+  inviteLimit: integer("invite_limit").default(3).notNull(),
+  // How many API tokens this user may have at once. Default set in auth.ts.
+  apiTokenLimit: integer("api_token_limit").default(3).notNull(),
 });
 
 export const session = pgTable(

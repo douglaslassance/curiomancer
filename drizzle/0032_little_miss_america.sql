@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "api_token_limit" integer DEFAULT 3 NOT NULL;

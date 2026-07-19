@@ -712,11 +712,10 @@ const inviteRows = PERSONAS.flatMap((p) => {
 	const redeemedToId = redeemedToEmail ? userIdByEmail.get(redeemedToEmail) : undefined;
 	return Array.from({ length: 3 }, (_, i) => ({
 		id: generateDemoInviteCode(),
-		// Signup allotment: minted by the system (no creator), owned by the persona.
-		createdByUserId: null,
-		ownerId: creatorId,
-		// Only the first slot is ever the redeemed one, so each persona still
-		// has invitesRemaining left over to show in the admin panel.
+		// The persona created these invites. The first slot is the one that got
+		// redeemed (invited the chain's `to` persona); the rest sit pending.
+		createdByUserId: creatorId,
+		invitedEmail: i === 0 ? (redeemedToEmail ?? null) : null,
 		redeemedByUserId: i === 0 && redeemedToId ? redeemedToId : null,
 		redeemedAt: i === 0 && redeemedToId ? at(-3, 0) : null
 	}));
@@ -724,16 +723,13 @@ const inviteRows = PERSONAS.flatMap((p) => {
 await db.insert(invite).values(inviteRows);
 
 console.log(`Seeding ${WAITLIST_ENTRIES.length} waitlist entries…`);
-// Waitlist admits are minted from a spare persona's invite pool rather than
-// one of the chain slots above, so they don't collide with the redemptions
-// already wired up there.
-const admitterId = userIdByEmail.get(PERSONAS[0].email)!;
+// Admitted entries get a system invite (no creator) addressed to their email.
 const extraInviteRows: (typeof invite.$inferInsert)[] = [];
 const waitlistRows = WAITLIST_ENTRIES.map((w) => {
 	if (w.status === 'pending') return { email: w.email, city: w.city, status: w.status };
 	const code = generateDemoInviteCode();
 	// Waitlist admits are unowned platform invites (creator only, no owner).
-	extraInviteRows.push({ id: code, createdByUserId: admitterId, ownerId: null });
+	extraInviteRows.push({ id: code, createdByUserId: null, invitedEmail: w.email });
 	return {
 		email: w.email,
 		city: w.city,

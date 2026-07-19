@@ -198,20 +198,17 @@ export type NewUserLocation = typeof userLocation.$inferInsert;
  */
 export const invite = pgTable('invite', {
 	id: text('id').primaryKey(),
-	// Who minted the row - audit only, never chosen by a user. NULL means the
-	// system minted it automatically (e.g. a user's signup allotment - they
-	// didn't "create" those). Set to a real user for admin/waitlist mints. On
-	// that account's deletion it falls back to NULL rather than destroying live
-	// invites the person minted (which could break pending signups).
+	// Who created the invite. A real user when they invite a friend (or an admin
+	// creating one by hand) - their name personalises the email and it counts
+	// against their `invite_limit`. NULL means the system created it (a waitlist
+	// admit). On that account's deletion it falls back to NULL rather than
+	// destroying a live, possibly-unredeemed invite.
 	createdByUserId: text('created_by_user_id').references(() => user.id, {
 		onDelete: 'set null'
 	}),
-	// Who the invite belongs to: the referrer whose allotment it counts against,
-	// whose name personalises the invite email, and in whose Settings it appears.
-	// NULL means an unowned/platform invite (e.g. batch admin invites, waitlist
-	// admits) - deliberately not shown in anyone's Settings. On owner deletion it
-	// falls back to unowned rather than cascading the invite away.
-	ownerId: text('owner_id').references(() => user.id, { onDelete: 'set null' }),
+	// The email we sent the invite to (the friend being invited, or the waitlist
+	// entry's email). NULL only for legacy codes with no recorded recipient.
+	invitedEmail: text('invited_email'),
 	redeemedByUserId: text('redeemed_by_user_id').references(() => user.id, {
 		onDelete: 'set null'
 	}),
