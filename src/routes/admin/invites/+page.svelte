@@ -5,6 +5,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import ConfirmDeleteButton from '$lib/components/confirm-delete-button.svelte';
 	import { Copy, Plus, Search, Trash2 } from '@lucide/svelte';
 
 	let { data, form } = $props();
@@ -159,27 +160,16 @@
 									{copied === i.id ? 'Copied' : 'Copy link'}
 								</Button>
 							{/if}
-							<form
-								method="post"
+							<ConfirmDeleteButton
 								action="?/delete"
-								use:enhance={({ cancel }) => {
-									const msg = i.redeemedByUserId
-										? `Delete redeemed invite ${i.id}? This removes the referral record for ${i.redeemedByName ?? 'the redeemer'}.`
-										: `Delete invite ${i.id}? If you've already shared this code it will stop working.`;
-									if (!confirm(msg)) cancel();
-								}}
+								value={i.id}
+								label="Delete invite"
+								class="text-destructive hover:text-destructive"
 							>
-								<input type="hidden" name="id" value={i.id} />
-								<Button
-									type="submit"
-									size="sm"
-									variant="ghost"
-									class="text-destructive hover:text-destructive"
-									aria-label="Delete invite"
-								>
+								{#snippet icon()}
 									<Trash2 class="size-3.5" />
-								</Button>
-							</form>
+								{/snippet}
+							</ConfirmDeleteButton>
 						</div>
 					</td>
 				</tr>

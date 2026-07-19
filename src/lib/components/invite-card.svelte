@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
+	import ConfirmDeleteButton from '$lib/components/confirm-delete-button.svelte';
 	import { Check, Copy, Sparkles, X } from '@lucide/svelte';
 	import type { InviteWithRedeemer } from '$lib/server/invites';
 	import { page } from '$app/state';
@@ -50,23 +50,15 @@
 				Copy link
 			{/if}
 		</Button>
-		<form
-			method="post"
+		<ConfirmDeleteButton
 			action="?/cancelInvite"
-			use:enhance={({ cancel }) => {
-				if (!confirm(`Cancel the invite to ${invite.invitedEmail ?? 'this person'}?`)) cancel();
-			}}
+			value={invite.id}
+			label="Cancel invite"
+			class="text-muted-foreground hover:text-destructive"
 		>
-			<input type="hidden" name="id" value={invite.id} />
-			<Button
-				type="submit"
-				size="sm"
-				variant="ghost"
-				class="text-muted-foreground hover:text-destructive"
-				aria-label="Cancel invite"
-			>
+			{#snippet icon()}
 				<X class="size-4" />
-			</Button>
-		</form>
+			{/snippet}
+		</ConfirmDeleteButton>
 	{/if}
 </article>

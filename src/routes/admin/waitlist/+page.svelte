@@ -7,6 +7,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import CityInput from '$lib/components/city-input.svelte';
+	import ConfirmDeleteButton from '$lib/components/confirm-delete-button.svelte';
 	import { Copy, Plus, Search, Trash2 } from '@lucide/svelte';
 
 	let { data, form } = $props();
@@ -166,18 +167,11 @@
 									<Button type="submit" size="sm">Invite</Button>
 								</form>
 							{/if}
-							<form
-								method="post"
-								action="?/remove"
-								use:enhance={({ cancel }) => {
-									if (!confirm(`Remove ${e.email} from the waitlist?`)) cancel();
-								}}
-							>
-								<input type="hidden" name="id" value={e.id} />
-								<Button type="submit" size="sm" variant="ghost" aria-label="Remove from waitlist">
+							<ConfirmDeleteButton action="?/remove" value={e.id} label="Remove from waitlist">
+								{#snippet icon()}
 									<Trash2 class="text-muted-foreground size-3.5" />
-								</Button>
-							</form>
+								{/snippet}
+							</ConfirmDeleteButton>
 						</div>
 					</td>
 				</tr>
