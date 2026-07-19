@@ -43,7 +43,7 @@
 
 <div class="mx-auto max-w-5xl py-10">
 	<div class="text-center">
-		<h1 class="text-3xl font-semibold tracking-tight">Become a {PLAN_NAME} member</h1>
+		<h1 class="text-3xl font-semibold tracking-tight">Upgrade to {PLAN_NAME}</h1>
 		<p class="text-muted-foreground mx-auto mt-3 max-w-md text-balance">
 			Curiomancer is free to explore. Go {PLAN_NAME} to connect with your taste-twins and help keep
 			the platform going.
