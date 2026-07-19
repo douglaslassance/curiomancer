@@ -28,6 +28,8 @@ export type AdminUserDetail = {
 	apiTokensUsed: number;
 	referredByName: string | null;
 	isSubscriber: boolean;
+	/** 'free' (no active sub), 'active' (paid), or 'granted' (admin comp). */
+	subscriptionStatus: 'free' | 'active' | 'granted';
 };
 
 export const load: PageServerLoad = async ({ params }) => {
@@ -49,7 +51,7 @@ export const load: PageServerLoad = async ({ params }) => {
 		api_token_limit: number;
 		api_tokens_used: number;
 		referred_by_name: string | null;
-		is_subscriber: boolean;
+		subscription_status: 'active' | 'granted' | null;
 	}>(sql`
 		SELECT
 			u.id,
@@ -69,7 +71,9 @@ export const load: PageServerLoad = async ({ params }) => {
 			u.api_token_limit AS api_token_limit,
 			(SELECT COUNT(*)::int FROM "api_token" WHERE user_id = u.id) AS api_tokens_used,
 			(SELECT inviter.name FROM "invite" i JOIN "user" inviter ON inviter.id = i.created_by_user_id WHERE i.redeemed_by_user_id = u.id LIMIT 1) AS referred_by_name,
-			EXISTS (SELECT 1 FROM subscription s WHERE s.user_id = u.id AND s.status = 'active') AS is_subscriber
+			(SELECT CASE WHEN s.stripe_customer_id IS NULL THEN 'granted' ELSE 'active' END
+			 FROM subscription s WHERE s.user_id = u.id AND s.status = 'active'
+			 ORDER BY s.created_at DESC LIMIT 1) AS subscription_status
 		FROM "user" u
 		LEFT JOIN user_location ul ON ul.user_id = u.id
 		WHERE u.id = ${params.id}
@@ -97,7 +101,8 @@ export const load: PageServerLoad = async ({ params }) => {
 		apiTokenLimit: row.api_token_limit,
 		apiTokensUsed: row.api_tokens_used,
 		referredByName: row.referred_by_name,
-		isSubscriber: row.is_subscriber
+		isSubscriber: row.subscription_status !== null,
+		subscriptionStatus: row.subscription_status ?? 'free'
 	};
 
 	// Impersonation is a real auth-bypass, so it only renders (and runs) in dev.

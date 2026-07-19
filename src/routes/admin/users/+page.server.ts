@@ -10,7 +10,8 @@ export type AdminUserRow = {
 	createdAt: Date;
 	city: string | null;
 	likes: number;
-	isSubscriber: boolean;
+	/** 'free' (no active sub), 'active' (paid), or 'granted' (admin comp). */
+	subscriptionStatus: 'free' | 'active' | 'granted';
 };
 
 export const load: PageServerLoad = async () => {
@@ -22,7 +23,7 @@ export const load: PageServerLoad = async () => {
 		created_at: Date;
 		city: string | null;
 		likes: number;
-		is_subscriber: boolean;
+		subscription_status: 'active' | 'granted' | null;
 	}>(sql`
 		SELECT
 			u.id,
@@ -32,7 +33,9 @@ export const load: PageServerLoad = async () => {
 			u.created_at,
 			ul.city,
 			(SELECT COUNT(*)::int FROM place_relation WHERE user_id = u.id AND kind = 'liked') AS likes,
-			EXISTS (SELECT 1 FROM subscription s WHERE s.user_id = u.id AND s.status = 'active') AS is_subscriber
+			(SELECT CASE WHEN s.stripe_customer_id IS NULL THEN 'granted' ELSE 'active' END
+			 FROM subscription s WHERE s.user_id = u.id AND s.status = 'active'
+			 ORDER BY s.created_at DESC LIMIT 1) AS subscription_status
 		FROM "user" u
 		LEFT JOIN user_location ul ON ul.user_id = u.id
 		ORDER BY u.created_at DESC
@@ -46,7 +49,7 @@ export const load: PageServerLoad = async () => {
 		createdAt: new Date(r.created_at),
 		city: r.city,
 		likes: r.likes,
-		isSubscriber: r.is_subscriber
+		subscriptionStatus: r.subscription_status ?? 'free'
 	}));
 
 	return { users };

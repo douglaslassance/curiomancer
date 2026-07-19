@@ -6,7 +6,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Separator } from '$lib/components/ui/separator';
-	import { Check, ExternalLink, Loader2, Mail, MapPin, VenetianMask } from '@lucide/svelte';
+	import { Check, ExternalLink, Gift, Loader2, Mail, MapPin, VenetianMask } from '@lucide/svelte';
 
 	let { data, form } = $props();
 	const u = $derived(data.user);
@@ -160,8 +160,10 @@
 				<div class="min-w-0 flex-1">
 					<div class="flex items-center gap-2 text-sm font-medium">
 						Subscription
-						{#if u.isSubscriber}
+						{#if u.subscriptionStatus === 'active'}
 							<Badge variant="secondary" class="gap-1"><Check class="size-3" />Active</Badge>
+						{:else if u.subscriptionStatus === 'granted'}
+							<Badge variant="outline" class="gap-1"><Gift class="size-3" />Granted</Badge>
 						{:else}
 							<span class="text-muted-foreground text-xs font-normal">Free</span>
 						{/if}

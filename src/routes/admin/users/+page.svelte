@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Input } from '$lib/components/ui/input';
-	import { Check, Search, ThumbsUp } from '@lucide/svelte';
+	import { Check, Gift, Search, ThumbsUp } from '@lucide/svelte';
 
 	let { data } = $props();
 
@@ -42,7 +42,7 @@
 				<th class="px-4 py-3 text-right font-medium">
 					<ThumbsUp class="ml-auto size-3.5" />
 				</th>
-				<th class="px-4 py-3 text-right font-medium">Subscriber</th>
+				<th class="px-4 py-3 text-right font-medium">Subscription</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -64,10 +64,15 @@
 					<td class="text-muted-foreground px-4 py-3 text-xs">{u.city ?? '-'}</td>
 					<td class="px-4 py-3 text-right tabular-nums">{u.likes}</td>
 					<td class="px-4 py-3 text-right">
-						{#if u.isSubscriber}
+						{#if u.subscriptionStatus === 'active'}
 							<Badge variant="secondary" class="gap-1">
 								<Check class="size-3" />
-								Subscriber
+								Active
+							</Badge>
+						{:else if u.subscriptionStatus === 'granted'}
+							<Badge variant="outline" class="gap-1">
+								<Gift class="size-3" />
+								Granted
 							</Badge>
 						{:else}
 							<span class="text-muted-foreground text-xs">Free</span>
