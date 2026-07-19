@@ -712,7 +712,9 @@ const inviteRows = PERSONAS.flatMap((p) => {
 	const redeemedToId = redeemedToEmail ? userIdByEmail.get(redeemedToEmail) : undefined;
 	return Array.from({ length: 3 }, (_, i) => ({
 		id: generateDemoInviteCode(),
-		createdByUserId: creatorId,
+		// Signup allotment: minted by the system (no creator), owned by the persona.
+		createdByUserId: null,
+		ownerId: creatorId,
 		// Only the first slot is ever the redeemed one, so each persona still
 		// has invitesRemaining left over to show in the admin panel.
 		redeemedByUserId: i === 0 && redeemedToId ? redeemedToId : null,
@@ -730,7 +732,8 @@ const extraInviteRows: (typeof invite.$inferInsert)[] = [];
 const waitlistRows = WAITLIST_ENTRIES.map((w) => {
 	if (w.status === 'pending') return { email: w.email, city: w.city, status: w.status };
 	const code = generateDemoInviteCode();
-	extraInviteRows.push({ id: code, createdByUserId: admitterId });
+	// Waitlist admits are unowned platform invites (creator only, no owner).
+	extraInviteRows.push({ id: code, createdByUserId: admitterId, ownerId: null });
 	return {
 		email: w.email,
 		city: w.city,

@@ -198,9 +198,20 @@ export type NewUserLocation = typeof userLocation.$inferInsert;
  */
 export const invite = pgTable('invite', {
 	id: text('id').primaryKey(),
-	createdByUserId: text('created_by_user_id')
-		.notNull()
-		.references(() => user.id, { onDelete: 'cascade' }),
+	// Who minted the row - audit only, never chosen by a user. NULL means the
+	// system minted it automatically (e.g. a user's signup allotment - they
+	// didn't "create" those). Set to a real user for admin/waitlist mints. On
+	// that account's deletion it falls back to NULL rather than destroying live
+	// invites the person minted (which could break pending signups).
+	createdByUserId: text('created_by_user_id').references(() => user.id, {
+		onDelete: 'set null'
+	}),
+	// Who the invite belongs to: the referrer whose allotment it counts against,
+	// whose name personalises the invite email, and in whose Settings it appears.
+	// NULL means an unowned/platform invite (e.g. batch admin invites, waitlist
+	// admits) - deliberately not shown in anyone's Settings. On owner deletion it
+	// falls back to unowned rather than cascading the invite away.
+	ownerId: text('owner_id').references(() => user.id, { onDelete: 'set null' }),
 	redeemedByUserId: text('redeemed_by_user_id').references(() => user.id, {
 		onDelete: 'set null'
 	}),
@@ -366,6 +377,51 @@ export const apiToken = pgTable(
 );
 
 export type ApiToken = typeof apiToken.$inferSelect;
+
+/**
+ * Capability link for the "share my likes" map. The token is an unguessable
+ * secret, deliberately NOT the user id (which is an identifier that shows up
+ * in profile URLs, the people list, and the API), so the link is viewable by
+ * anyone who has it but can't be discovered by guessing or enumerating ids.
+ * One stable row per user; rotating the link just replaces the token.
+ */
+export const mapShare = pgTable('map_share', {
+	token: text('token').primaryKey(),
+	userId: text('user_id')
+		.notNull()
+		.unique()
+		.references(() => user.id, { onDelete: 'cascade' }),
+	createdAt: timestamp('created_at').notNull().defaultNow()
+});
+
+export type MapShare = typeof mapShare.$inferSelect;
+
+/**
+ * "Skip" on the Tune queue - the low-commitment "not now" (no rating given).
+ * Deliberately NOT a place_relation: a skip carries no taste signal and must
+ * not touch matching. Drives a backing-off cooldown so a skipped place is
+ * hidden for a while, resurfaces later, and retires after enough skips (see
+ * tune.ts). Rows point at either an in-DB place (`placeId`) or a raw Apple POI
+ * not yet saved (`externalId` = Apple muid); at most one of the two is set.
+ */
+export const tuneSkip = pgTable(
+	'tune_skip',
+	{
+		id: text('id')
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		placeId: text('place_id').references(() => place.id, { onDelete: 'cascade' }),
+		externalId: text('external_id'),
+		count: integer('count').notNull().default(1),
+		lastSkippedAt: timestamp('last_skipped_at').notNull().defaultNow()
+	},
+	(t) => [index('tune_skip_user_idx').on(t.userId)]
+);
+
+export type TuneSkip = typeof tuneSkip.$inferSelect;
 
 /**
  * Public waitlist. Anyone can join with an email (and optionally their
