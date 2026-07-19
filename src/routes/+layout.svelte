@@ -154,19 +154,20 @@
 </svelte:head>
 
 <div class="bg-background text-foreground flex min-h-screen flex-col">
-	{#if data.impersonating}
-		<div
-			class="flex items-center justify-center gap-3 bg-amber-500 px-4 py-1.5 text-xs font-medium text-black"
-		>
-			<VenetianMask class="size-3.5" />
-			Impersonating {data.user?.name} - actions here affect their account.
-			<button type="button" class="underline" onclick={stopImpersonating}>
-				Stop impersonating
-			</button>
-		</div>
-	{/if}
-	<header class="bg-background sticky top-0 z-10">
-		<div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
+	<div class="sticky top-0 z-20">
+		{#if data.impersonating}
+			<div
+				class="bg-primary text-primary-foreground flex items-center justify-center gap-3 px-4 py-1.5 text-xs font-medium"
+			>
+				<VenetianMask class="size-3.5" />
+				Impersonating {data.user?.name}. Actions here affect their account.
+				<button type="button" class="underline" onclick={stopImpersonating}>
+					Stop impersonating
+				</button>
+			</div>
+		{/if}
+		<header class="bg-background">
+			<div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
 			<a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
 				<MapPin class="size-5" />
 				Curiomancer
@@ -242,6 +243,7 @@
 			</nav>
 		</div>
 	</header>
+	</div>
 
 	<main class="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-8">
 		{@render children()}
