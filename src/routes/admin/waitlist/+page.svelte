@@ -5,12 +5,15 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import * as Dialog from '$lib/components/ui/dialog';
 	import CityInput from '$lib/components/city-input.svelte';
 	import { Copy, Plus, Search, Trash2 } from '@lucide/svelte';
 
 	let { data, form } = $props();
 
-	// Controlled so we can clear the fields after a successful add.
+	// Add-by-hand dialog. Fields are controlled so we can clear them after a
+	// successful add and close the dialog.
+	let addOpen = $state(false);
 	let email = $state('');
 	let city = $state('');
 
@@ -35,7 +38,6 @@
 		}
 	}
 
-	const invitedCount = $derived(data.entries.filter((e) => e.status === 'invited').length);
 
 	let query = $state('');
 	const filteredEntries = $derived.by(() => {
@@ -52,54 +54,69 @@
 </svelte:head>
 
 <!-- Add someone by hand (same email + city as the public signup). -->
-<form
-	method="post"
-	action="?/add"
-	use:enhance={() => {
-		return async ({ result, update }) => {
-			await update();
-			if (result.type === 'success') {
-				email = '';
-				city = '';
-			}
-		};
-	}}
-	class="bg-card mb-4 rounded-xl border p-4"
->
-	<div class="flex flex-col gap-3 sm:flex-row sm:items-end">
-		<div class="flex-1 space-y-1.5">
-			<Label for="wl-email">Email</Label>
-			<Input
-				id="wl-email"
-				name="email"
-				type="email"
-				placeholder="you@example.com"
-				bind:value={email}
-			/>
-		</div>
-		<div class="flex-1 space-y-1.5">
-			<Label for="wl-city">City</Label>
-			<CityInput id="wl-city" bind:value={city} placeholder="City" />
-		</div>
-		<Button type="submit">
-			<Plus class="size-4" />
-			Add
-		</Button>
+<Dialog.Root bind:open={addOpen}>
+	<Dialog.Content class="sm:max-w-md">
+		<Dialog.Header>
+			<Dialog.Title>Add to waitlist</Dialog.Title>
+			<Dialog.Description>Add someone by hand, same as the public signup.</Dialog.Description>
+		</Dialog.Header>
+
+		<form
+			method="post"
+			action="?/add"
+			use:enhance={() => {
+				return async ({ result, update }) => {
+					await update();
+					if (result.type === 'success') {
+						email = '';
+						city = '';
+						addOpen = false;
+					}
+				};
+			}}
+			class="space-y-3"
+		>
+			<div class="space-y-1.5">
+				<Label for="wl-email">Email</Label>
+				<Input
+					id="wl-email"
+					name="email"
+					type="text"
+					inputmode="email"
+					placeholder="you@example.com"
+					autocomplete="off"
+					data-1p-ignore
+					data-lpignore="true"
+					data-form-type="other"
+					bind:value={email}
+				/>
+			</div>
+			<div class="space-y-1.5">
+				<Label for="wl-city">City</Label>
+				<CityInput id="wl-city" bind:value={city} placeholder="City" />
+			</div>
+			{#if form?.addError}
+				<p class="text-destructive text-xs">{form.addError}</p>
+			{/if}
+			<Dialog.Footer>
+				<Button type="submit">
+					<Plus class="size-4" />
+					Add
+				</Button>
+			</Dialog.Footer>
+		</form>
+	</Dialog.Content>
+</Dialog.Root>
+
+<div class="mb-4 flex items-center gap-2">
+	<div class="relative flex-1">
+		<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+		<Input placeholder="Search by email or city…" bind:value={query} class="pl-9" />
 	</div>
-	{#if form?.addError}
-		<p class="text-destructive mt-2 text-xs">{form.addError}</p>
-	{:else if form?.added}
-		<p class="text-muted-foreground mt-2 text-xs">Added to the waitlist.</p>
-	{/if}
-</form>
-
-<p class="text-muted-foreground mb-4 text-sm">
-	{data.entries.length} total · {invitedCount} invited
-</p>
-
-<div class="relative mb-4">
-	<Search class="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-	<Input placeholder="Search by email or city…" bind:value={query} class="pl-9" />
+	<Button onclick={() => (addOpen = true)}>
+		<Plus class="size-4" />
+		Add to waitlist
+	</Button>
 </div>
 
 <div class="bg-card overflow-x-auto rounded-xl border">

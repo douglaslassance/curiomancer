@@ -5,7 +5,6 @@ import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
 import { db } from '$lib/server/db';
-import { grantSignupInvites } from '$lib/server/invites';
 import {
 	sendChangeEmailVerificationEmail,
 	sendPasswordResetEmail,
@@ -75,7 +74,15 @@ export const auth = betterAuth({
 			 * their profile is private (404s for everyone but themselves and
 			 * admins). Set from Settings; replaces the old `messageable` flag.
 			 */
-			incognito: { type: 'boolean', defaultValue: false }
+			incognito: { type: 'boolean', defaultValue: false },
+			/**
+			 * How many invites this user may have outstanding (pending + redeemed).
+			 * Cancelling a pending invite frees a slot. Adjustable per user from the
+			 * admin user page for people who should be able to invite more.
+			 */
+			inviteLimit: { type: 'number', defaultValue: 3 },
+			/** How many API tokens this user may have at once (see Settings). */
+			apiTokenLimit: { type: 'number', defaultValue: 3 }
 		},
 		// Let users change their email from Settings. With no confirmation hook set,
 		// a verified user gets a single verification link sent to the NEW address;
@@ -83,15 +90,6 @@ export const auth = betterAuth({
 		// until then). See sendVerificationEmail above for the routing.
 		changeEmail: {
 			enabled: true
-		}
-	},
-	databaseHooks: {
-		user: {
-			create: {
-				after: async (newUser) => {
-					await grantSignupInvites(newUser.id, 3);
-				}
-			}
 		}
 	},
 	plugins: [

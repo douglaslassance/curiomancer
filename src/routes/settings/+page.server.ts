@@ -1,13 +1,22 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { APIError } from 'better-auth/api';
 import { eq } from 'drizzle-orm';
+import { env } from '$env/dynamic/private';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { placeRelation, user, userLocation } from '$lib/server/db/schema';
-import { getInvitesFor } from '$lib/server/invites';
+import { sendInviteEmail } from '$lib/server/email';
+import {
+	countInvitesCreatedBy,
+	createInvite,
+	deleteOwnInvite,
+	getInvitesFor,
+	hasPendingInviteForEmail,
+	isEmailRegistered
+} from '$lib/server/invites';
 import { clearRatings } from '$lib/server/likes';
 import { getOrCreateMapShareToken } from '$lib/server/map-share';
-import { createApiToken, listApiTokens, revokeApiToken } from '$lib/server/api-tokens';
+import { createApiToken, countApiTokens, listApiTokens, revokeApiToken } from '$lib/server/api-tokens';
 import { listBlockedUsers, unblockUser } from '$lib/server/blocks';
 import { getActiveSubscription, latestCustomerId } from '$lib/server/subscriptions';
 import { getStripe, stripeEnabled } from '$lib/server/stripe';
@@ -45,14 +54,59 @@ export const load: PageServerLoad = async ({ locals }) => {
 		location: location ?? null,
 		ratingCount: ratings.length,
 		invites,
+		inviteLimit: locals.user.inviteLimit ?? 3,
 		apiTokens,
+		apiTokenLimit: locals.user.apiTokenLimit ?? 3,
 		blockedUsers,
 		subscription,
 		mapShareToken
 	};
 };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export const actions: Actions = {
+	// Invite a friend by email: mint an invite (creator = me), send them the link.
+	// Capped by my `invite_limit`; cancelling a pending one frees a slot.
+	createInvite: async ({ request, locals }) => {
+		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+
+		const email =
+			(await request.formData()).get('recipient')?.toString().trim().toLowerCase() ?? '';
+		if (!EMAIL_RE.test(email)) return fail(400, { inviteError: 'Enter a valid email address.' });
+
+		if (await isEmailRegistered(email)) {
+			return fail(400, { inviteError: 'That person is already on Curiomancer.' });
+		}
+		if (await hasPendingInviteForEmail(email)) {
+			return fail(400, { inviteError: "They've already been invited. Copy or cancel that invite." });
+		}
+
+		const limit = locals.user.inviteLimit ?? 3;
+		if ((await countInvitesCreatedBy(locals.user.id)) >= limit) {
+			return fail(400, {
+				inviteError: `You've used all ${limit} of your invites. Cancel a pending one to free a slot.`
+			});
+		}
+
+		const code = await createInvite(locals.user.id, email);
+		try {
+			const inviteUrl = `${env.ORIGIN}/sign-up?invite=${encodeURIComponent(code)}`;
+			await sendInviteEmail(email, inviteUrl, locals.user.name);
+		} catch (err) {
+			console.error('Invite email failed:', err);
+		}
+		getPostHogClient()?.capture({ distinctId: locals.user.id, event: 'invite_sent' });
+		return { invited: email };
+	},
+
+	cancelInvite: async ({ request, locals }) => {
+		if (!locals.user) return fail(401, { message: 'Not signed in.' });
+		const id = (await request.formData()).get('id')?.toString() ?? '';
+		if (id) await deleteOwnInvite(locals.user.id, id);
+		return { inviteCancelled: true };
+	},
+
 	updateName: async ({ request, locals }) => {
 		if (!locals.user) return fail(401, { message: 'Not signed in.' });
 
@@ -180,8 +234,15 @@ export const actions: Actions = {
 			return fail(400, { tokenError: 'Give the token a name so you can recognise it later.' });
 		}
 
-		// Plaintext is returned once here and never stored - the UI shows it
-		// in a copy-now box and it cannot be retrieved again.
+		const tokenLimit = locals.user.apiTokenLimit ?? 3;
+		if ((await countApiTokens(locals.user.id)) >= tokenLimit) {
+			return fail(400, {
+				tokenError: `You can have at most ${tokenLimit} tokens. Revoke one to create another.`
+			});
+		}
+
+		// Plaintext is returned once here and never stored - the UI shows it once
+		// (inline on the new token's row) and it cannot be retrieved again.
 		const token = await createApiToken(locals.user.id, name);
 		getPostHogClient()?.capture({ distinctId: locals.user.id, event: 'api_token_created' });
 		return { tokenCreated: token, tokenName: name };

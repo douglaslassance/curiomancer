@@ -1,7 +1,8 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { dev } from '$app/environment';
 import { db } from '$lib/server/db';
+import { user as userTable } from '$lib/server/db/schema';
 import { auth } from '$lib/server/auth';
 import { isAdmin } from '$lib/server/admin';
 import { grantSubscription, revokeSubscription } from '$lib/server/subscriptions';
@@ -20,8 +21,11 @@ export type AdminUserDetail = {
 	dislikes: number;
 	wantToGo: number;
 	seen: number;
+	inviteLimit: number;
+	invitesCreated: number;
 	invitesRemaining: number;
-	invitesTotal: number;
+	apiTokenLimit: number;
+	apiTokensUsed: number;
 	referredByName: string | null;
 	isSubscriber: boolean;
 };
@@ -40,8 +44,10 @@ export const load: PageServerLoad = async ({ params }) => {
 		dislikes: number;
 		want_to_go: number;
 		seen: number;
-		invites_remaining: number;
-		invites_total: number;
+		invite_limit: number;
+		invites_created: number;
+		api_token_limit: number;
+		api_tokens_used: number;
 		referred_by_name: string | null;
 		is_subscriber: boolean;
 	}>(sql`
@@ -58,9 +64,11 @@ export const load: PageServerLoad = async ({ params }) => {
 			(SELECT COUNT(*)::int FROM place_relation WHERE user_id = u.id AND kind = 'disliked') AS dislikes,
 			(SELECT COUNT(*)::int FROM place_relation WHERE user_id = u.id AND kind = 'want_to_go') AS want_to_go,
 			(SELECT COUNT(*)::int FROM place_relation WHERE user_id = u.id AND kind = 'seen') AS seen,
-			(SELECT COUNT(*)::int FROM "invite" WHERE owner_id = u.id AND redeemed_by_user_id IS NULL) AS invites_remaining,
-			(SELECT COUNT(*)::int FROM "invite" WHERE owner_id = u.id) AS invites_total,
-			(SELECT inviter.name FROM "invite" i JOIN "user" inviter ON inviter.id = i.owner_id WHERE i.redeemed_by_user_id = u.id LIMIT 1) AS referred_by_name,
+			u.invite_limit AS invite_limit,
+			(SELECT COUNT(*)::int FROM "invite" WHERE created_by_user_id = u.id) AS invites_created,
+			u.api_token_limit AS api_token_limit,
+			(SELECT COUNT(*)::int FROM "api_token" WHERE user_id = u.id) AS api_tokens_used,
+			(SELECT inviter.name FROM "invite" i JOIN "user" inviter ON inviter.id = i.created_by_user_id WHERE i.redeemed_by_user_id = u.id LIMIT 1) AS referred_by_name,
 			EXISTS (SELECT 1 FROM subscription s WHERE s.user_id = u.id AND s.status = 'active') AS is_subscriber
 		FROM "user" u
 		LEFT JOIN user_location ul ON ul.user_id = u.id
@@ -83,8 +91,11 @@ export const load: PageServerLoad = async ({ params }) => {
 		dislikes: row.dislikes,
 		wantToGo: row.want_to_go,
 		seen: row.seen,
-		invitesRemaining: row.invites_remaining,
-		invitesTotal: row.invites_total,
+		inviteLimit: row.invite_limit,
+		invitesCreated: row.invites_created,
+		invitesRemaining: Math.max(0, row.invite_limit - row.invites_created),
+		apiTokenLimit: row.api_token_limit,
+		apiTokensUsed: row.api_tokens_used,
 		referredByName: row.referred_by_name,
 		isSubscriber: row.is_subscriber
 	};
@@ -109,6 +120,28 @@ export const actions: Actions = {
 			});
 		}
 		throw redirect(303, '/');
+	},
+
+	setInviteLimit: async ({ params, request, locals }) => {
+		if (!isAdmin(locals.user)) return fail(403, { message: 'Admins only.' });
+		const raw = (await request.formData()).get('inviteLimit')?.toString() ?? '';
+		const limit = Number.parseInt(raw, 10);
+		if (!Number.isInteger(limit) || limit < 0 || limit > 1000) {
+			return fail(400, { limitError: 'Enter a whole number between 0 and 1000.' });
+		}
+		await db.update(userTable).set({ inviteLimit: limit }).where(eq(userTable.id, params.id));
+		return { limitSet: limit };
+	},
+
+	setApiTokenLimit: async ({ params, request, locals }) => {
+		if (!isAdmin(locals.user)) return fail(403, { message: 'Admins only.' });
+		const raw = (await request.formData()).get('apiTokenLimit')?.toString() ?? '';
+		const limit = Number.parseInt(raw, 10);
+		if (!Number.isInteger(limit) || limit < 0 || limit > 1000) {
+			return fail(400, { tokenLimitError: 'Enter a whole number between 0 and 1000.' });
+		}
+		await db.update(userTable).set({ apiTokenLimit: limit }).where(eq(userTable.id, params.id));
+		return { tokenLimitSet: limit };
 	},
 
 	grantSubscription: async ({ params, locals }) => {

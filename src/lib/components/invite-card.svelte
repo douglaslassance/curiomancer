@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
-	import { Check, Copy, Sparkles } from '@lucide/svelte';
+	import { Check, Copy, Sparkles, X } from '@lucide/svelte';
 	import type { InviteWithRedeemer } from '$lib/server/invites';
 	import { page } from '$app/state';
 
@@ -30,12 +31,14 @@
 >
 	<Sparkles class="text-primary size-4 shrink-0" />
 	<div class="min-w-0 flex-1">
-		<code class="font-mono text-xs tracking-wide">{invite.id}</code>
-		{#if redeemed}
-			<p class="text-muted-foreground text-xs">
-				Redeemed by {invite.redeemedByName ?? 'someone'}
-			</p>
-		{/if}
+		<p class="truncate text-sm">{invite.invitedEmail ?? invite.id}</p>
+		<p class="text-muted-foreground text-xs">
+			{#if redeemed}
+				Joined{invite.redeemedByName ? ` · ${invite.redeemedByName}` : ''}
+			{:else}
+				Pending
+			{/if}
+		</p>
 	</div>
 	{#if !redeemed}
 		<Button size="sm" variant="outline" onclick={copy} aria-label="Copy invite link">
@@ -47,5 +50,23 @@
 				Copy link
 			{/if}
 		</Button>
+		<form
+			method="post"
+			action="?/cancelInvite"
+			use:enhance={({ cancel }) => {
+				if (!confirm(`Cancel the invite to ${invite.invitedEmail ?? 'this person'}?`)) cancel();
+			}}
+		>
+			<input type="hidden" name="id" value={invite.id} />
+			<Button
+				type="submit"
+				size="sm"
+				variant="ghost"
+				class="text-muted-foreground hover:text-destructive"
+				aria-label="Cancel invite"
+			>
+				<X class="size-4" />
+			</Button>
+		</form>
 	{/if}
 </article>

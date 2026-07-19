@@ -5,7 +5,7 @@ import { isAdmin } from '$lib/server/admin';
 import { db } from '$lib/server/db';
 import { invite, waitlist } from '$lib/server/db/schema';
 import { sendInviteEmail } from '$lib/server/email';
-import { createInviteReturningCode } from '$lib/server/invites';
+import { createInvite, hasPendingInviteForEmail, isEmailRegistered } from '$lib/server/invites';
 import { joinWaitlist } from '$lib/server/waitlist';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -38,6 +38,18 @@ export const actions: Actions = {
 		const email = data.get('email')?.toString() ?? '';
 		const city = data.get('city')?.toString() ?? '';
 
+		// Same guards as the invite dialog: no point waitlisting someone who's
+		// already a member or already has a pending invite out.
+		const normalized = email.trim().toLowerCase();
+		if (normalized) {
+			if (await isEmailRegistered(normalized)) {
+				return fail(400, { addError: 'That person is already on Curiomancer.', email, city });
+			}
+			if (await hasPendingInviteForEmail(normalized)) {
+				return fail(400, { addError: 'That email already has a pending invite.', email, city });
+			}
+		}
+
 		const result = await joinWaitlist(email, city);
 		if (!result.ok) return fail(400, { addError: result.message, email, city });
 
@@ -66,10 +78,9 @@ export const actions: Actions = {
 			return { ok: true };
 		}
 
-		// Mint an unowned (platform) invite - the admitting admin is recorded as
-		// creator, but no one owns it, so it stays out of anyone's Settings and the
-		// email reads as a platform invite. Link it to the waitlist entry.
-		const code = await createInviteReturningCode(locals.user.id, null);
+		// Mint a system invite (no creator) for this recipient, so the email reads
+		// as a platform invite. Link it back to the waitlist entry.
+		const code = await createInvite(null, claimed.email);
 		await db.update(waitlist).set({ inviteId: code }).where(eq(waitlist.id, id));
 
 		// Best-effort: the invite is already minted and copyable from the admin

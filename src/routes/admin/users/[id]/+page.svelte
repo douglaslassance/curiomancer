@@ -4,6 +4,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { Separator } from '$lib/components/ui/separator';
 	import { Check, ExternalLink, Loader2, Mail, MapPin, VenetianMask } from '@lucide/svelte';
 
@@ -93,13 +94,63 @@
 				<div class="min-w-0 flex-1">
 					<div class="text-sm font-medium">Invites</div>
 					<p class="text-muted-foreground mt-1 text-sm">
-						{u.invitesRemaining} of {u.invitesTotal} remaining
+						{u.invitesCreated} created · {u.invitesRemaining} left of {u.inviteLimit}
 					</p>
+					<form
+						method="post"
+						action="?/setInviteLimit"
+						use:enhance
+						class="mt-2 flex items-center gap-2"
+					>
+						<Input
+							name="inviteLimit"
+							type="number"
+							min="0"
+							value={u.inviteLimit}
+							class="h-8 w-20"
+						/>
+						<Button type="submit" size="sm" variant="outline">Set limit</Button>
+					</form>
+					{#if form?.limitError}
+						<p class="text-destructive mt-1 text-xs">{form.limitError}</p>
+					{:else if form?.limitSet !== undefined}
+						<p class="text-muted-foreground mt-1 text-xs">Limit updated.</p>
+					{/if}
 				</div>
 				<div class="min-w-0 flex-1">
 					<div class="text-sm font-medium">Referred by</div>
 					<p class="text-muted-foreground mt-1 text-sm">{u.referredByName ?? '-'}</p>
 				</div>
+			</div>
+
+			<Separator />
+
+			<!-- API token limit -->
+			<div class="min-w-0 flex-1">
+				<div class="text-sm font-medium">API tokens</div>
+				<p class="text-muted-foreground mt-1 text-sm">
+					{u.apiTokensUsed} of {u.apiTokenLimit} used
+				</p>
+				<form
+					method="post"
+					action="?/setApiTokenLimit"
+					use:enhance
+					class="mt-2 flex items-center gap-2"
+				>
+					<Input
+						name="apiTokenLimit"
+						type="number"
+						min="0"
+						value={u.apiTokenLimit}
+						class="h-8 w-20"
+					/>
+					<Button type="submit" size="sm" variant="outline">Set limit</Button>
+				</form>
+				{#if form?.tokenLimitError}
+					<p class="text-destructive mt-1 text-xs">{form.tokenLimitError}</p>
+				{:else if form?.tokenLimitSet !== undefined}
+					<p class="text-muted-foreground mt-1 text-xs">Limit updated.</p>
+				{/if}
 			</div>
 
 			<Separator />

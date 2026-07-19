@@ -70,14 +70,14 @@ export const load: PageServerLoad = async (event) => {
 	if (code) {
 		const row = await findRedeemableInvite(code);
 		if (row) {
-			// A redeemable code is valid regardless of ownership. If it's owned, show
-			// the owner as the inviter; unowned (platform) invites just stay generic.
+			// A redeemable code is valid regardless of creator. If a real user
+			// created it, show them as the inviter; system invites stay generic.
 			inviteState = 'valid';
-			if (row.ownerId) {
+			if (row.createdByUserId) {
 				const [u] = await db
 					.select({ name: user.name })
 					.from(user)
-					.where(eq(user.id, row.ownerId))
+					.where(eq(user.id, row.createdByUserId))
 					.limit(1);
 				if (u) inviter = { name: u.name };
 			}

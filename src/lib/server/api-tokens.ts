@@ -7,11 +7,20 @@
  * caller exactly once, at creation time.
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq } from 'drizzle-orm';
 import { db } from './db';
 import { apiToken } from './db/schema';
 
 const PREFIX = 'crmc_';
+
+/** How many tokens `userId` currently has (checked against user.api_token_limit). */
+export async function countApiTokens(userId: string): Promise<number> {
+	const [row] = await db
+		.select({ n: count() })
+		.from(apiToken)
+		.where(eq(apiToken.userId, userId));
+	return row?.n ?? 0;
+}
 
 function hashToken(token: string): string {
 	return createHash('sha256').update(token).digest('hex');

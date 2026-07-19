@@ -238,7 +238,6 @@
 			.join('') || '?'
 	);
 
-	const invitesRemaining = $derived(data.invites.filter((i) => i.redeemedByUserId === null).length);
 	const incognito = $derived(form?.incognito ?? data.profile.incognito);
 	let incognitoForm: HTMLFormElement | undefined;
 </script>
@@ -626,22 +625,53 @@
 			<div class="flex items-start gap-3">
 				<Sparkles class="text-muted-foreground mt-0.5 size-4" />
 				<div class="min-w-0 flex-1">
-					<div class="flex items-baseline justify-between gap-2">
-						<div class="text-sm font-medium">Invites</div>
-						<span class="text-muted-foreground text-xs">
-							{invitesRemaining} of {data.invites.length} remaining
-						</span>
-					</div>
+					<div class="text-sm font-medium">Invites</div>
 					<p class="text-muted-foreground mt-1 text-sm">
-						Share these links with people whose taste you trust.
+						Invite people whose taste you trust. They'll get an email from you with a link to
+						join.
 					</p>
-					<div class="mt-3 space-y-2">
-						{#each data.invites as inv (inv.id)}
-							<InviteCard invite={inv} />
-						{:else}
-							<p class="text-muted-foreground text-xs">No invites yet.</p>
-						{/each}
-					</div>
+
+					<form
+						method="post"
+						action="?/createInvite"
+						use:enhance
+						class="mt-3 flex items-center gap-2"
+					>
+						<Input
+							name="recipient"
+							type="text"
+							inputmode="email"
+							placeholder="friend@example.com"
+							autocomplete="off"
+							data-1p-ignore
+							data-lpignore="true"
+							data-form-type="other"
+							class="max-w-xs"
+						/>
+						<Button
+							type="submit"
+							size="sm"
+							variant="outline"
+							disabled={data.invites.length >= data.inviteLimit}
+						>
+							Invite
+						</Button>
+					</form>
+					{#if form?.inviteError}
+						<p class="text-destructive mt-1 text-xs">{form.inviteError}</p>
+					{:else}
+						<p class="text-muted-foreground mt-1 text-xs">
+							{data.invites.length} of {data.inviteLimit} invites used.
+						</p>
+					{/if}
+
+					{#if data.invites.length > 0}
+						<div class="mt-3 space-y-2">
+							{#each data.invites as inv (inv.id)}
+								<InviteCard invite={inv} />
+							{/each}
+						</div>
+					{/if}
 				</div>
 			</div>
 
@@ -657,26 +687,6 @@
 						<code class="text-xs">GET /api/v1/me</code> and plug them into other services.
 					</p>
 
-					{#if form?.tokenCreated}
-						<div class="bg-muted mt-3 rounded-lg border p-3">
-							<p class="text-xs font-medium">New token. Copy it now, it won't be shown again.</p>
-							<div class="mt-2 flex items-center gap-2">
-								<code class="bg-background min-w-0 flex-1 truncate rounded border px-2 py-1 text-xs">
-									{form.tokenCreated}
-								</code>
-								<Button
-									type="button"
-									size="sm"
-									variant="outline"
-									onclick={() => copyToken(form.tokenCreated)}
-								>
-									<Copy class="size-3.5" />
-									{tokenCopied ? 'Copied' : 'Copy'}
-								</Button>
-							</div>
-						</div>
-					{/if}
-
 					<form
 						method="post"
 						action="?/createToken"
@@ -685,39 +695,76 @@
 					>
 						<Input
 							name="name"
-							placeholder="e.g. My recipe app"
+							placeholder="e.g. My map app"
 							autocomplete="off"
 							class="max-w-xs"
 						/>
-						<Button type="submit" size="sm" variant="outline">Create token</Button>
+						<Button
+							type="submit"
+							size="sm"
+							variant="outline"
+							disabled={data.apiTokens.length >= data.apiTokenLimit}
+						>
+							Create token
+						</Button>
 					</form>
 					{#if form?.tokenError}
 						<p class="text-destructive mt-1 text-xs">{form.tokenError}</p>
+					{:else}
+						<p class="text-muted-foreground mt-1 text-xs">
+							{data.apiTokens.length} of {data.apiTokenLimit} tokens used.
+						</p>
 					{/if}
 
 					{#if data.apiTokens.length > 0}
 						<div class="mt-3 space-y-2">
 							{#each data.apiTokens as token (token.id)}
-								<div class="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
-									<div class="min-w-0">
-										<div class="truncate text-sm font-medium">{token.name}</div>
-										<div class="text-muted-foreground text-xs">
-											<code>{token.prefix}…</code>
-											· {token.lastUsedAt ? 'last used' : 'never used'}
+								{@const justCreated =
+									!!form?.tokenCreated && form.tokenCreated.startsWith(token.prefix)}
+								<div class="rounded-lg border px-3 py-2 {justCreated ? 'border-primary bg-muted' : ''}">
+									<div class="flex items-center justify-between gap-2">
+										<div class="min-w-0">
+											<div class="truncate text-sm font-medium">{token.name}</div>
+											<div class="text-muted-foreground text-xs">
+												{#if justCreated}
+													Copy it now, it won't be shown again.
+												{:else}
+													<code>{token.prefix}…</code>
+													· {token.lastUsedAt ? 'last used' : 'never used'}
+												{/if}
+											</div>
 										</div>
+										<form method="post" action="?/revokeToken" use:enhance>
+											<input type="hidden" name="id" value={token.id} />
+											<Button
+												type="submit"
+												size="sm"
+												variant="ghost"
+												class="text-muted-foreground hover:text-destructive"
+											>
+												<Trash2 class="size-3.5" />
+												Revoke
+											</Button>
+										</form>
 									</div>
-									<form method="post" action="?/revokeToken" use:enhance>
-										<input type="hidden" name="id" value={token.id} />
-										<Button
-											type="submit"
-											size="sm"
-											variant="ghost"
-											class="text-muted-foreground hover:text-destructive"
-										>
-											<Trash2 class="size-3.5" />
-											Revoke
-										</Button>
-									</form>
+									{#if form?.tokenCreated && form.tokenCreated.startsWith(token.prefix)}
+										<div class="mt-2 flex items-center gap-2">
+											<code
+												class="bg-background min-w-0 flex-1 truncate rounded border px-2 py-1 text-xs"
+											>
+												{form.tokenCreated}
+											</code>
+											<Button
+												type="button"
+												size="sm"
+												variant="outline"
+												onclick={() => copyToken(form.tokenCreated)}
+											>
+												<Copy class="size-3.5" />
+												{tokenCopied ? 'Copied' : 'Copy'}
+											</Button>
+										</div>
+									{/if}
 								</div>
 							{/each}
 						</div>

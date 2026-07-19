@@ -213,23 +213,23 @@ export async function sendWaitlistConfirmationEmail(to: string): Promise<void> {
 
 /**
  * Sent when someone is invited (waitlist admit, or a shared invite). `inviteUrl`
- * carries the code. When `ownerName` is given the invite reads as a personal
+ * carries the code. When `inviterName` is given the invite reads as a personal
  * referral ("X invited you"); otherwise it's a platform invite ("You've been
  * invited"). Either way we say what Curiomancer is.
  */
 export async function sendInviteEmail(
 	to: string,
 	inviteUrl: string,
-	ownerName?: string | null
+	inviterName?: string | null
 ): Promise<void> {
 	const what =
 		'Curiomancer is a taste-based way to find shops, bars, and restaurants ' +
 		"you'll love, matched with people who share your taste, wherever you go.";
-	const lead = ownerName
-		? `${ownerName} invited you to join Curiomancer.`
+	const lead = inviterName
+		? `${inviterName} invited you to join Curiomancer.`
 		: "You've been invited to join Curiomancer.";
-	const subject = ownerName
-		? `${ownerName} invited you to join Curiomancer`
+	const subject = inviterName
+		? `${inviterName} invited you to join Curiomancer`
 		: "You've been invited to join Curiomancer";
 
 	await sendEmail({
@@ -237,7 +237,7 @@ export async function sendInviteEmail(
 		subject,
 		text: `${lead}\n\n${what}\n\nCreate your account here:\n${inviteUrl}`,
 		html: renderEmailHtml({
-			heading: ownerName ? `${ownerName} invited you` : "You're invited",
+			heading: inviterName ? `${inviterName} invited you` : "You're invited",
 			paragraphs: [lead, what],
 			action: { label: 'Create your account', url: inviteUrl }
 		})

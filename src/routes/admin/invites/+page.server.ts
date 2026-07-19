@@ -1,69 +1,58 @@
 import { fail } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
+import { env } from '$env/dynamic/private';
 import { isAdmin } from '$lib/server/admin';
-import { db } from '$lib/server/db';
-import { user } from '$lib/server/db/schema';
+import { sendInviteEmail } from '$lib/server/email';
 import {
-	clearInviteCreator,
-	clearInviteOwner,
-	createInviteReturningCode,
+	createInvite,
 	deleteInvite,
-	getAllInvites
+	getAllInvites,
+	hasPendingInviteForEmail,
+	isEmailRegistered
 } from '$lib/server/invites';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
-	// Owners are searched on demand (see ./search) rather than shipped in bulk -
-	// there can be thousands of users. `self` powers the "Yourself" shortcut.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export const load: PageServerLoad = async () => {
 	const invites = await getAllInvites();
-	return {
-		invites,
-		self: locals.user ? { id: locals.user.id, name: locals.user.name } : null
-	};
+	return { invites };
 };
 
 export const actions: Actions = {
+	// Create an invite for an email and send it. Admin/waitlist invites are
+	// system invites (no creator) - only a user inviting from their own Settings
+	// is attributed and named in the email. So this sends the generic email.
 	create: async ({ request, locals }) => {
 		if (!isAdmin(locals.user)) return fail(403, { message: 'Admins only.' });
 
-		const data = await request.formData();
-		// Owner defaults to none (unowned/platform invite); a picked owner must be
-		// a real user. The acting admin is recorded as creator regardless.
-		const ownerId = data.get('ownerId')?.toString() || null;
-		if (ownerId) {
-			const [owner] = await db
-				.select({ id: user.id })
-				.from(user)
-				.where(eq(user.id, ownerId))
-				.limit(1);
-			if (!owner) return fail(400, { message: 'Pick a valid owner.' });
+		const email =
+			(await request.formData()).get('recipient')?.toString().trim().toLowerCase() ?? '';
+		if (!EMAIL_RE.test(email)) return fail(400, { inviteError: 'Enter a valid email address.' });
+
+		if (await isEmailRegistered(email)) {
+			return fail(400, { inviteError: 'That person is already on Curiomancer.' });
+		}
+		if (await hasPendingInviteForEmail(email)) {
+			return fail(400, { inviteError: 'That email already has a pending invite.' });
 		}
 
-		const code = await createInviteReturningCode(locals.user.id, ownerId);
-		return { ok: true, code };
-	},
+		const code = await createInvite(null, email);
 
-	clearOwner: async ({ request, locals }) => {
-		if (!isAdmin(locals.user)) return fail(403, { message: 'Admins only.' });
-		const id = (await request.formData()).get('id')?.toString() ?? '';
-		if (!id) return fail(400, { message: 'Missing invite code.' });
-		await clearInviteOwner(id);
-		return { ownerCleared: true };
-	},
-
-	clearCreator: async ({ request, locals }) => {
-		if (!isAdmin(locals.user)) return fail(403, { message: 'Admins only.' });
-		const id = (await request.formData()).get('id')?.toString() ?? '';
-		if (!id) return fail(400, { message: 'Missing invite code.' });
-		await clearInviteCreator(id);
-		return { creatorCleared: true };
+		// Best-effort: the invite exists and is copyable from the table, so a
+		// delivery hiccup shouldn't fail the action.
+		try {
+			const inviteUrl = `${env.ORIGIN}/sign-up?invite=${encodeURIComponent(code)}`;
+			await sendInviteEmail(email, inviteUrl);
+		} catch (err) {
+			console.error('Invite email failed:', err);
+		}
+		return { invited: email };
 	},
 
 	delete: async ({ request, locals }) => {
 		if (!isAdmin(locals.user)) return fail(403, { message: 'Admins only.' });
 
-		const data = await request.formData();
-		const id = data.get('id')?.toString() ?? '';
+		const id = (await request.formData()).get('id')?.toString() ?? '';
 		if (!id) return fail(400, { message: 'Missing invite code.' });
 
 		const removed = await deleteInvite(id);
