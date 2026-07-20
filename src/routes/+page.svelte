@@ -303,7 +303,7 @@
 	     the nudge stands down. -->
 	{@const railPrefix = data.hasTwinRecs ? 'Recommended' : 'Popular'}
 
-	{#if data.myLikeCount === 0 && !importSkipped}
+	{#if data.myLikeCount === 0 && !importSkipped && !data.isMobile}
 		<Card.Root class="border-primary/30 bg-primary/5 mb-6">
 			<Card.Content class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div class="flex items-start gap-3">

@@ -11,12 +11,17 @@ import {
 	type RecommendedPlace
 } from '$lib/server/matching';
 import { MATCH_THRESHOLD } from '$lib/server/similarity';
+import { isMobileUserAgent } from '$lib/server/user-agent';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, request }) => {
 	if (!locals.user) {
 		return { signedIn: false as const };
 	}
+
+	// The Google Maps import isn't practical on a phone, so the cold-start import
+	// banner is hidden there (see the dashboard); mobile users are nudged to Tune.
+	const isMobile = isMobileUserAgent(request.headers.get('user-agent'));
 
 	const [loc] = await db
 		.select()
@@ -95,6 +100,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 		shop: shop as RecommendedPlace[],
 		visit: visit as RecommendedPlace[],
 		hasTwinRecs,
-		myLikeCount
+		myLikeCount,
+		isMobile
 	};
 };
