@@ -4,9 +4,12 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import * as Card from '$lib/components/ui/card';
+	import SubmitButton from '$lib/components/submit-button.svelte';
+	import { pendingForm } from '$lib/pending-form.svelte';
 	import { LocateFixed, Loader2, MailCheck, Sparkles } from '@lucide/svelte';
 
 	let { data, form } = $props();
+	const createAccount = pendingForm();
 
 	// City field: same Apple-Maps autocomplete + "Detect" as the splash waitlist.
 	// The chosen coordinates ride along in hidden inputs so the server can store
@@ -15,9 +18,6 @@
 	let latitude = $state('');
 	let longitude = $state('');
 	let detecting = $state(false);
-	// Account creation sends a verification email, so give the button a spinner
-	// instead of letting it sit there looking unresponsive.
-	let submitting = $state(false);
 
 	type Completion = { title: string; subtitle: string };
 	let citySuggestions = $state<Completion[]>([]);
@@ -123,17 +123,7 @@
 				</Card.Description>
 			</Card.Header>
 			<Card.Content>
-				<form
-					method="post"
-					class="space-y-4"
-					use:enhance={() => {
-						submitting = true;
-						return async ({ update }) => {
-							await update();
-							submitting = false;
-						};
-					}}
-				>
+				<form method="post" class="space-y-4" use:enhance={createAccount.enhance}>
 					{#if data.inviteState === 'valid'}
 						<input type="hidden" name="invite" value={data.code ?? ''} />
 					{:else}
@@ -230,14 +220,9 @@
 					{#if form?.message}
 						<p class="text-destructive text-sm">{form.message}</p>
 					{/if}
-					<Button type="submit" class="w-full" disabled={submitting}>
-						{#if submitting}
-							<Loader2 class="size-4 animate-spin" />
-							Creating account…
-						{:else}
-							Create account
-						{/if}
-					</Button>
+					<SubmitButton pending={createAccount.submitting} pendingLabel="Creating account…" class="w-full">
+						Create account
+					</SubmitButton>
 				</form>
 			</Card.Content>
 		{/if}

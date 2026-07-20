@@ -4,8 +4,11 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import * as Card from '$lib/components/ui/card';
+	import SubmitButton from '$lib/components/submit-button.svelte';
+	import { pendingForm } from '$lib/pending-form.svelte';
 
 	let { data, form } = $props();
+	const save = pendingForm();
 </script>
 
 <div class="mx-auto max-w-sm py-10">
@@ -23,7 +26,7 @@
 					</Button>
 				</div>
 			{:else}
-				<form method="post" class="space-y-4" use:enhance>
+				<form method="post" class="space-y-4" use:enhance={save.enhance}>
 					<input type="hidden" name="token" value={data.token} />
 					<div class="space-y-2">
 						<Label for="newPassword">New password</Label>
@@ -49,7 +52,9 @@
 					{#if form?.message}
 						<p class="text-destructive text-sm">{form.message}</p>
 					{/if}
-					<Button type="submit" class="w-full">Update password</Button>
+					<SubmitButton pending={save.submitting} pendingLabel="Updating…" class="w-full">
+						Update password
+					</SubmitButton>
 				</form>
 			{/if}
 		</Card.Content>
