@@ -27,31 +27,26 @@ const SHOP = new Set([
 	'market',
 	'grocerystore'
 ]);
+// Deliberately narrow: the product is about places you go and spend time in
+// (eat / drink / shop), plus venues you actually visit and would recommend.
+// We keep cultural + entertainment venues (museum, theater, zoo, ...) but drop
+// open geographic features (park, beach, garden, national park, marina) and
+// passive/institutional POIs (landmark, monument, library, school), which were
+// surfacing things users can't act on (a friend got recommended an
+// architecture school - Apple tags such buildings `landmark`). Anything not
+// listed here returns null and is left out of discovery, import, and seed.
 const VISIT = new Set([
-	'amusementpark',
-	'aquarium',
-	'beach',
-	'campground',
-	'castle',
-	'fairground',
-	'fortress',
-	'landmark',
-	'library',
-	'marina',
-	'movietheater',
 	'museum',
-	'musicvenue',
-	'nationalmonument',
-	'nationalpark',
-	'park',
-	'planetarium',
-	'stadium',
-	'theater',
-	'zoo',
-	'monument',
-	'garden',
 	'gallery',
-	'observatory'
+	'theater',
+	'movietheater',
+	'musicvenue',
+	'stadium',
+	'zoo',
+	'aquarium',
+	'planetarium',
+	'observatory',
+	'amusementpark'
 ]);
 
 export function mapAppleCategory(poiCategory?: string): PlaceCategory | null {
