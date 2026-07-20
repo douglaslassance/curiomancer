@@ -60,10 +60,28 @@
 		...data.seenIds,
 		...data.wantToGoIds
 	]);
+
+	// A place's real-world identity, independent of which row/POI represents it.
+	// Muid dedupe alone misses two cases that make a place reappear (once you've
+	// rated or skipped the first copy it feels broken): duplicate `place` rows
+	// for one spot, and a DB place that also comes back from the Apple sweep
+	// under a muid we don't have. Name + ~110m-rounded coords collapses those.
+	function placeKey(name: string, lat: number | null, lng: number | null): string {
+		const n = name.trim().toLowerCase();
+		const coords = lat != null && lng != null ? `${lat.toFixed(3)},${lng.toFixed(3)}` : '';
+		return `${n}@${coords}`;
+	}
+	// Identities already in the queue, so nothing is enqueued twice.
+	const enqueuedKeys = new Set<string>();
+
+	const initialQueue: RateItem[] = [];
 	// svelte-ignore state_referenced_locally
-	const initialQueue: RateItem[] = data.places
-		.filter((p) => !ratedIds.has(p.id))
-		.map((p) => ({
+	for (const p of data.places) {
+		if (ratedIds.has(p.id)) continue;
+		const key = placeKey(p.name, p.latitude, p.longitude);
+		if (enqueuedKeys.has(key)) continue;
+		enqueuedKeys.add(key);
+		initialQueue.push({
 			key: `db:${p.id}`,
 			name: p.name,
 			category: p.category,
@@ -75,7 +93,8 @@
 			longitude: p.longitude,
 			placeId: p.id,
 			apple: null
-		}));
+		});
+	}
 
 	let queue = $state<RateItem[]>(initialQueue);
 	let index = $state(0);
@@ -161,6 +180,14 @@
 					if (!cat || !p.coordinate) continue;
 					const muid = String(p.muid ?? '');
 					if (!muid || seenExternalIds.has(muid)) continue;
+					const name = p.name ?? 'This place';
+					// Collapse against DB places and earlier POIs for the same spot,
+					// not just the same muid, so a place never shows up twice.
+					const key = placeKey(name, p.coordinate.latitude, p.coordinate.longitude);
+					if (enqueuedKeys.has(key)) {
+						seenExternalIds.add(muid);
+						continue;
+					}
 					const dist = haversineKm(
 						data.center.latitude,
 						data.center.longitude,
@@ -169,9 +196,10 @@
 					);
 					if (dist > data.radiusKm) continue;
 					seenExternalIds.add(muid);
+					enqueuedKeys.add(key);
 					queue.push({
 						key: `apple:${muid}`,
-						name: p.name ?? 'This place',
+						name,
 						category: cat,
 						city: p.locality ?? data.city ?? '',
 						neighborhood: p.subLocality ?? null,
