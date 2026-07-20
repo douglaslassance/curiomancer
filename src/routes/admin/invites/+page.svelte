@@ -6,22 +6,22 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import ConfirmDeleteButton from '$lib/components/confirm-delete-button.svelte';
+	import SubmitButton from '$lib/components/submit-button.svelte';
+	import { pendingForm } from '$lib/pending-form.svelte';
 	import { Copy, Plus, Search, Trash2 } from '@lucide/svelte';
 
 	let { data, form } = $props();
 
-	// Invite dialog: enter a friend's email, we mint + send the invite.
+	// Invite dialog: enter a friend's email, we mint + send the invite. The
+	// button spins while it sends; on success we clear the field and close.
 	let createOpen = $state(false);
 	let inviteEmail = $state('');
-	const onCreated = () => {
-		return async ({ result, update }: { result: { type: string }; update: () => Promise<void> }) => {
-			await update();
-			if (result.type === 'success') {
-				inviteEmail = '';
-				createOpen = false;
-			}
-		};
-	};
+	const create = pendingForm((result) => {
+		if (result.type === 'success') {
+			inviteEmail = '';
+			createOpen = false;
+		}
+	});
 
 	const dateFmt = new Intl.DateTimeFormat('en-US', {
 		year: 'numeric',
@@ -79,7 +79,7 @@
 			<Dialog.Description>Send an invite to someone's email.</Dialog.Description>
 		</Dialog.Header>
 
-		<form method="post" action="?/create" use:enhance={onCreated} class="space-y-3">
+		<form method="post" action="?/create" use:enhance={create.enhance} class="space-y-3">
 			<!-- type=text + inputmode=email and the data-* flags keep password
 			     managers from offering to autofill the admin's own email here. -->
 			<Input
@@ -97,10 +97,10 @@
 				<p class="text-destructive text-xs">{form.inviteError}</p>
 			{/if}
 			<Dialog.Footer>
-				<Button type="submit">
+				<SubmitButton pending={create.submitting} pendingLabel="Sending…">
 					<Plus class="size-4" />
 					Send invite
-				</Button>
+				</SubmitButton>
 			</Dialog.Footer>
 		</form>
 	</Dialog.Content>

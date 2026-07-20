@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import * as Card from '$lib/components/ui/card';
-	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import SubmitButton from '$lib/components/submit-button.svelte';
+	import { pendingForm } from '$lib/pending-form.svelte';
 	import { Shield } from '@lucide/svelte';
 
 	let { form } = $props();
+	const createAdmin = pendingForm();
 </script>
 
 <svelte:head>
@@ -26,7 +28,7 @@
 			</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			<form method="post" class="space-y-4" use:enhance>
+			<form method="post" class="space-y-4" use:enhance={createAdmin.enhance}>
 				<div class="space-y-2">
 					<Label for="name">Name</Label>
 					<Input
@@ -57,7 +59,9 @@
 				{#if form?.message}
 					<p class="text-destructive text-sm">{form.message}</p>
 				{/if}
-				<Button type="submit" class="w-full">Create admin account</Button>
+				<SubmitButton pending={createAdmin.submitting} pendingLabel="Creating…" class="w-full">
+					Create admin account
+				</SubmitButton>
 			</form>
 		</Card.Content>
 	</Card.Root>
