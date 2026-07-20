@@ -292,6 +292,17 @@
 	<!-- --- Dashboard ------------------------------------------------------- -->
 	<DashboardHeader location={data.location} weather={data.weather} />
 
+	{@const hasAnyRecs =
+		data.eat.length > 0 ||
+		data.drink.length > 0 ||
+		data.shop.length > 0 ||
+		data.visit.length > 0}
+	<!-- Until the user has real taste-twins, the rails are the most-liked places
+	     nearby (popular_fallback), so we label them "Popular" and keep nudging
+	     them to Tune. Once twin matches exist the rails become "Recommended" and
+	     the nudge stands down. -->
+	{@const railPrefix = data.hasTwinRecs ? 'Recommended' : 'Popular'}
+
 	{#if data.myLikeCount === 0 && !importSkipped}
 		<Card.Root class="border-primary/30 bg-primary/5 mb-6">
 			<Card.Content class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -314,42 +325,59 @@
 				</div>
 			</Card.Content>
 		</Card.Root>
+	{:else if !data.hasTwinRecs && hasAnyRecs}
+		<!-- No twins yet: the rails below are popular picks, not personalised.
+		     Set that expectation and point them at Tune. Same bar as before for
+		     when this stands down: any twin-driven recommendation. -->
+		<Card.Root class="border-primary/30 bg-primary/5 mb-6">
+			<Card.Content class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div class="flex items-start gap-3">
+					<SlidersHorizontal class="text-primary mt-0.5 size-5 shrink-0" />
+					<div>
+						<h2 class="text-base font-medium">Tune your taste for personal picks</h2>
+						<p class="text-muted-foreground mt-1 text-sm">
+							{data.myLikeCount === 0
+								? "Below are popular spots near you. Rate a few places you know and we'll find the people who share your taste, then recommend what they love."
+								: "Below are popular spots near you. Rate more places to sharpen your matches and unlock personal recommendations."}
+						</p>
+					</div>
+				</div>
+				<Button href="/tune" size="sm" class="shrink-0 self-end sm:self-auto">
+					Start tuning
+					<ArrowRight class="size-4" />
+				</Button>
+			</Card.Content>
+		</Card.Root>
 	{/if}
 
-	{@const hasRecommendations =
-		data.eat.length > 0 ||
-		data.drink.length > 0 ||
-		data.shop.length > 0 ||
-		data.visit.length > 0}
-
-	{#if hasRecommendations}
+	{#if hasAnyRecs}
 		<CategoryRail
-			title="Recommended Eat"
+			title={`${railPrefix} Eat`}
 			places={data.eat}
 			empty={`Nowhere to eat in ${data.location.city} yet.`}
 		/>
 
 		<CategoryRail
-			title="Recommended Drink"
+			title={`${railPrefix} Drink`}
 			places={data.drink}
 			empty={`Nowhere to drink in ${data.location.city} yet.`}
 		/>
 
 		<CategoryRail
-			title="Recommended Shop"
+			title={`${railPrefix} Shop`}
 			places={data.shop}
 			empty={`Nowhere to shop in ${data.location.city} yet.`}
 		/>
 
 		<CategoryRail
-			title="Recommended Experience"
+			title={`${railPrefix} Experience`}
 			places={data.visit}
 			empty={`Nowhere to visit in ${data.location.city} yet.`}
 		/>
 	{:else}
-		<!-- Cold start: no taste-twins yet, so there's nothing honest to
-		     recommend and no twins to show. Everything gives way to a single hero
-		     nudge to Tune, rather than a page of empty sections. -->
+		<!-- Nothing at all nearby yet, not even popular places (a brand-new area
+		     with no likes in our DB). A single hero nudge to Tune beats a page of
+		     empty rails. -->
 		<Card.Root class="border-primary/30 bg-primary/5">
 			<Card.Content class="flex flex-col items-center gap-4 py-12 text-center">
 				<div class="bg-primary/10 flex size-14 items-center justify-center rounded-full">
@@ -360,9 +388,8 @@
 						Tune your taste to unlock recommendations
 					</h2>
 					<p class="text-muted-foreground mt-2 text-sm">
-						{data.myLikeCount === 0
-							? "Rate a few places you know and we'll find the people who share your taste, then recommend the spots they love."
-							: "Not enough taste matches near you yet. Rate more places to sharpen your matches and unlock recommendations."}
+						Rate a few places you know and we'll find the people who share your taste, then
+						recommend the spots they love.
 					</p>
 				</div>
 				<Button href="/tune" size="lg">

@@ -437,3 +437,75 @@ export async function getRecommendedPlaces(
 		reason: 'twin_match' as const
 	}));
 }
+
+/**
+ * Cold-start fallback: the most-liked places of `category` in `scope`, for a
+ * user who has no taste-twins yet (so getRecommendedPlaces is empty). Ranked by
+ * platform like count, excluding places the viewer already has any relation
+ * with. Tagged `popular_fallback` so the admin conversion breakdown keeps these
+ * separate from real twin matches. The dashboard shows these while still
+ * nudging the user to Tune until they have genuine matches.
+ */
+export async function getPopularPlaces(
+	userId: string,
+	scope: PlaceScope,
+	category: 'eat' | 'drink' | 'shop' | 'visit',
+	limit = 8
+): Promise<RecommendedPlace[]> {
+	const rows = await db.execute<{
+		id: string;
+		name: string;
+		category: 'eat' | 'drink' | 'shop' | 'visit';
+		city: string;
+		neighborhood: string | null;
+		description: string;
+		latitude: number | null;
+		longitude: number | null;
+		source: 'apple' | 'seed' | 'manual';
+		external_id: string | null;
+		created_at: Date;
+		like_count: number;
+	}>(sql`
+		WITH all_my_relations AS (
+			SELECT place_id FROM "place_relation" WHERE user_id = ${userId}
+		)
+		SELECT
+			p.id,
+			p.name,
+			p.category,
+			p.city,
+			p.neighborhood,
+			p.description,
+			p.latitude,
+			p.longitude,
+			p.source,
+			p.external_id,
+			p.created_at,
+			COUNT(l.id)::int AS like_count
+		FROM place p
+		JOIN "place_relation" l ON l.place_id = p.id AND l.kind = 'liked'
+		WHERE ${placeScopeClause(scope)}
+		  AND p.category = ${category}
+		  AND p.id NOT IN (SELECT place_id FROM all_my_relations)
+		GROUP BY p.id
+		ORDER BY like_count DESC, p.created_at DESC
+		LIMIT ${limit}
+	`);
+
+	return rows.map((r) => ({
+		id: r.id,
+		name: r.name,
+		category: r.category,
+		city: r.city,
+		neighborhood: r.neighborhood,
+		description: r.description,
+		latitude: r.latitude,
+		longitude: r.longitude,
+		source: r.source,
+		externalId: r.external_id,
+		createdAt: new Date(r.created_at),
+		score: Number(r.like_count) || 0,
+		twinCount: 0,
+		reason: 'popular_fallback' as const
+	}));
+}
