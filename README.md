@@ -37,3 +37,7 @@ Then set in Coolify and restart:
 - `ORIGIN=https://curiomancer.com` (checkout redirect URLs derive from it)
 
 Cloudflare: make sure `/api/stripe/webhook` isn't challenged by Bot Fight Mode or a WAF rule, or Stripe's deliveries will fail silently. Watch the webhook's delivery log in the dashboard after launch.
+
+## TODO
+
+- Decide how to handle Apple's two place-id namespaces. Tune/map discovery runs in the browser (MapKit JS, numeric `muid`) while the Google import resolves server-side (Apple Maps Server API, `I...`-prefixed muid), so the same place can arrive under two different ids and become two rows. Today we dedupe with a name + coordinates fallback (`findExistingApplePlaceId`), cheap but can miss a place saved under a slightly different name. Options to weigh if it proves insufficient: (a) keep the fallback, maybe with fuzzier name matching; (b) resolve the import client-side via MapKit JS so everything shares one muid namespace (real refactor, import Phase 1 moves to the browser); (c) canonicalize every save through the Server API for a single namespace (extra Apple call + quota per new place). No decision yet; revisit if duplicates recur.
