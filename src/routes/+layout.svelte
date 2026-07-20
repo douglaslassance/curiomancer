@@ -25,7 +25,8 @@
 	// describe the whole app; a page can override by returning
 	// `meta: { title, description }` from its load (e.g. /s/[token]).
 	const SITE_DESCRIPTION =
-		"Discover bars, restaurants, and shops you'll love. Curiomancer matches your taste with people who share it, wherever you are.";
+		'Curiomancer is a taste-based way to find shops, bars, and restaurants ' +
+		"you'll love, matched with people who share your taste, wherever you go.";
 	const metaTitle = $derived(page.data.meta?.title ?? 'Curiomancer');
 	const metaDescription = $derived(page.data.meta?.description ?? SITE_DESCRIPTION);
 
