@@ -1,8 +1,8 @@
-import { and, eq } from 'drizzle-orm';
 import { error, json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { place } from '$lib/server/db/schema';
 import { setRelation } from '$lib/server/likes';
+import { findExistingApplePlaceId } from '$lib/server/places';
 import { getPostHogClient } from '$lib/server/posthog';
 import type { PlaceRelationKind } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
@@ -48,15 +48,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		throw error(400, "kind must be 'liked', 'disliked', 'seen', or 'want_to_go'.");
 	}
 
-	// Dedupe: if this Apple place already exists, reuse it.
+	// Dedupe: if this Apple place already exists, reuse it. Match by muid AND by
+	// canonical identity (name + coords), since the same place carries different
+	// Apple muids across MapKit JS and the Server API (see findExistingApplePlaceId).
 	let placeId: string | null = null;
-	if (externalId) {
-		const [existing] = await db
-			.select({ id: place.id })
-			.from(place)
-			.where(and(eq(place.source, source), eq(place.externalId, externalId)))
-			.limit(1);
-		placeId = existing?.id ?? null;
+	if (source === 'apple') {
+		placeId = await findExistingApplePlaceId({
+			externalId,
+			name,
+			latitude: body.latitude,
+			longitude: body.longitude
+		});
 	}
 
 	if (!placeId) {

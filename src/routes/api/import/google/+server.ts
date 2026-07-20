@@ -1,8 +1,8 @@
-import { and, eq } from 'drizzle-orm';
 import { error, json } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { place } from '$lib/server/db/schema';
 import { upsertRelation } from '$lib/server/likes';
+import { findExistingApplePlaceId } from '$lib/server/places';
 import { searchAppleMaps, mapAppleCategory } from '$lib/server/maps-search';
 import { getPostHogClient } from '$lib/server/posthog';
 import type { RequestHandler } from './$types';
@@ -76,18 +76,20 @@ async function commitRow(userId: string, row: CommitIn): Promise<CommitStatus> {
 	if (!muid || (kind !== 'liked' && kind !== 'want_to_go')) return 'error';
 	if (typeof row.latitude !== 'number' || typeof row.longitude !== 'number') return 'error';
 
-	// Dedupe across all users by muid. Reuse the existing row rather than trust
-	// the client's fields, so a bad payload can't overwrite a shared place.
-	let placeId: string | null = null;
-	const [existing] = await db
-		.select({ id: place.id })
-		.from(place)
-		.where(and(eq(place.source, 'apple'), eq(place.externalId, muid)))
-		.limit(1);
-	placeId = existing?.id ?? null;
+	// Reuse an existing row rather than trust the client's fields, so a bad
+	// payload can't overwrite a shared place. Dedupe by muid AND by canonical
+	// identity (name + coords): the Server API muid here differs from the MapKit
+	// JS muid a client POI carries for the same place, so muid alone would create
+	// a duplicate (see findExistingApplePlaceId).
+	const name = row.name?.trim() || '(unnamed)';
+	let placeId = await findExistingApplePlaceId({
+		externalId: muid,
+		name,
+		latitude: row.latitude,
+		longitude: row.longitude
+	});
 
 	if (!placeId) {
-		const name = row.name?.trim() || '(unnamed)';
 		const city = row.city?.trim() || 'Unknown';
 		try {
 			const [created] = await db
@@ -105,14 +107,15 @@ async function commitRow(userId: string, row: CommitIn): Promise<CommitStatus> {
 				.returning({ id: place.id });
 			placeId = created.id;
 		} catch {
-			// A concurrent row in this same batch may have inserted the same muid.
-			const [raced] = await db
-				.select({ id: place.id })
-				.from(place)
-				.where(and(eq(place.source, 'apple'), eq(place.externalId, muid)))
-				.limit(1);
+			// A concurrent row in this same batch may have inserted the same place.
+			const raced = await findExistingApplePlaceId({
+				externalId: muid,
+				name,
+				latitude: row.latitude,
+				longitude: row.longitude
+			});
 			if (!raced) return 'error';
-			placeId = raced.id;
+			placeId = raced;
 		}
 	}
 
