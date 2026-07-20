@@ -8,7 +8,7 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import CityInput from '$lib/components/city-input.svelte';
 	import ConfirmDeleteButton from '$lib/components/confirm-delete-button.svelte';
-	import { Copy, Plus, Search, Trash2 } from '@lucide/svelte';
+	import { Copy, Loader2, Plus, Search, Trash2 } from '@lucide/svelte';
 
 	let { data, form } = $props();
 
@@ -27,6 +27,10 @@
 	function signupLink(code: string): string {
 		return `${page.url.origin}/sign-up?invite=${code}`;
 	}
+
+	// Which entry's invite is currently posting, so its button can show a
+	// spinner instead of looking dead while the invite email sends.
+	let invitingId = $state<string | null>(null);
 
 	let copied = $state<string | null>(null);
 	async function copyLink(code: string) {
@@ -162,9 +166,26 @@
 									{copied === e.inviteId ? 'Copied' : 'Copy link'}
 								</Button>
 							{:else}
-								<form method="post" action="?/invite" use:enhance>
+								<form
+									method="post"
+									action="?/invite"
+									use:enhance={() => {
+										invitingId = e.id;
+										return async ({ update }) => {
+											await update();
+											invitingId = null;
+										};
+									}}
+								>
 									<input type="hidden" name="id" value={e.id} />
-									<Button type="submit" size="sm">Invite</Button>
+									<Button type="submit" size="sm" disabled={invitingId === e.id}>
+										{#if invitingId === e.id}
+											<Loader2 class="size-3.5 animate-spin" />
+											Inviting…
+										{:else}
+											Invite
+										{/if}
+									</Button>
 								</form>
 							{/if}
 							<ConfirmDeleteButton action="?/remove" value={e.id} label="Remove from waitlist">

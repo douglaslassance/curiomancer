@@ -15,6 +15,9 @@
 	let latitude = $state('');
 	let longitude = $state('');
 	let detecting = $state(false);
+	// Account creation sends a verification email, so give the button a spinner
+	// instead of letting it sit there looking unresponsive.
+	let submitting = $state(false);
 
 	type Completion = { title: string; subtitle: string };
 	let citySuggestions = $state<Completion[]>([]);
@@ -120,7 +123,17 @@
 				</Card.Description>
 			</Card.Header>
 			<Card.Content>
-				<form method="post" class="space-y-4" use:enhance>
+				<form
+					method="post"
+					class="space-y-4"
+					use:enhance={() => {
+						submitting = true;
+						return async ({ update }) => {
+							await update();
+							submitting = false;
+						};
+					}}
+				>
 					{#if data.inviteState === 'valid'}
 						<input type="hidden" name="invite" value={data.code ?? ''} />
 					{:else}
@@ -217,7 +230,14 @@
 					{#if form?.message}
 						<p class="text-destructive text-sm">{form.message}</p>
 					{/if}
-					<Button type="submit" class="w-full">Create account</Button>
+					<Button type="submit" class="w-full" disabled={submitting}>
+						{#if submitting}
+							<Loader2 class="size-4 animate-spin" />
+							Creating account…
+						{:else}
+							Create account
+						{/if}
+					</Button>
 				</form>
 			</Card.Content>
 		{/if}
