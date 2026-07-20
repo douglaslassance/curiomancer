@@ -4,10 +4,14 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import * as Card from '$lib/components/ui/card';
+	import { Loader2 } from '@lucide/svelte';
 	import { page } from '$app/state';
 
 	let { form } = $props();
 	const justReset = $derived(page.url.searchParams.get('reset') === '1');
+	// Sign-in hits the network (and can redirect), so the button shows a spinner
+	// instead of sitting there looking unresponsive.
+	let submitting = $state(false);
 </script>
 
 <div class="mx-auto w-full max-w-md py-10">
@@ -22,7 +26,17 @@
 					Password updated. Sign in with your new password.
 				</p>
 			{/if}
-			<form method="post" class="space-y-4" use:enhance>
+			<form
+				method="post"
+				class="space-y-4"
+				use:enhance={() => {
+					submitting = true;
+					return async ({ update }) => {
+						await update();
+						submitting = false;
+					};
+				}}
+			>
 				<div class="space-y-2">
 					<Label for="email">Email</Label>
 					<Input
@@ -46,7 +60,14 @@
 				{#if form?.message}
 					<p class="text-destructive text-sm">{form.message}</p>
 				{/if}
-				<Button type="submit" class="w-full">Sign in</Button>
+				<Button type="submit" class="w-full" disabled={submitting}>
+					{#if submitting}
+						<Loader2 class="size-4 animate-spin" />
+						Signing in…
+					{:else}
+						Sign in
+					{/if}
+				</Button>
 			</form>
 		</Card.Content>
 		<Card.Footer class="justify-center text-sm">
