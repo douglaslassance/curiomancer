@@ -16,8 +16,31 @@ export type ImportRow = {
 	title: string;
 	/** The Google Maps URL, kept so the UI can link out for spot-checks. */
 	url: string;
+	/** Coordinates parsed from the Maps URL, when present. Used server-side to
+	 * bias and disambiguate the Apple match so "Paradiso" resolves to the one
+	 * you actually saved, not Apple's top global hit. */
+	latitude?: number;
+	longitude?: number;
 	kind: ImportKind;
 };
+
+/**
+ * Pull the place's coordinates out of a Google Maps URL. Takeout `/maps/place/`
+ * links carry them two ways: the precise pin lives in the data blob as
+ * `!3d<lat>!4d<lng>`, and the viewport center is in `@<lat>,<lng>`. We prefer
+ * the pin and fall back to the viewport. Returns null for links without coords
+ * (CID-only or shortened `goo.gl` URLs), leaving the server to name-only search.
+ */
+export function parseGoogleMapsCoords(url: string): { latitude: number; longitude: number } | null {
+	if (!url) return null;
+	// Precise pin: `...!3d34.0908!4d-118.2745...`
+	const pin = url.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
+	if (pin) return { latitude: Number(pin[1]), longitude: Number(pin[2]) };
+	// Viewport center: `.../@34.0908,-118.2745,17z...`
+	const at = url.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+	if (at) return { latitude: Number(at[1]), longitude: Number(at[2]) };
+	return null;
+}
 
 /**
  * Map a Takeout CSV filename to the relation it represents. Favorites become
@@ -29,6 +52,122 @@ export function kindFromFilename(filename: string): ImportKind | null {
 	if (name.includes('favorite') || name.includes('favourite')) return 'liked';
 	if (name.includes('want to go')) return 'want_to_go';
 	return null;
+}
+
+export type Coords = { latitude: number; longitude: number };
+
+/** One Apple Maps candidate for a title, returned by the resolve phase. */
+export type Candidate = {
+	muid: string;
+	name: string;
+	city: string;
+	latitude: number;
+	longitude: number;
+	/** Already mapped to our category enum by the server. */
+	category: string;
+};
+
+/** A title plus its Apple candidates (and its own coords, if the URL had any). */
+export type ResolvedRow = {
+	title: string;
+	kind: ImportKind;
+	latitude?: number;
+	longitude?: number;
+	candidates: Candidate[];
+};
+
+/**
+ * When a row carries its own coordinates, the Apple hit must be within this far
+ * of them or we reject it. When snapping an ambiguous name to a home region, we
+ * allow more slack since a region centroid can sit a metro away from the pin.
+ */
+const MAX_MATCH_KM = 50;
+const MAX_SNAP_KM = 120;
+
+/** Great-circle distance in km between two lat/lng points. */
+export function haversineKm(a: Coords, b: Coords): number {
+	const R = 6371;
+	const toRad = (d: number) => (d * Math.PI) / 180;
+	const dLat = toRad(b.latitude - a.latitude);
+	const dLng = toRad(b.longitude - a.longitude);
+	const lat1 = toRad(a.latitude);
+	const lat2 = toRad(b.latitude);
+	const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+	return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * Infer the user's "home regions" from where their places land. Each anchor
+ * (a row's own coords, else its top Apple candidate) votes into a ~1-degree
+ * grid cell; cells with enough votes are real regions (Seoul, Paris, ...),
+ * while wrong disambiguations scatter thinly and fall below the bar. Returns
+ * each surviving cell's centroid, densest first.
+ */
+export function computeHomeRegions(anchors: Coords[]): Coords[] {
+	if (anchors.length === 0) return [];
+	// A cell needs a few votes to count. Scale with list size so a big list
+	// isn't dominated by a couple of stray hits, with a floor for small lists.
+	const minCount = Math.max(3, Math.ceil(anchors.length * 0.03));
+
+	const cells = new Map<string, { sumLat: number; sumLng: number; n: number }>();
+	for (const a of anchors) {
+		const key = `${Math.round(a.latitude)}_${Math.round(a.longitude)}`;
+		const cell = cells.get(key) ?? { sumLat: 0, sumLng: 0, n: 0 };
+		cell.sumLat += a.latitude;
+		cell.sumLng += a.longitude;
+		cell.n += 1;
+		cells.set(key, cell);
+	}
+
+	return [...cells.values()]
+		.filter((c) => c.n >= minCount)
+		.sort((a, b) => b.n - a.n)
+		.map((c) => ({ latitude: c.sumLat / c.n, longitude: c.sumLng / c.n }));
+}
+
+/**
+ * Choose the best Apple candidate for a resolved row:
+ *  1. If the row has its own coordinates (URL had them), take the nearest
+ *     candidate within MAX_MATCH_KM, or null if none is close (wrong place).
+ *  2. Otherwise snap to the candidate nearest a home region within MAX_SNAP_KM,
+ *     so an ambiguous name lands where the user's other places are.
+ *  3. Failing both, fall back to Apple's top hit.
+ * Returns null only when there are no candidates or the row's own coords have
+ * no nearby match.
+ */
+export function pickBestCandidate(row: ResolvedRow, regions: Coords[]): Candidate | null {
+	const cands = row.candidates;
+	if (cands.length === 0) return null;
+
+	if (typeof row.latitude === 'number' && typeof row.longitude === 'number') {
+		const origin = { latitude: row.latitude, longitude: row.longitude };
+		let best: Candidate | null = null;
+		let bestD = Infinity;
+		for (const c of cands) {
+			const d = haversineKm(origin, c);
+			if (d < bestD) {
+				bestD = d;
+				best = c;
+			}
+		}
+		return best && bestD <= MAX_MATCH_KM ? best : null;
+	}
+
+	if (regions.length > 0) {
+		let best: Candidate | null = null;
+		let bestD = Infinity;
+		for (const c of cands) {
+			let d = Infinity;
+			for (const r of regions) d = Math.min(d, haversineKm(r, c));
+			if (d < bestD) {
+				bestD = d;
+				best = c;
+			}
+		}
+		if (best && bestD <= MAX_SNAP_KM) return best;
+	}
+
+	return cands[0];
 }
 
 /**
@@ -108,7 +247,8 @@ export function parseListFile(text: string, kind: ImportKind): ImportRow[] {
 		const key = title.toLowerCase();
 		if (seen.has(key)) continue;
 		seen.add(key);
-		out.push({ title, url, kind });
+		const coords = parseGoogleMapsCoords(url);
+		out.push({ title, url, latitude: coords?.latitude, longitude: coords?.longitude, kind });
 	}
 	return out;
 }

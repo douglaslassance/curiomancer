@@ -8,69 +8,108 @@ import { getPostHogClient } from '$lib/server/posthog';
 import type { RequestHandler } from './$types';
 
 type ImportKind = 'liked' | 'want_to_go';
-type InRow = { title?: string; kind?: ImportKind };
-type RowStatus = 'imported' | 'unmatched' | 'error';
-
-/** Rows per request. The client sends the full list in batches this size so a
- * single request stays well under any timeout and Apple isn't hammered. */
-const MAX_BATCH = 40;
-/** How many Apple lookups to run at once within a batch. */
-const CONCURRENCY = 4;
 
 /**
- * Resolve one Google saved-place title to an Apple place and record the
- * relation. The CSVs carry no coordinates, so this is a name-only search -
- * we take Apple's top POI hit. Returns the row's outcome for the summary.
+ * The import runs in two phases so we can disambiguate by location:
+ *  - `resolve`: turn each title into its top Apple candidates (no writes). The
+ *    client gathers these across the whole list, infers the user's home
+ *    regions, and picks the right candidate per row.
+ *  - `commit`: take the chosen candidates and write place rows + relations.
+ * A single title-only Apple search can't tell the LA "Paradiso" from the Paris
+ * one; the client's cross-list clustering (see google-import.ts) is what does.
  */
-async function importRow(userId: string, title: string, kind: ImportKind): Promise<RowStatus> {
-	let results;
-	try {
-		results = await searchAppleMaps(title, { resultTypeFilter: 'Poi' });
-	} catch (err) {
-		console.error(`Apple search failed for ${JSON.stringify(title)}:`, err);
-		return 'error';
-	}
 
-	const hit = results[0];
-	if (!hit) return 'unmatched';
+type ResolveIn = { title?: string; kind?: ImportKind; latitude?: number; longitude?: number };
+type Candidate = {
+	muid: string;
+	name: string;
+	city: string;
+	latitude: number;
+	longitude: number;
+	category: string;
+};
 
-	const city = hit.locality?.trim() || 'Unknown';
-	// Apple sometimes returns POIs we don't have a bucket for (hotels,
-	// pharmacies, ...). Default them to 'visit' rather than dropping the place.
-	const category = mapAppleCategory(hit.poiCategory) ?? 'visit';
+type CommitIn = {
+	muid?: string;
+	name?: string;
+	city?: string;
+	latitude?: number;
+	longitude?: number;
+	category?: string;
+	kind?: ImportKind;
+};
+type CommitStatus = 'imported' | 'error';
 
-	// Dedupe across all users by Apple muid. Reuse the row if it exists.
+/** Our place-category enum; client-supplied values are coerced to these. */
+const CATEGORIES = ['eat', 'drink', 'shop', 'visit'] as const;
+type PlaceCategory = (typeof CATEGORIES)[number];
+function toCategory(v: string | undefined): PlaceCategory {
+	return CATEGORIES.includes(v as PlaceCategory) ? (v as PlaceCategory) : 'visit';
+}
+
+/** Rows per request, keeping each call well under any timeout. */
+const MAX_BATCH = 40;
+/** Concurrent Apple lookups within a resolve batch. */
+const CONCURRENCY = 4;
+/** How many Apple candidates to keep per title for the client to choose from. */
+const CANDIDATES_PER_TITLE = 5;
+
+/** Resolve one title to its top Apple candidates (no writes). */
+async function resolveTitle(title: string): Promise<Candidate[]> {
+	const results = await searchAppleMaps(title, { resultTypeFilter: 'Poi' });
+	return results.slice(0, CANDIDATES_PER_TITLE).map((r) => ({
+		muid: r.muid,
+		name: r.name,
+		city: r.locality?.trim() || 'Unknown',
+		latitude: r.latitude,
+		longitude: r.longitude,
+		// Apple sometimes returns POIs we don't bucket (hotels, ...); default to
+		// 'visit' rather than dropping the place.
+		category: mapAppleCategory(r.poiCategory) ?? 'visit'
+	}));
+}
+
+/** Upsert the chosen place (dedupe by Apple muid) and record the relation. */
+async function commitRow(userId: string, row: CommitIn): Promise<CommitStatus> {
+	const muid = row.muid?.trim();
+	const kind = row.kind;
+	if (!muid || (kind !== 'liked' && kind !== 'want_to_go')) return 'error';
+	if (typeof row.latitude !== 'number' || typeof row.longitude !== 'number') return 'error';
+
+	// Dedupe across all users by muid. Reuse the existing row rather than trust
+	// the client's fields, so a bad payload can't overwrite a shared place.
 	let placeId: string | null = null;
 	const [existing] = await db
 		.select({ id: place.id })
 		.from(place)
-		.where(and(eq(place.source, 'apple'), eq(place.externalId, hit.muid)))
+		.where(and(eq(place.source, 'apple'), eq(place.externalId, muid)))
 		.limit(1);
 	placeId = existing?.id ?? null;
 
 	if (!placeId) {
+		const name = row.name?.trim() || '(unnamed)';
+		const city = row.city?.trim() || 'Unknown';
 		try {
 			const [created] = await db
 				.insert(place)
 				.values({
-					name: hit.name,
-					category,
+					name,
+					category: toCategory(row.category),
 					city,
-					description: `${hit.name}, ${city}`,
-					latitude: hit.latitude,
-					longitude: hit.longitude,
+					description: `${name}, ${city}`,
+					latitude: row.latitude,
+					longitude: row.longitude,
 					source: 'apple',
-					externalId: hit.muid
+					externalId: muid
 				})
 				.returning({ id: place.id });
 			placeId = created.id;
 		} catch {
-			// A concurrent row in this same batch may have inserted the same
-			// muid; fall back to the existing row.
+			// A concurrent row in this same batch may have inserted the same muid.
 			const [raced] = await db
 				.select({ id: place.id })
 				.from(place)
-				.where(and(eq(place.source, 'apple'), eq(place.externalId, hit.muid)))
+				.where(and(eq(place.source, 'apple'), eq(place.externalId, muid)))
 				.limit(1);
 			if (!raced) return 'error';
 			placeId = raced.id;
@@ -81,51 +120,84 @@ async function importRow(userId: string, title: string, kind: ImportKind): Promi
 	return 'imported';
 }
 
-/**
- * Resolve a batch of Google saved places and write the relations. Insert-only
- * and idempotent: places dedupe by Apple muid and relations upsert, so
- * re-running (or retrying a failed batch) never duplicates or clears anything.
- */
+/** Run `task` over `items` with a fixed concurrency, preserving order. */
+async function mapWithConcurrency<T, R>(
+	items: T[],
+	limit: number,
+	task: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+	const out: R[] = new Array(items.length);
+	let next = 0;
+	async function worker() {
+		while (next < items.length) {
+			const i = next++;
+			out[i] = await task(items[i], i);
+		}
+	}
+	await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+	return out;
+}
+
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) throw error(401, 'Sign in to import places.');
 	const userId = locals.user.id;
 
-	const body = (await request.json().catch(() => null)) as { rows?: InRow[] } | null;
+	const body = (await request.json().catch(() => null)) as {
+		phase?: 'resolve' | 'commit';
+		rows?: unknown[];
+	} | null;
+	const phase = body?.phase;
 	const rows = body?.rows;
 	if (!Array.isArray(rows)) throw error(400, 'rows must be an array');
 	if (rows.length > MAX_BATCH) throw error(400, `Send at most ${MAX_BATCH} rows per request.`);
 
-	const clean = rows
-		.map((r) => ({ title: r.title?.trim() ?? '', kind: r.kind }))
-		.filter(
-			(r): r is { title: string; kind: ImportKind } =>
-				r.title.length > 0 && (r.kind === 'liked' || r.kind === 'want_to_go')
-		);
+	if (phase === 'resolve') {
+		const clean = (rows as ResolveIn[])
+			.map((r) => ({
+				title: r.title?.trim() ?? '',
+				kind: r.kind,
+				latitude: typeof r.latitude === 'number' ? r.latitude : undefined,
+				longitude: typeof r.longitude === 'number' ? r.longitude : undefined
+			}))
+			.filter((r) => r.title.length > 0 && (r.kind === 'liked' || r.kind === 'want_to_go'));
 
-	const statuses: RowStatus[] = new Array(clean.length);
-	let next = 0;
-	async function worker() {
-		while (next < clean.length) {
-			const i = next++;
-			statuses[i] = await importRow(userId, clean[i].title, clean[i].kind);
-		}
-	}
-	await Promise.all(Array.from({ length: Math.min(CONCURRENCY, clean.length) }, worker));
-
-	const results = clean.map((r, i) => ({ title: r.title, kind: r.kind, status: statuses[i] }));
-	const imported = results.filter((r) => r.status === 'imported').length;
-
-	if (imported > 0) {
-		getPostHogClient()?.capture({
-			distinctId: userId,
-			event: 'google_import_batch',
-			properties: {
-				imported,
-				unmatched: results.filter((r) => r.status === 'unmatched').length,
-				errored: results.filter((r) => r.status === 'error').length
+		const results = await mapWithConcurrency(clean, CONCURRENCY, async (r) => {
+			try {
+				return {
+					title: r.title,
+					kind: r.kind,
+					latitude: r.latitude,
+					longitude: r.longitude,
+					candidates: await resolveTitle(r.title)
+				};
+			} catch (err) {
+				console.error(`Apple resolve failed for ${JSON.stringify(r.title)}:`, err);
+				return {
+					title: r.title,
+					kind: r.kind,
+					latitude: r.latitude,
+					longitude: r.longitude,
+					candidates: [] as Candidate[]
+				};
 			}
 		});
+		return json({ results });
 	}
 
-	return json({ results });
+	if (phase === 'commit') {
+		const statuses = await mapWithConcurrency(rows as CommitIn[], CONCURRENCY, (r) =>
+			commitRow(userId, r)
+		);
+		const imported = statuses.filter((s) => s === 'imported').length;
+		if (imported > 0) {
+			getPostHogClient()?.capture({
+				distinctId: userId,
+				event: 'google_import_commit',
+				properties: { imported, errored: statuses.length - imported }
+			});
+		}
+		return json({ results: statuses.map((status) => ({ status })) });
+	}
+
+	throw error(400, "phase must be 'resolve' or 'commit'");
 };

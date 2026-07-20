@@ -6,8 +6,11 @@
 	import {
 		parseListFile,
 		kindFromFilename,
+		computeHomeRegions,
+		pickBestCandidate,
 		type ImportRow,
-		type ImportKind
+		type ImportKind,
+		type ResolvedRow
 	} from '$lib/google-import';
 
 	const KIND_LABEL: Record<ImportKind, string> = {
@@ -20,6 +23,8 @@
 	// select: pick/queue files. running/done: importing + summary.
 	type Phase = 'select' | 'running' | 'done';
 	let phase = $state<Phase>('select');
+	// Two work stages within `running`: resolve titles, then save the picks.
+	let stage = $state<'resolving' | 'saving'>('resolving');
 	let error = $state<string | null>(null);
 
 	// Files queued for import, accumulated across picks. Each carries its own
@@ -27,6 +32,8 @@
 	type QueuedFile = { name: string; kind: ImportKind; rows: ImportRow[] };
 	let queued = $state<QueuedFile[]>([]);
 
+	let resolvedCount = $state(0);
+	let commitTotal = $state(0);
 	let processed = $state(0);
 	let imported = $state(0);
 	let unmatched = $state<string[]>([]);
@@ -50,7 +57,10 @@
 
 	const likedCount = $derived(rows.filter((r) => r.kind === 'liked').length);
 	const wantCount = $derived(rows.filter((r) => r.kind === 'want_to_go').length);
-	const pct = $derived(rows.length ? Math.round((processed / rows.length) * 100) : 0);
+	const pct = $derived.by(() => {
+		if (stage === 'resolving') return rows.length ? Math.round((resolvedCount / rows.length) * 100) : 0;
+		return commitTotal ? Math.round((processed / commitTotal) * 100) : 100;
+	});
 
 	async function onPick(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
@@ -88,11 +98,16 @@
 
 	async function runImport() {
 		phase = 'running';
+		stage = 'resolving';
+		resolvedCount = 0;
+		commitTotal = 0;
 		processed = 0;
 		imported = 0;
 		unmatched = [];
 		errored = [];
 
+		// Phase 1: resolve every title to its top Apple candidates (no writes).
+		const resolved: ResolvedRow[] = [];
 		for (let i = 0; i < rows.length; i += BATCH_SIZE) {
 			const batch = rows.slice(i, i + BATCH_SIZE);
 			try {
@@ -100,24 +115,80 @@
 					method: 'POST',
 					headers: { 'content-type': 'application/json' },
 					body: JSON.stringify({
-						rows: batch.map((r) => ({ title: r.title, kind: r.kind }))
+						phase: 'resolve',
+						rows: batch.map((r) => ({
+							title: r.title,
+							kind: r.kind,
+							latitude: r.latitude,
+							longitude: r.longitude
+						}))
 					})
 				});
 				if (!res.ok) throw new Error(await res.text());
-				const data = (await res.json()) as {
-					results: { title: string; status: 'imported' | 'unmatched' | 'error' }[];
-				};
-				for (const r of data.results) {
-					if (r.status === 'imported') imported++;
-					else if (r.status === 'unmatched') unmatched.push(r.title);
-					else errored.push(r.title);
-				}
+				const data = (await res.json()) as { results: ResolvedRow[] };
+				resolved.push(...data.results);
 			} catch (err) {
-				console.error('Import batch failed:', err);
-				// Whole batch failed (network/server) - mark as retriable errors.
-				for (const r of batch) errored.push(r.title);
+				console.error('Resolve batch failed:', err);
+				// Keep the rows so they surface as unmatched rather than vanishing.
+				for (const r of batch) {
+					resolved.push({
+						title: r.title,
+						kind: r.kind,
+						latitude: r.latitude,
+						longitude: r.longitude,
+						candidates: []
+					});
+				}
 			}
-			processed = Math.min(i + batch.length, rows.length);
+			resolvedCount = Math.min(i + batch.length, rows.length);
+		}
+
+		// Infer the user's home regions from where their places land, then pick
+		// the candidate per row that fits that footprint (see google-import.ts).
+		const anchors = resolved.flatMap((r) =>
+			typeof r.latitude === 'number' && typeof r.longitude === 'number'
+				? [{ latitude: r.latitude, longitude: r.longitude }]
+				: r.candidates[0]
+					? [{ latitude: r.candidates[0].latitude, longitude: r.candidates[0].longitude }]
+					: []
+		);
+		const regions = computeHomeRegions(anchors);
+
+		const decided = resolved.map((r) => ({
+			title: r.title,
+			kind: r.kind,
+			cand: pickBestCandidate(r, regions)
+		}));
+		for (const d of decided) if (!d.cand) unmatched.push(d.title);
+		const toCommit = decided.filter(
+			(d): d is typeof d & { cand: NonNullable<typeof d.cand> } => !!d.cand
+		);
+		commitTotal = toCommit.length;
+
+		// Phase 2: write place rows + relations for the chosen candidates.
+		stage = 'saving';
+		for (let i = 0; i < toCommit.length; i += BATCH_SIZE) {
+			const batch = toCommit.slice(i, i + BATCH_SIZE);
+			try {
+				const res = await fetch('/api/import/google', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						phase: 'commit',
+						rows: batch.map((d) => ({ ...d.cand, kind: d.kind }))
+					})
+				});
+				if (!res.ok) throw new Error(await res.text());
+				const data = (await res.json()) as { results: { status: 'imported' | 'error' }[] };
+				data.results.forEach((r, idx) => {
+					if (r.status === 'imported') imported++;
+					else errored.push(batch[idx].title);
+				});
+			} catch (err) {
+				console.error('Commit batch failed:', err);
+				for (const d of batch) errored.push(d.title);
+			}
+			processed = Math.min(i + batch.length, toCommit.length);
 		}
 		phase = 'done';
 	}
@@ -227,7 +298,11 @@
 			<div class="space-y-3">
 				<div class="flex items-center gap-2 text-sm">
 					<Loader2 class="text-muted-foreground size-4 animate-spin" />
-					Matching places against Apple Maps… {processed} of {rows.length}
+					{#if stage === 'resolving'}
+						Matching places against Apple Maps… {resolvedCount} of {rows.length}
+					{:else}
+						Placing them by region and saving… {processed} of {commitTotal}
+					{/if}
 				</div>
 				<div class="bg-muted h-2 w-full overflow-hidden rounded-full">
 					<div class="bg-primary h-full transition-all" style="width: {pct}%"></div>
@@ -251,8 +326,8 @@
 							{unmatched.length} couldn't be matched on Apple Maps
 						</p>
 						<p class="text-muted-foreground mt-0.5 text-xs">
-							Usually an ambiguous name with no city to go on. You can add these by hand from the
-							map.
+							No matching place was found near where it was saved. You can add these by hand from
+							the map.
 						</p>
 						<ul class="mt-2 max-h-48 space-y-1 overflow-y-auto text-sm">
 							{#each unmatched as title (title)}
