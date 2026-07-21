@@ -16,7 +16,12 @@ import type { RequestHandler } from './$types';
  * user's email, role, or exact coordinates - only city / country / timezone,
  * matching what the web profile page exposes publicly.
  *
- *   returns: { profile, location, likedPlaces, viewer }
+ * Each place carries the target user's own `relation` ('liked' | 'disliked' |
+ * 'seen' | 'want_to_go') so a client can tab it into Liked / Want to go /
+ * Disliked, exactly like the web profile's sub-tabs. Publicly exposing these
+ * matches the web profile page (which shows shared want-to-go / disliked).
+ *
+ *   returns: { profile, location, places: [{ ...place, relation }], viewer }
  */
 export const GET: RequestHandler = async ({ request, params }) => {
 	const viewerId = await requireApiUser(request);
@@ -39,8 +44,8 @@ export const GET: RequestHandler = async ({ request, params }) => {
 		.where(eq(userLocation.userId, params.id))
 		.limit(1);
 
-	const likedPlaces = await db
-		.select(getTableColumns(place))
+	const places = await db
+		.select({ ...getTableColumns(place), relation: placeRelation.kind })
 		.from(place)
 		.innerJoin(placeRelation, eq(placeRelation.placeId, place.id))
 		.where(eq(placeRelation.userId, params.id))
@@ -52,5 +57,5 @@ export const GET: RequestHandler = async ({ request, params }) => {
 		? { isSelf: true, score: null, sharedCount: 0 }
 		: { isSelf: false, ...(await getPairScore(viewerId, params.id)) };
 
-	return json({ profile, location: location ?? null, likedPlaces, viewer });
+	return json({ profile, location: location ?? null, places, viewer });
 };

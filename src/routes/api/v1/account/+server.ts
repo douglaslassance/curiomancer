@@ -6,6 +6,7 @@ import { requireApiUser } from '$lib/server/api-auth';
 import { getUserLocation } from '$lib/server/current-location';
 import { getInvitesFor } from '$lib/server/invites';
 import { listApiTokens } from '$lib/server/api-tokens';
+import { isSubscriber } from '$lib/server/subscriptions';
 import type { RequestHandler } from './$types';
 
 /**
@@ -16,12 +17,12 @@ import type { RequestHandler } from './$types';
  * strictly the token owner's own data, never anyone else's. Distinct from
  * /api/v1/users/:id, which is the public profile view.
  *
- *   returns: { profile: { id, name, email, role, image }, location, likeCount, invites, apiTokens }
+ *   returns: { profile: { id, name, email, role, image }, location, likeCount, isSubscriber, invites, apiTokens }
  */
 export const GET: RequestHandler = async ({ request }) => {
 	const userId = await requireApiUser(request);
 
-	const [[profile], location, likes, invites, apiTokens] = await Promise.all([
+	const [[profile], location, likes, invites, apiTokens, subscriber] = await Promise.all([
 		db
 			.select({
 				id: user.id,
@@ -36,7 +37,8 @@ export const GET: RequestHandler = async ({ request }) => {
 		getUserLocation(userId),
 		db.select({ id: placeRelation.id }).from(placeRelation).where(eq(placeRelation.userId, userId)),
 		getInvitesFor(userId),
-		listApiTokens(userId)
+		listApiTokens(userId),
+		isSubscriber(userId)
 	]);
 
 	if (!profile) throw error(404, 'Account not found');
@@ -51,6 +53,7 @@ export const GET: RequestHandler = async ({ request }) => {
 		},
 		location: location ?? null,
 		likeCount: likes.length,
+		isSubscriber: subscriber,
 		invites,
 		apiTokens
 	});
