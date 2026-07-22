@@ -15,7 +15,9 @@ Optional integrations stay off until their keys are set: PostHog (analytics), Se
 
 ## Deploying
 
-Push to `main`; Coolify builds and deploys. Set secrets as env vars on the Coolify app, never in the repo. Apply pending DB migrations to production (`pnpm db:migrate` against the prod `DATABASE_URL`) as part of the deploy.
+**Pushing to `main` goes live.** Coolify builds and deploys to production automatically, with no staging step. Every push to `main` reaches real users once the build finishes, and it reaches the iOS app too, which talks to the same `/api/v1` surface (so a breaking API change ships to both at once). There is no separate "deploy" action to run.
+
+Set secrets as env vars on the Coolify app, never in the repo. Apply pending DB migrations to production (`pnpm db:migrate` against the prod `DATABASE_URL`) as part of the deploy.
 
 ### Going live with Stripe
 
