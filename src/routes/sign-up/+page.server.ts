@@ -1,54 +1,10 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { APIError } from 'better-auth/api';
 import { eq } from 'drizzle-orm';
-import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { user, userLocation } from '$lib/server/db/schema';
-import { findRedeemableInvite, redeemInvite } from '$lib/server/invites';
-import { geocodeApple } from '$lib/server/maps-search';
-import { reverseGeocode } from '$lib/server/location';
-import { getPostHogClient } from '$lib/server/posthog';
+import { user } from '$lib/server/db/schema';
+import { findRedeemableInvite } from '$lib/server/invites';
+import { createInvitedUser } from '$lib/server/signup';
 import type { Actions, PageServerLoad } from './$types';
-
-/**
- * Store the new user's home location from the sign-up form. Best-effort: any
- * failure (bad city, geocode hiccup) is swallowed so it never blocks account
- * creation - home's location prompt is the fallback. Uses the coords
- * from "Detect" when present, otherwise forward-geocodes the typed city.
- */
-async function storeSignupLocation(
-	userId: string,
-	cityInput: string,
-	latRaw: string,
-	lngRaw: string
-): Promise<void> {
-	try {
-		let coords: { latitude: number; longitude: number } | null = null;
-		const lat = Number(latRaw);
-		const lng = Number(lngRaw);
-		if (latRaw && lngRaw && isFinite(lat) && isFinite(lng)) {
-			coords = { latitude: lat, longitude: lng };
-		} else if (cityInput) {
-			coords = await geocodeApple(cityInput);
-		}
-		if (!coords) return;
-
-		const resolved = await reverseGeocode(coords.latitude, coords.longitude);
-		await db
-			.insert(userLocation)
-			.values({
-				userId,
-				city: resolved.city,
-				countryCode: resolved.countryCode,
-				latitude: coords.latitude,
-				longitude: coords.longitude,
-				timezone: resolved.timezone
-			})
-			.onConflictDoNothing();
-	} catch (err) {
-		console.error('Sign-up location store failed (non-fatal):', err);
-	}
-}
 
 /**
  * Sign-up is strictly invite-gated. The very first admin comes in
@@ -98,109 +54,22 @@ export const actions: Actions = {
 		const data = await event.request.formData();
 		const name = data.get('name')?.toString() ?? '';
 		const email = data.get('email')?.toString() ?? '';
-		const password = data.get('password')?.toString() ?? '';
-		const code = data.get('invite')?.toString().trim() || null;
-		const city = data.get('city')?.toString().trim() ?? '';
-		const latitude = data.get('latitude')?.toString() ?? '';
-		const longitude = data.get('longitude')?.toString() ?? '';
 
-		if (!name || !email || !password) {
-			return fail(400, { name, email, message: 'All fields are required.' });
-		}
-		if (password.length < 8) {
-			return fail(400, {
-				name,
-				email,
-				message: 'Password must be at least 8 characters.'
-			});
-		}
+		const result = await createInvitedUser({
+			name,
+			email,
+			password: data.get('password')?.toString() ?? '',
+			code: data.get('invite')?.toString().trim() || null,
+			city: data.get('city')?.toString().trim() ?? '',
+			latitude: data.get('latitude')?.toString() ?? '',
+			longitude: data.get('longitude')?.toString() ?? ''
+		});
 
-		if (!code) {
-			return fail(400, {
-				name,
-				email,
-				message: 'Curiomancer is invite-only. You need a code from a friend on Curiomancer.'
-			});
-		}
-		const existing = await findRedeemableInvite(code);
-		if (!existing) {
-			return fail(400, {
-				name,
-				email,
-				message: 'That invite code is invalid or already used.'
-			});
-		}
+		// Repopulate name/email on failure so the form doesn't clear.
+		if (!result.ok) return fail(result.status, { name, email, message: result.message });
 
-		// An invite is bound to the address it was sent to. The code can be passed
-		// around, but only the invited email can redeem it, so a forwarded code
-		// can't create an account for someone else. Open invites (no invitedEmail)
-		// stay usable by any address.
-		if (
-			existing.invitedEmail &&
-			existing.invitedEmail.trim().toLowerCase() !== email.trim().toLowerCase()
-		) {
-			return fail(400, {
-				name,
-				email,
-				message: 'This invite is for a different email address. Sign up with the address it was sent to.'
-			});
-		}
-
-		let newUserId: string | null;
-		try {
-			const result = await auth.api.signUpEmail({ body: { name, email, password } });
-			newUserId = result?.user?.id ?? null;
-		} catch (error) {
-			if (error instanceof APIError) {
-				return fail(400, {
-					name,
-					email,
-					message: error.message || 'Sign-up failed.'
-				});
-			}
-			return fail(500, {
-				name,
-				email,
-				message: 'Unexpected error. Try again.'
-			});
-		}
-
-		// Redeem the invite atomically; if somebody beat us to it, roll back
-		// so the email is free for another attempt. Any error while redeeming
-		// must also roll the user back - otherwise a thrown redeem would orphan
-		// a created account with the email taken and no way to retry.
-		if (code && newUserId) {
-			let redeemed = false;
-			try {
-				redeemed = await redeemInvite(code, newUserId);
-			} catch (err) {
-				console.error('Invite redemption threw after sign-up; rolling back user:', err);
-				await db.delete(user).where(eq(user.id, newUserId));
-				return fail(500, { name, email, message: 'Unexpected error. Try again.' });
-			}
-			if (!redeemed) {
-				await db.delete(user).where(eq(user.id, newUserId));
-				return fail(400, {
-					name,
-					email,
-					message: 'That invite was just used by someone else. Try another.'
-				});
-			}
-		}
-
-		if (newUserId) {
-			await storeSignupLocation(newUserId, city, latitude, longitude);
-
-			getPostHogClient()?.capture({
-				distinctId: newUserId,
-				event: 'user_signed_up',
-				properties: { invite_code: code ?? null }
-			});
-		}
-
-		// requireEmailVerification means signUpEmail doesn't create a session,
-		// so there's nothing to redirect into yet - show a "check your email"
-		// state instead.
-		return { verifyEmailSent: true, email };
+		// requireEmailVerification means sign-up doesn't create a session, so
+		// there's nothing to redirect into yet - show a "check your email" state.
+		return { verifyEmailSent: true, email: result.email };
 	}
 };

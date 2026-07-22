@@ -1,4 +1,4 @@
-import { error, redirect, type Handle, type HandleServerError } from '@sveltejs/kit';
+import { error, json, redirect, type Handle, type HandleServerError } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import * as Sentry from '@sentry/sveltekit';
 import { building } from '$app/environment';
@@ -14,6 +14,22 @@ import { resolvePostHogHosts } from '$lib/posthog';
 // Fail the deploy fast if a required secret is missing, rather than 500ing on
 // the first request that happens to need it.
 assertRequiredEnv();
+
+// iOS Universal Links manifest. `appIDs` is <TeamID>.<BundleID> for the native
+// Curiomancer app. Only /sign-up (with or without an ?invite=… query) is
+// claimed: those links open the app's native signup when installed, and fall
+// back to the web page otherwise. Other routes are deliberately not claimed so
+// they keep opening in the browser.
+const APPLE_APP_SITE_ASSOCIATION = {
+	applinks: {
+		details: [
+			{
+				appIDs: ['556XHQJK3G.com.curiomancer'],
+				components: [{ '/': '/sign-up', comment: 'Invite sign-up (opens the app if installed)' }]
+			}
+		]
+	}
+};
 
 // Pages anyone can reach signed out: the marketing/legal pages and the whole
 // auth flow. Everything else is account-only and bounces to /sign-in. API
@@ -58,6 +74,15 @@ function heartbeat(userId: string): void {
 
 const handleBetterAuth: Handle = async ({ event, resolve }) => {
 	const { pathname } = event.url;
+
+	// Apple App Site Association for iOS Universal Links: a signup link like
+	// curiomancer.com/sign-up?invite=… opens the native app when it's installed.
+	// Served here (not from static/) so the content-type is guaranteed to be
+	// application/json, which the OS fetch is strict about. Extensionless path,
+	// no redirect, publicly reachable - all Universal Link requirements.
+	if (pathname === '/.well-known/apple-app-site-association') {
+		return json(APPLE_APP_SITE_ASSOCIATION);
+	}
 
 	// Opt-in: only forwards to a PostHog server when a project token is
 	// configured for this deployment.
