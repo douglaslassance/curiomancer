@@ -9,9 +9,9 @@
 		Map as MapIcon,
 		MessageCircle,
 		Users,
+		Settings,
 		Shield,
 		SlidersHorizontal,
-		User,
 		VenetianMask
 	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -235,7 +235,7 @@
 						size="sm"
 						aria-current={isActive('/settings') ? 'page' : undefined}
 					>
-						<User class="size-4" />
+						<Settings class="size-4" />
 						Settings
 					</Button>
 				{:else}
