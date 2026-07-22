@@ -161,9 +161,13 @@
 							name="email"
 							type="email"
 							placeholder="you@example.com"
-							value={form?.email ?? ''}
+							value={data.invitedEmail ?? form?.email ?? ''}
+							readonly={!!data.invitedEmail}
 							required
 						/>
+						{#if data.invitedEmail}
+							<p class="text-muted-foreground text-sm">Your invite is tied to this address.</p>
+						{/if}
 					</div>
 					<div class="space-y-2">
 						<Label for="city">City</Label>

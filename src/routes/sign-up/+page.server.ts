@@ -66,6 +66,9 @@ export const load: PageServerLoad = async (event) => {
 	const code = event.url.searchParams.get('invite')?.trim() ?? null;
 	let inviter: { name: string } | null = null;
 	let inviteState: 'absent' | 'valid' | 'invalid' = 'absent';
+	// The address this invite is bound to. Signup is locked to it, and the form
+	// prefills it so the invited person doesn't type (or mistype) anything.
+	let invitedEmail: string | null = null;
 
 	if (code) {
 		const row = await findRedeemableInvite(code);
@@ -73,6 +76,7 @@ export const load: PageServerLoad = async (event) => {
 			// A redeemable code is valid regardless of creator. If a real user
 			// created it, show them as the inviter; system invites stay generic.
 			inviteState = 'valid';
+			invitedEmail = row.invitedEmail;
 			if (row.createdByUserId) {
 				const [u] = await db
 					.select({ name: user.name })
@@ -86,7 +90,7 @@ export const load: PageServerLoad = async (event) => {
 		}
 	}
 
-	return { code, inviter, inviteState };
+	return { code, inviter, inviteState, invitedEmail };
 };
 
 export const actions: Actions = {
@@ -124,6 +128,21 @@ export const actions: Actions = {
 				name,
 				email,
 				message: 'That invite code is invalid or already used.'
+			});
+		}
+
+		// An invite is bound to the address it was sent to. The code can be passed
+		// around, but only the invited email can redeem it, so a forwarded code
+		// can't create an account for someone else. Open invites (no invitedEmail)
+		// stay usable by any address.
+		if (
+			existing.invitedEmail &&
+			existing.invitedEmail.trim().toLowerCase() !== email.trim().toLowerCase()
+		) {
+			return fail(400, {
+				name,
+				email,
+				message: 'This invite is for a different email address. Sign up with the address it was sent to.'
 			});
 		}
 
