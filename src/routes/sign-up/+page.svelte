@@ -163,6 +163,7 @@
 							placeholder="you@example.com"
 							value={data.invitedEmail ?? form?.email ?? ''}
 							readonly={!!data.invitedEmail}
+							class="read-only:bg-input/50 dark:read-only:bg-input/80 read-only:cursor-not-allowed read-only:opacity-50"
 							required
 						/>
 						{#if data.invitedEmail}
