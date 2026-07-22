@@ -7,7 +7,7 @@ import type { PageServerLoad } from './$types';
  *    profile owner - "the twins we both share," not either person's twins
  *    in general.
  *  - Your own profile: your own twins (there's no "other party" to share
- *    with), city-scoped like the home dashboard's matched-people rail.
+ *    with), city-scoped like home's matched-people rail.
  *  - Anonymous: nothing to compare, so nothing to show.
  */
 export const load: PageServerLoad = async ({ parent, locals }) => {

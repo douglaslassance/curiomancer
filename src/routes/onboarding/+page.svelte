@@ -43,7 +43,7 @@
 						Import from Google Maps
 						<ArrowRight class="size-4" />
 					</Button>
-					<Button size="lg" variant="ghost" onclick={() => goto('/')}>Skip, go to dashboard</Button>
+					<Button size="lg" variant="ghost" onclick={() => goto('/')}>Skip, go home</Button>
 				</div>
 			</Card.Content>
 		</Card.Root>

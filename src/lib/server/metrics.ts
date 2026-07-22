@@ -145,7 +145,7 @@ export type ConversionPoint = {
  * pair" - `getRecommendedPlaces` already excludes places the user has any
  * prior relation with, so a match necessarily postdates the impression.
  * (The `popular_fallback` reason is retained for historical impression rows
- * from when the dashboard fell back to raw popularity for cold-start users.) Returns raw counts, not rates, since summing counts
+ * from when home fell back to raw popularity for cold-start users.) Returns raw counts, not rates, since summing counts
  * across the range and dividing gives the right overall rate - averaging
  * per-day rates would misweight low-traffic days.
  */

@@ -24,7 +24,7 @@
 		}
 	}
 
-	// Auto-prompt on mount: location is the whole point of the dashboard, so
+	// Auto-prompt on mount: location is the whole point of home, so
 	// don't make the user click twice. The browser still shows its own
 	// permission dialog, and the in-page button stays available as a retry.
 	onMount(() => {

@@ -25,8 +25,8 @@
 			<p class="text-muted-foreground">
 				Twins power your <strong>recommendations</strong>: places your top
 				<strong class="tabular-nums">{t.TWIN_LIMIT}</strong> twins liked that you haven't rated yet,
-				weighted by how strong each twin is. No twins above the bar means no recommendations, so the
-				dashboard nudges you to Tune instead.
+				weighted by how strong each twin is. No twins above the bar means no recommendations, so
+				home nudges you to Tune instead.
 			</p>
 			<p class="text-muted-foreground">
 				Twins also gate access: viewing someone's profile and starting a chat are both twins-only, so

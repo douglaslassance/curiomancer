@@ -359,7 +359,7 @@
 				{/if}
 
 				<div class="flex gap-2">
-					<Button onclick={() => goto('/')}>Go to dashboard</Button>
+					<Button onclick={() => goto('/')}>Go home</Button>
 					{#if errored.length > 0 || unmatched.length > 0}
 						<Button onclick={reset} variant="ghost">Import more files</Button>
 					{/if}

@@ -1,7 +1,7 @@
 /**
  * Shared client-side helper for "ask the browser where we are, then
  * tell the server." Used by the first-visit prompt and by the refresh
- * affordances on the dashboard header and settings page.
+ * affordances on the home header and settings page.
  *
  * Throws a `LocationUpdateError` (object, not Error subclass - Svelte
  * components want to read .message and .hint without instanceof) on

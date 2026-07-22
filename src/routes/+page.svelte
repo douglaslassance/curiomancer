@@ -15,7 +15,7 @@
 		ShieldCheck,
 		SlidersHorizontal
 	} from '@lucide/svelte';
-	import DashboardHeader from '$lib/components/dashboard-header.svelte';
+	import HomeHeader from '$lib/components/home-header.svelte';
 	import LocationPrompt from '$lib/components/location-prompt.svelte';
 	import MatchedPeopleRail from '$lib/components/matched-people-rail.svelte';
 	import CategoryRail from '$lib/components/category-rail.svelte';
@@ -289,8 +289,8 @@
 		<LocationPrompt />
 	</div>
 {:else}
-	<!-- --- Dashboard ------------------------------------------------------- -->
-	<DashboardHeader location={data.location} weather={data.weather} />
+	<!-- --- Home -------------------------------------------------------------- -->
+	<HomeHeader location={data.location} weather={data.weather} />
 
 	{@const hasAnyRecs =
 		data.eat.length > 0 ||

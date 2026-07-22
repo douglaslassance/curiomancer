@@ -372,7 +372,7 @@
 						</p>
 					{:else}
 						<p class="text-muted-foreground mt-1 text-sm">
-							Not set. The dashboard prompts on first visit.
+							Not set. The home page prompts on first visit.
 						</p>
 					{/if}
 					{#if locationError}

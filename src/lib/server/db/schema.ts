@@ -105,8 +105,8 @@ export type PlaceRelationKind = PlaceRelation['kind'];
 
 /**
  * Records the first time a place was surfaced to a user as a recommendation
- * (dashboard rails, not search/browse). Unique on (userId, placeId) - we
- * track first exposure, not every render, so repeat dashboard loads don't
+ * (home rails, not search/browse). Unique on (userId, placeId) - we
+ * track first exposure, not every render, so repeat home loads don't
  * inflate impression counts. `reason` captures why it was recommended: an
  * algorithmic taste-twin liked it, or (cold start) it was popular in the
  * city with no personalization involved.

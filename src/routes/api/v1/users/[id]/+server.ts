@@ -12,7 +12,7 @@ import type { RequestHandler } from './$types';
  * A public profile: what someone likes, where they are, and (relative to the
  * viewer) how strongly you match. Mirrors the /users/[id] page load.
  *
- * Privacy: unlike /api/v1/account and /dashboard, this NEVER returns another
+ * Privacy: unlike /api/v1/account and /home, this NEVER returns another
  * user's email, role, or exact coordinates - only city / country / timezone,
  * matching what the web profile page exposes publicly.
  *

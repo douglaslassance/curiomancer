@@ -39,7 +39,7 @@ import { AGREEMENT_EXPR, MATCH_THRESHOLD, matchScoreExpr } from './similarity';
  * Where to look for candidate places: an exact city match (what /places and
  * /map use - they already have their own radius-based nearby query, so this
  * just scopes recommendations to "the same city"), or a real distance
- * radius around a point (what the home dashboard uses, so a recommendation
+ * radius around a point (what home uses, so a recommendation
  * a few km over a city line isn't invisible just because of an address field).
  */
 export type PlaceScope =
@@ -73,8 +73,8 @@ export type RecommendedPlace = Place & {
 
 /**
  * Log the first time each place was recommended to a user, so the admin
- * dashboard can compute what fraction of recommendations turn into likes.
- * Unique on (userId, placeId) - duplicate dashboard loads are no-ops.
+ * home can compute what fraction of recommendations turn into likes.
+ * Unique on (userId, placeId) - duplicate home loads are no-ops.
  */
 export async function logRecommendationImpressions(
 	userId: string,
@@ -388,7 +388,7 @@ export async function getRecommendedPlaces(
 			-- Only real taste-twins drive recommendations: the same
 			-- MATCH_THRESHOLD the people rail and /twins use, not any positive
 			-- overlap. A user with no twins above this bar gets no recs (the
-			-- dashboard then nudges them to Tune) rather than recs built from
+			-- home then nudges them to Tune) rather than recs built from
 			-- near-noise agreement.
 			WHERE score > ${MATCH_THRESHOLD}
 			ORDER BY score DESC
@@ -443,7 +443,7 @@ export async function getRecommendedPlaces(
  * user who has no taste-twins yet (so getRecommendedPlaces is empty). Ranked by
  * platform like count, excluding places the viewer already has any relation
  * with. Tagged `popular_fallback` so the admin conversion breakdown keeps these
- * separate from real twin matches. The dashboard shows these while still
+ * separate from real twin matches. Home shows these while still
  * nudging the user to Tune until they have genuine matches.
  */
 export async function getPopularPlaces(

@@ -13,7 +13,7 @@
 		Sun
 	} from '@lucide/svelte';
 	import type { Component } from 'svelte';
-	import type { UserLocation } from '$lib/server/db/schema';
+	import type { CurrentLocation } from '$lib/server/current-location';
 	import type { Weather } from '$lib/server/weather';
 	import { updateLocation, type LocationUpdateError } from '$lib/location-update';
 
@@ -35,7 +35,7 @@
 		location,
 		weather
 	}: {
-		location: UserLocation;
+		location: CurrentLocation;
 		weather: Weather | null;
 	} = $props();
 

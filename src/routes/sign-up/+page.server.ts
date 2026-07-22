@@ -13,7 +13,7 @@ import type { Actions, PageServerLoad } from './$types';
 /**
  * Store the new user's home location from the sign-up form. Best-effort: any
  * failure (bad city, geocode hiccup) is swallowed so it never blocks account
- * creation - the dashboard's location prompt is the fallback. Uses the coords
+ * creation - home's location prompt is the fallback. Uses the coords
  * from "Detect" when present, otherwise forward-geocodes the typed city.
  */
 async function storeSignupLocation(
