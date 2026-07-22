@@ -17,12 +17,12 @@ import type { RequestHandler } from './$types';
  * strictly the token owner's own data, never anyone else's. Distinct from
  * /api/v1/users/:id, which is the public profile view.
  *
- *   returns: { profile: { id, name, email, role, image }, location, likeCount, isSubscriber, invites, apiTokens }
+ *   returns: { profile: { id, name, email, role, image }, location, ratingCount, isSubscriber, invites, apiTokens }
  */
 export const GET: RequestHandler = async ({ request }) => {
 	const userId = await requireApiUser(request);
 
-	const [[profile], location, likes, invites, apiTokens, subscriber] = await Promise.all([
+	const [[profile], location, ratings, invites, apiTokens, subscriber] = await Promise.all([
 		db
 			.select({
 				id: user.id,
@@ -52,7 +52,9 @@ export const GET: RequestHandler = async ({ request }) => {
 			image: profile.image ?? null
 		},
 		location: location ?? null,
-		likeCount: likes.length,
+		// Every place_relation kind counts as a rating (liked/disliked/seen/
+		// want_to_go), matching the web /settings `ratingCount`. Not a like count.
+		ratingCount: ratings.length,
 		isSubscriber: subscriber,
 		invites,
 		apiTokens

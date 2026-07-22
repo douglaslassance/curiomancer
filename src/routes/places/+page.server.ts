@@ -1,7 +1,8 @@
-import { and, asc, eq, isNotNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { place, userLocation } from '$lib/server/db/schema';
-import { getPlaceIdsByKind } from '$lib/server/likes';
+import { userLocation, type PlaceRelationKind } from '$lib/server/db/schema';
+import { getRelationMap } from '$lib/server/likes';
+import { getMappablePlaces } from '$lib/server/places';
 import { getRecommendedPlaces } from '$lib/server/matching';
 import type { PageServerLoad } from './$types';
 
@@ -26,11 +27,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 			.limit(1);
 		if (loc) center = { latitude: loc.latitude, longitude: loc.longitude };
 
-		const [liked, disliked, seen, wantToGo, recsByCategory] = await Promise.all([
-			getPlaceIdsByKind(locals.user.id, 'liked'),
-			getPlaceIdsByKind(locals.user.id, 'disliked'),
-			getPlaceIdsByKind(locals.user.id, 'seen'),
-			getPlaceIdsByKind(locals.user.id, 'want_to_go'),
+		// One relation lookup (getRelationMap) instead of four getPlaceIdsByKind
+		// round trips, so the /places relation data comes from the SAME query as
+		// GET /api/v1/places (which also reads getRelationMap) and can't drift.
+		const [relations, recsByCategory] = await Promise.all([
+			getRelationMap(locals.user.id),
 			// Recommendation scores are per-city, so there's nothing to compute
 			// until we know where the viewer is.
 			loc
@@ -42,10 +43,12 @@ export const load: PageServerLoad = async ({ locals }) => {
 					])
 				: Promise.resolve([])
 		]);
-		likedIds = [...liked];
-		wantToGoIds = [...wantToGo];
-		dislikedIds = [...disliked];
-		seenIds = [...seen];
+		const idsOf = (kind: PlaceRelationKind) =>
+			Object.keys(relations).filter((id) => relations[id] === kind);
+		likedIds = idsOf('liked');
+		dislikedIds = idsOf('disliked');
+		seenIds = idsOf('seen');
+		wantToGoIds = idsOf('want_to_go');
 		for (const set of recsByCategory) {
 			for (const rec of set) recommendedScores[rec.id] = rec.score;
 		}
@@ -53,11 +56,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	// All places with coords. Seen and disliked are no longer filtered out -
 	// the map's filter chips control which relation categories are shown.
-	const places = await db
-		.select()
-		.from(place)
-		.where(and(isNotNull(place.latitude), isNotNull(place.longitude)))
-		.orderBy(asc(place.city), asc(place.name));
+	const places = await getMappablePlaces();
 
 	return { places, center, likedIds, wantToGoIds, dislikedIds, seenIds, recommendedScores };
 };

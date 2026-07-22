@@ -1,7 +1,23 @@
 import { error } from '@sveltejs/kit';
-import { and, count, eq, sql } from 'drizzle-orm';
+import { and, asc, count, eq, isNotNull, sql } from 'drizzle-orm';
 import { db } from './db';
 import { place, placeRelation, type Place, type PlaceRelationKind } from './db/schema';
+
+/**
+ * Every place that has coordinates, in stable city→name order.
+ *
+ * The map layer: all cities, not just nearby, so a viewer anywhere still sees
+ * every pin. Shared by the web `/places` load and `GET /api/v1/places` so the
+ * two can't drift on which places exist. Callers annotate per-viewer (relation,
+ * distance, recommendation score) themselves.
+ */
+export async function getMappablePlaces() {
+	return db
+		.select()
+		.from(place)
+		.where(and(isNotNull(place.latitude), isNotNull(place.longitude)))
+		.orderBy(asc(place.city), asc(place.name));
+}
 
 /**
  * Find an existing row for an Apple place we're about to save, so we never

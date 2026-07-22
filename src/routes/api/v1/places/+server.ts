@@ -1,9 +1,7 @@
-import { and, asc, isNotNull } from 'drizzle-orm';
 import { json } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
-import { place } from '$lib/server/db/schema';
 import { requireApiUser } from '$lib/server/api-auth';
 import { getRelationMap } from '$lib/server/likes';
+import { getMappablePlaces } from '$lib/server/places';
 import { getUserLocation } from '$lib/server/current-location';
 import type { RequestHandler } from './$types';
 
@@ -60,14 +58,7 @@ export const GET: RequestHandler = async ({ request, url }) => {
 			)
 		: null;
 
-	const [rows, relationMap] = await Promise.all([
-		db
-			.select()
-			.from(place)
-			.where(and(isNotNull(place.latitude), isNotNull(place.longitude)))
-			.orderBy(asc(place.city), asc(place.name)),
-		getRelationMap(userId)
-	]);
+	const [rows, relationMap] = await Promise.all([getMappablePlaces(), getRelationMap(userId)]);
 
 	let places = rows
 		.filter((p) => !categories || categories.has(p.category))
