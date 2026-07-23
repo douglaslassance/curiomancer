@@ -19,8 +19,30 @@
 	import LocationPrompt from '$lib/components/location-prompt.svelte';
 	import MatchedPeopleRail from '$lib/components/matched-people-rail.svelte';
 	import CategoryRail from '$lib/components/category-rail.svelte';
+	import { onMount } from 'svelte';
+	import { updateLocation } from '$lib/location-update';
 
 	let { data } = $props();
+
+	// Reflect where you are now: when we already have a saved location and the
+	// browser has already granted geolocation, silently refresh on open so
+	// landing in a new city moves you there. Skipped when permission is only
+	// 'prompt' (the no-location LocationPrompt handles that) or 'denied', so this
+	// never nags or blocks. The header's manual refresh stays as the fallback.
+	onMount(() => {
+		if (!data.location) return;
+		void (async () => {
+			try {
+				const status = await navigator.permissions?.query({
+					name: 'geolocation' as PermissionName
+				});
+				if (status?.state !== 'granted') return;
+				await updateLocation();
+			} catch {
+				// Best-effort; leave the current location on any failure.
+			}
+		})();
+	});
 
 	// Onboarding: a brand-new user (no likes yet) is offered the Google import.
 	// "Skip for now" is remembered so it doesn't nag on every visit; the card
@@ -293,10 +315,7 @@
 	<HomeHeader location={data.location} weather={data.weather} />
 
 	{@const hasAnyRecs =
-		data.eat.length > 0 ||
-		data.drink.length > 0 ||
-		data.shop.length > 0 ||
-		data.visit.length > 0}
+		data.eat.length > 0 || data.drink.length > 0 || data.shop.length > 0 || data.visit.length > 0}
 	<!-- Until the user has real taste-twins, the rails are the most-liked places
 	     nearby (popular_fallback), so we label them "Popular" and keep nudging
 	     them to Tune. Once twin matches exist the rails become "Recommended" and
@@ -338,7 +357,7 @@
 						<p class="text-muted-foreground mt-1 text-sm">
 							{data.myLikeCount === 0
 								? "Below are popular spots near you. Rate a few places you know and we'll find the people who share your taste, then recommend what they love."
-								: "Below are popular spots near you. Rate more places to sharpen your matches and unlock personal recommendations."}
+								: 'Below are popular spots near you. Rate more places to sharpen your matches and unlock personal recommendations.'}
 						</p>
 					</div>
 				</div>
