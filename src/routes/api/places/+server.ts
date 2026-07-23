@@ -1,98 +1,22 @@
 import { error, json } from '@sveltejs/kit';
-import { db } from '$lib/server/db';
-import { place } from '$lib/server/db/schema';
-import { setRelation } from '$lib/server/likes';
-import { findExistingApplePlaceId } from '$lib/server/places';
-import { getPostHogClient } from '$lib/server/posthog';
-import type { PlaceRelationKind } from '$lib/server/db/schema';
+import { savePlaceRelation } from '$lib/server/add-place';
+import type { SavePlaceInput } from '$lib/server/add-place';
 import type { RequestHandler } from './$types';
-
-type AddPlaceBody = {
-	externalId?: string;
-	source?: 'apple' | 'manual';
-	name?: string;
-	category?: 'eat' | 'drink' | 'shop' | 'visit';
-	city?: string;
-	neighborhood?: string;
-	description?: string;
-	latitude?: number;
-	longitude?: number;
-	/** Optional relation to set in the same transaction; defaults to 'liked'. */
-	kind?: PlaceRelationKind;
-};
 
 /**
  * Upsert a place by (source, external_id) and set the user's relation to it.
- * Returns the place id so the caller can navigate or refresh the map.
+ * Returns the place id so the caller can navigate or refresh the map. The
+ * upsert/dedupe/rating logic is shared with the native `POST /api/v1/places`
+ * via `savePlaceRelation`.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.user) throw error(401, 'Sign in to add places.');
 
-	const body = (await request.json().catch(() => null)) as AddPlaceBody | null;
+	const body = (await request.json().catch(() => null)) as SavePlaceInput | null;
 	if (!body) throw error(400, 'Invalid body');
 
-	const name = body.name?.trim();
-	const category = body.category;
-	const city = body.city?.trim();
-	const source = body.source ?? 'apple';
-	const externalId = body.externalId?.trim();
-	const kind: PlaceRelationKind = body.kind ?? 'liked';
+	const result = await savePlaceRelation(locals.user.id, body);
+	if (!result.ok) throw error(result.status, result.message);
 
-	if (!name) throw error(400, 'name is required');
-	if (!category) throw error(400, 'category is required');
-	if (!city) throw error(400, 'city is required');
-	if (source === 'apple' && !externalId) {
-		throw error(400, 'externalId is required for source=apple');
-	}
-	if (kind !== 'liked' && kind !== 'disliked' && kind !== 'want_to_go' && kind !== 'seen') {
-		throw error(400, "kind must be 'liked', 'disliked', 'seen', or 'want_to_go'.");
-	}
-
-	// Dedupe: if this Apple place already exists, reuse it. Match by muid AND by
-	// canonical identity (name + coords), since the same place carries different
-	// Apple muids across MapKit JS and the Server API (see findExistingApplePlaceId).
-	let placeId: string | null = null;
-	if (source === 'apple') {
-		placeId = await findExistingApplePlaceId({
-			externalId,
-			name,
-			latitude: body.latitude,
-			longitude: body.longitude
-		});
-	}
-
-	if (!placeId) {
-		const [created] = await db
-			.insert(place)
-			.values({
-				name,
-				category,
-				city,
-				neighborhood: body.neighborhood?.trim() || null,
-				description: body.description?.trim() || `${name}, ${city}`,
-				latitude: body.latitude ?? null,
-				longitude: body.longitude ?? null,
-				source,
-				externalId: externalId ?? null
-			})
-			.returning({ id: place.id });
-		placeId = created.id;
-	}
-
-	await setRelation(locals.user.id, placeId, kind);
-
-	getPostHogClient()?.capture({
-		distinctId: locals.user.id,
-		event: 'place_added',
-		properties: {
-			place_id: placeId,
-			place_name: name,
-			place_category: category,
-			place_city: city,
-			place_source: source,
-			kind
-		}
-	});
-
-	return json({ placeId, kind });
+	return json({ placeId: result.placeId, kind: result.kind });
 };

@@ -1,8 +1,10 @@
-import { json } from '@sveltejs/kit';
+import { error, json } from '@sveltejs/kit';
 import { requireApiUser } from '$lib/server/api-auth';
 import { getRelationMap } from '$lib/server/likes';
 import { getMappablePlaces } from '$lib/server/places';
 import { getUserLocation } from '$lib/server/current-location';
+import { savePlaceRelation } from '$lib/server/add-place';
+import type { SavePlaceInput } from '$lib/server/add-place';
 import type { RequestHandler } from './$types';
 
 /**
@@ -77,4 +79,28 @@ export const GET: RequestHandler = async ({ request, url }) => {
 	}
 
 	return json({ center, places });
+};
+
+/**
+ * POST /api/v1/places
+ *
+ * Token-authenticated twin of `POST /api/places`: upsert an Apple place found
+ * via native map search and set the viewer's relation to it, in one call. Backs
+ * rate-and-save from the app's map search, mirroring the web map. Deduped by
+ * name+coords, so it merges with places already imported on the web even though
+ * native MapKit's external id differs.
+ *
+ *   body: { externalId, source?, name, category, city, latitude?, longitude?, kind? }
+ *   returns: { placeId, kind }
+ */
+export const POST: RequestHandler = async ({ request }) => {
+	const userId = await requireApiUser(request);
+
+	const body = (await request.json().catch(() => null)) as SavePlaceInput | null;
+	if (!body) throw error(400, 'Invalid body');
+
+	const result = await savePlaceRelation(userId, body);
+	if (!result.ok) throw error(result.status, result.message);
+
+	return json({ placeId: result.placeId, kind: result.kind });
 };
