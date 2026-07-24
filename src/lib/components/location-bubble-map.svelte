@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { ensureMapKit } from '$lib/mapkit-client';
+	import { theme } from '$lib/theme.svelte';
 
 	type MapLocation = { latitude: number; longitude: number; count: number };
 
@@ -50,9 +51,8 @@
 					showsMapTypeControl: false,
 					showsPointsOfInterest: false,
 					isRotationEnabled: false,
-					colorScheme: window.matchMedia?.('(prefers-color-scheme: dark)').matches
-						? mapkit.Map.ColorSchemes.Dark
-						: mapkit.Map.ColorSchemes.Light
+					colorScheme:
+						theme.current === 'dark' ? mapkit.Map.ColorSchemes.Dark : mapkit.Map.ColorSchemes.Light
 				});
 
 				const color = getComputedStyle(document.documentElement)

@@ -9,6 +9,7 @@
 	import { mapAppleCategory } from '$lib/map-category';
 	import { Bookmark, Eye, Sparkles, ThumbsDown, ThumbsUp } from '@lucide/svelte';
 	import { RELATION_COLOR, RELATION_NEUTRAL, RELATION_RECOMMENDED } from '$lib/relation-colors';
+	import { theme } from '$lib/theme.svelte';
 	import type { Component } from 'svelte';
 
 	let {
@@ -442,9 +443,13 @@
 					// twice (our colored pin over Apple's POI); MapKit has no way to
 					// hide a single native POI, so this overlap is a known tradeoff
 					// to revisit (e.g. a unified pin layer we fully own).
-					colorScheme: window.matchMedia?.('(prefers-color-scheme: dark)').matches
-						? window.mapkit.Map.ColorSchemes.Dark
-						: window.mapkit.Map.ColorSchemes.Light
+					// Follow the site theme (light/dark/system resolved), not the raw
+					// OS media query, so a manual theme choice reaches the map. Kept
+					// in sync live by the $effect below.
+					colorScheme:
+						theme.current === 'dark'
+							? window.mapkit.Map.ColorSchemes.Dark
+							: window.mapkit.Map.ColorSchemes.Light
 				});
 
 				// Make Apple's native POIs tappable so any place on the map can be
@@ -496,6 +501,17 @@
 	 *  - update color on existing ones if the relationship changed
 	 *  - remove annotations for places no longer in the input
 	 */
+	// Keep the map's day/night scheme matched to the site theme as it changes
+	// live (the settings toggle, or the OS flipping while on 'system').
+	$effect(() => {
+		const resolved = theme.current;
+		if (status !== 'ready' || !mapRef || !window.mapkit) return;
+		mapRef.colorScheme =
+			resolved === 'dark'
+				? window.mapkit.Map.ColorSchemes.Dark
+				: window.mapkit.Map.ColorSchemes.Light;
+	});
+
 	$effect(() => {
 		if (status !== 'ready' || !mapRef || !window.mapkit) return;
 

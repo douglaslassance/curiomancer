@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { ensureMapKit } from '$lib/mapkit-client';
 	import { categoryGlyphDataUri } from '$lib/map-glyphs';
+	import { theme } from '$lib/theme.svelte';
 	import type { Place } from '$lib/server/db/schema';
 
 	// A small, non-interactive map centered on a single place, with one pin.
@@ -105,9 +106,10 @@
 					showsZoomControl: false,
 					showsMapTypeControl: false,
 					showsPointsOfInterest: false,
-					colorScheme: window.matchMedia?.('(prefers-color-scheme: dark)').matches
-						? window.mapkit.Map.ColorSchemes.Dark
-						: window.mapkit.Map.ColorSchemes.Light
+					colorScheme:
+						theme.current === 'dark'
+							? window.mapkit.Map.ColorSchemes.Dark
+							: window.mapkit.Map.ColorSchemes.Light
 				});
 
 				// Assign the map, THEN flip status - the marker effect gates on
@@ -138,13 +140,17 @@
 	<div bind:this={mapElement} class="pointer-events-none absolute inset-0"></div>
 
 	{#if status === 'loading'}
-		<div class="bg-background/80 absolute inset-0 flex items-center justify-center backdrop-blur-sm">
+		<div
+			class="bg-background/80 absolute inset-0 flex items-center justify-center backdrop-blur-sm"
+		>
 			<p class="text-muted-foreground text-sm">Loading map…</p>
 		</div>
 	{/if}
 
 	{#if status === 'error'}
-		<div class="bg-background/80 absolute inset-0 flex items-center justify-center backdrop-blur-sm">
+		<div
+			class="bg-background/80 absolute inset-0 flex items-center justify-center backdrop-blur-sm"
+		>
 			<p class="text-muted-foreground text-sm">Map could not load.</p>
 		</div>
 	{/if}
