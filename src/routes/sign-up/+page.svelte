@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import PasswordInput from '$lib/components/password-input.svelte';
 	import { Label } from '$lib/components/ui/label';
 	import * as Card from '$lib/components/ui/card';
 	import SubmitButton from '$lib/components/submit-button.svelte';
@@ -197,7 +198,8 @@
 													onclick={() => pickSuggestion(s)}
 												>
 													<span class="font-medium">{s.title}</span>
-													{#if s.subtitle}<span class="text-muted-foreground"> · {s.subtitle}</span
+													{#if s.subtitle}<span class="text-muted-foreground">
+															· {s.subtitle}</span
 														>{/if}
 												</button>
 											</li>
@@ -220,12 +222,22 @@
 					</div>
 					<div class="space-y-2">
 						<Label for="password">Password</Label>
-						<Input id="password" name="password" type="password" required minlength={8} />
+						<PasswordInput
+							id="password"
+							name="password"
+							autocomplete="new-password"
+							required
+							minlength={8}
+						/>
 					</div>
 					{#if form?.message}
 						<p class="text-destructive text-sm">{form.message}</p>
 					{/if}
-					<SubmitButton pending={createAccount.submitting} pendingLabel="Creating account…" class="w-full">
+					<SubmitButton
+						pending={createAccount.submitting}
+						pendingLabel="Creating account…"
+						class="w-full"
+					>
 						Create account
 					</SubmitButton>
 				</form>

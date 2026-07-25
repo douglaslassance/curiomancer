@@ -12,6 +12,7 @@
 	import { Switch } from '$lib/components/ui/switch';
 	import InviteCard from '$lib/components/invite-card.svelte';
 	import { Input } from '$lib/components/ui/input';
+	import PasswordInput from '$lib/components/password-input.svelte';
 	import { Label } from '$lib/components/ui/label';
 	import {
 		Ban,
@@ -440,15 +441,13 @@
 				<div class="min-w-0 flex-1 space-y-2">
 					<div class="text-sm font-medium">Change password</div>
 					<div class="grid max-w-xs gap-2">
-						<Input
-							type="password"
+						<PasswordInput
 							name="currentPassword"
 							placeholder="Current password"
 							autocomplete="current-password"
 							required
 						/>
-						<Input
-							type="password"
+						<PasswordInput
 							name="newPassword"
 							placeholder="New password (min 8 characters)"
 							autocomplete="new-password"

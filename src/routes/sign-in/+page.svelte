@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { Input } from '$lib/components/ui/input';
+	import PasswordInput from '$lib/components/password-input.svelte';
 	import { Label } from '$lib/components/ui/label';
 	import * as Card from '$lib/components/ui/card';
 	import SubmitButton from '$lib/components/submit-button.svelte';
@@ -43,7 +44,7 @@
 							Forgot your password?
 						</a>
 					</div>
-					<Input id="password" name="password" type="password" required />
+					<PasswordInput id="password" name="password" autocomplete="current-password" required />
 				</div>
 				{#if form?.message}
 					<p class="text-destructive text-sm">{form.message}</p>

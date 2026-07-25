@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import PasswordInput from '$lib/components/password-input.svelte';
 	import { Label } from '$lib/components/ui/label';
 	import * as Card from '$lib/components/ui/card';
 	import SubmitButton from '$lib/components/submit-button.svelte';
@@ -30,10 +30,9 @@
 					<input type="hidden" name="token" value={data.token} />
 					<div class="space-y-2">
 						<Label for="newPassword">New password</Label>
-						<Input
+						<PasswordInput
 							id="newPassword"
 							name="newPassword"
-							type="password"
 							placeholder="At least 8 characters"
 							autocomplete="new-password"
 							required
@@ -41,13 +40,7 @@
 					</div>
 					<div class="space-y-2">
 						<Label for="confirm">Confirm password</Label>
-						<Input
-							id="confirm"
-							name="confirm"
-							type="password"
-							autocomplete="new-password"
-							required
-						/>
+						<PasswordInput id="confirm" name="confirm" autocomplete="new-password" required />
 					</div>
 					{#if form?.message}
 						<p class="text-destructive text-sm">{form.message}</p>

@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
+	import PasswordInput from '$lib/components/password-input.svelte';
 	import { Label } from '$lib/components/ui/label';
 	import SubmitButton from '$lib/components/submit-button.svelte';
 	import { pendingForm } from '$lib/pending-form.svelte';
@@ -54,7 +55,13 @@
 				</div>
 				<div class="space-y-2">
 					<Label for="password">Password</Label>
-					<Input id="password" name="password" type="password" required minlength={8} />
+					<PasswordInput
+						id="password"
+						name="password"
+						autocomplete="new-password"
+						required
+						minlength={8}
+					/>
 				</div>
 				{#if form?.message}
 					<p class="text-destructive text-sm">{form.message}</p>
