@@ -7,7 +7,7 @@
  * caller exactly once, at creation time.
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { and, count, desc, eq, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from './db';
 import { apiToken } from './db/schema';
 import { user } from './db/auth.schema';
@@ -92,9 +92,27 @@ function deviceTokenCutoff(): Date {
 	return new Date(Date.now() - DEVICE_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
 }
 
-/** A device token is live if it was used (or, if never used, minted) since the cutoff. */
+/**
+ * Live/stale predicates over "last used, or minted if never used".
+ *
+ * Written with typed column operators rather than a raw
+ * `sql\`COALESCE(last_used_at, created_at) < ${cutoff}\``, which reads better but
+ * is broken: interpolating a value into a `sql` template binds it with no column
+ * type, so postgres.js never runs the timestamp encoder and rejects the Date with
+ * ERR_INVALID_ARG_TYPE at runtime. Going through `lt`/`gte` on the columns lets
+ * drizzle map the bound with each column's own encoder.
+ */
 const deviceTokenLive = (cutoff: Date) =>
-	sql`COALESCE(${apiToken.lastUsedAt}, ${apiToken.createdAt}) >= ${cutoff}`;
+	or(
+		and(isNotNull(apiToken.lastUsedAt), gte(apiToken.lastUsedAt, cutoff)),
+		and(isNull(apiToken.lastUsedAt), gte(apiToken.createdAt, cutoff))
+	);
+
+const deviceTokenStale = (cutoff: Date) =>
+	or(
+		and(isNotNull(apiToken.lastUsedAt), lt(apiToken.lastUsedAt, cutoff)),
+		and(isNull(apiToken.lastUsedAt), lt(apiToken.createdAt, cutoff))
+	);
 
 /**
  * Mint the device token a native client signs in with, replacing this device's
@@ -146,7 +164,7 @@ export async function issueDeviceToken(
 				and(
 					eq(apiToken.userId, userId),
 					eq(apiToken.kind, 'device'),
-					sql`COALESCE(${apiToken.lastUsedAt}, ${apiToken.createdAt}) < ${deviceTokenCutoff()}`
+					deviceTokenStale(deviceTokenCutoff())
 				)
 			);
 
