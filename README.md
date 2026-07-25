@@ -17,7 +17,11 @@ Optional integrations stay off until their keys are set: PostHog (analytics), Se
 
 **Pushing to `main` goes live.** Coolify builds and deploys to production automatically, with no staging step. Every push to `main` reaches real users once the build finishes, and it reaches the iOS app too, which talks to the same `/api/v1` surface (so a breaking API change ships to both at once). There is no separate "deploy" action to run.
 
-Set secrets as env vars on the Coolify app, never in the repo. Apply pending DB migrations to production (`pnpm db:migrate` against the prod `DATABASE_URL`) as part of the deploy.
+Set secrets as env vars on the Coolify app, never in the repo.
+
+**Migrations run themselves.** The container's start command is `node migrate.mjs && node_modules/.bin/tsx server.ts` (see the `Dockerfile`), so every deploy applies pending migrations before the server accepts traffic, and the `&&` means a failed migration stops the release rather than booting against a half-migrated database. Committing a migration alongside the code that needs it is the whole procedure. Running `pnpm db:migrate` by hand against production is not part of deploying.
+
+That safety depends on migrations being **additive**. During a rollout the old container can still be serving while the new one migrates, so a migration that only adds columns, tables, or indexes is fine: the running code ignores what it doesn't know about. One that drops or renames something the deployed code still reads will break requests for the length of the overlap. Split those into expand then contract across two deploys (add the new shape, ship code that uses it, remove the old shape in a later release).
 
 ### Going live with Stripe
 
