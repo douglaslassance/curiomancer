@@ -1,7 +1,7 @@
-import { error, json } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import { and, asc, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { authenticateToken } from '$lib/server/api-tokens';
+import { requireApiUser } from '$lib/server/api-auth';
 import { place, placeRelation, user, userLocation } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
 
@@ -18,10 +18,7 @@ import type { RequestHandler } from './$types';
  * This is the "take your taste anywhere" surface - read-only for now.
  */
 export const GET: RequestHandler = async ({ request }) => {
-	const userId = await authenticateToken(request.headers.get('authorization'));
-	if (!userId) {
-		throw error(401, 'Provide a valid token: Authorization: Bearer <token>');
-	}
+	const userId = await requireApiUser(request);
 
 	const [profile, [location], likes] = await Promise.all([
 		db
