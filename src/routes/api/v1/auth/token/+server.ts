@@ -4,7 +4,7 @@ import { APIError } from 'better-auth/api';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { user } from '$lib/server/db/schema';
-import { createApiToken } from '$lib/server/api-tokens';
+import { issueDeviceToken } from '$lib/server/api-tokens';
 import { rateLimit } from '$lib/server/rate-limit';
 import type { RequestHandler } from './$types';
 
@@ -22,16 +22,23 @@ const MAX_PER_IP_EMAIL = 8;
  * dance the web pages use. Verifies the password through the exact same
  * better-auth call the web sign-in action makes, then mints a token.
  *
- *   body: { email, password, deviceName? }
+ *   body: { email, password, deviceId, deviceName? }
  *   returns: { token: "crmc_…", user: { id, name } }
  *
  * The plaintext token is shown only in this response; store it on device.
+ *
+ * `deviceId` is a required stable per-install id (the iOS app derives one from
+ * `identifierForVendor` and caches it in the Keychain). It's what lets a repeat
+ * sign-in replace this device's token instead of leaving another one behind, so
+ * without it there is no way to tell "same phone again" from "a second phone".
+ * Tokens already issued keep working; only minting a new one needs this.
  */
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	const body = (await request.json().catch(() => null)) as {
 		email?: unknown;
 		password?: unknown;
 		deviceName?: unknown;
+		deviceId?: unknown;
 	} | null;
 
 	const email = typeof body?.email === 'string' ? body.email.trim() : '';
@@ -40,16 +47,28 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 		typeof body?.deviceName === 'string' && body.deviceName.trim()
 			? body.deviceName.trim()
 			: 'API token';
+	const deviceId =
+		typeof body?.deviceId === 'string' && body.deviceId.trim() ? body.deviceId.trim() : '';
 
 	if (!email || !password) {
 		throw error(400, 'email and password are required.');
 	}
+	if (!deviceId) {
+		throw error(400, 'deviceId is required. Update to the latest app version.');
+	}
 
 	const ip = getClientAddress();
 	const byIp = rateLimit(`token:ip:${ip}`, MAX_PER_IP, WINDOW_MS);
-	const byEmail = rateLimit(`token:ip-email:${ip}:${email.toLowerCase()}`, MAX_PER_IP_EMAIL, WINDOW_MS);
+	const byEmail = rateLimit(
+		`token:ip-email:${ip}:${email.toLowerCase()}`,
+		MAX_PER_IP_EMAIL,
+		WINDOW_MS
+	);
 	if (!byIp.ok || !byEmail.ok) {
-		throw error(429, `Too many attempts. Try again in ${byIp.retryAfterSec || byEmail.retryAfterSec}s.`);
+		throw error(
+			429,
+			`Too many attempts. Try again in ${byIp.retryAfterSec || byEmail.retryAfterSec}s.`
+		);
 	}
 
 	let result;
@@ -74,6 +93,10 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 	}
 	if (!account) throw error(401, 'Invalid email or password.');
 
-	const token = await createApiToken(account.id, deviceName);
+	// A device token, not a personal one: it replaces this device's previous
+	// token rather than adding a row, and doesn't spend the user's
+	// `api_token_limit`. Before this, every sign-in appended an unbudgeted token,
+	// so a client that re-authenticated could push a user past their own cap.
+	const token = await issueDeviceToken(account.id, deviceName, deviceId);
 	return json({ token, user: account });
 };

@@ -365,12 +365,36 @@ export const apiToken = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: 'cascade' }),
 		name: text('name').notNull(),
+		/**
+		 * 'personal' is a token the user minted in Settings to plug their taste
+		 * into something else. 'device' is a per-device sign-in credential the
+		 * native app holds. Only 'personal' counts against `api_token_limit`:
+		 * the device one isn't a thing the user chose to create, so budgeting
+		 * it would mean signing in on a phone costs you an integration slot.
+		 */
+		kind: text('kind', { enum: ['personal', 'device'] })
+			.notNull()
+			.default('personal'),
+		/**
+		 * Stable per-install id from the native client (iOS `identifierForVendor`),
+		 * so re-signing in on the same device replaces its token instead of piling
+		 * up a new row each time. Null for personal tokens, and for device tokens
+		 * from clients too old to send one.
+		 */
+		deviceId: text('device_id'),
 		tokenHash: text('token_hash').notNull().unique(),
 		tokenPrefix: text('token_prefix').notNull(),
 		createdAt: timestamp('created_at').notNull().defaultNow(),
 		lastUsedAt: timestamp('last_used_at')
 	},
-	(t) => [index('api_token_user_idx').on(t.userId)]
+	(t) => [
+		index('api_token_user_idx').on(t.userId),
+		// One device token per (user, device). Partial so personal tokens, which
+		// all carry a null device_id, are unaffected.
+		uniqueIndex('api_token_user_device_idx')
+			.on(t.userId, t.deviceId)
+			.where(sql`${t.deviceId} IS NOT NULL`)
+	]
 );
 
 export type ApiToken = typeof apiToken.$inferSelect;

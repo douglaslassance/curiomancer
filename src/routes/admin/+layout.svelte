@@ -6,6 +6,7 @@
 		BarChart3,
 		BookOpen,
 		ClipboardList,
+		KeyRound,
 		Mail,
 		TrendingUp,
 		Users
@@ -18,6 +19,7 @@
 		{ href: '/admin/users', label: 'Users', icon: Users },
 		{ href: '/admin/invites', label: 'Invites', icon: Mail },
 		{ href: '/admin/waitlist', label: 'Waitlist', icon: ClipboardList },
+		{ href: '/admin/tokens', label: 'Tokens', icon: KeyRound },
 		{ href: '/admin/metrics', label: 'Growth', icon: TrendingUp },
 		{ href: '/admin/codex', label: 'Codex', icon: BookOpen }
 	];

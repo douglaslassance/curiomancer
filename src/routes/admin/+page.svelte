@@ -83,9 +83,14 @@
 		<Card.Content>
 			<h2 class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Places</h2>
 			<p class="mt-2 text-3xl font-semibold tabular-nums">{s.places}</p>
-			<p class="text-muted-foreground mt-1 text-xs">
-				{s.places_apple} apple · {s.places_manual} manual · {s.places_seed} seed
-			</p>
+			<!-- Everything real comes from Apple, so the breakdown is normally just
+			     the total restated. Show it only when a non-apple row exists, which
+			     doubles as an alarm that some import fell back to a manual entry. -->
+			{#if s.places_manual > 0 || s.places_seed > 0}
+				<p class="text-muted-foreground mt-1 text-xs">
+					{s.places_apple} apple · {s.places_manual} manual · {s.places_seed} seed
+				</p>
+			{/if}
 		</Card.Content>
 	</Card.Root>
 

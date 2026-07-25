@@ -232,6 +232,13 @@
       "when": 1784437877726,
       "tag": "0032_little_miss_america",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1784933177208,
+      "tag": "0033_sparkling_tattoo",
+      "breakpoints": true
     }
   ]
 }

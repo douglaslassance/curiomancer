@@ -31,6 +31,7 @@
 		RefreshCw,
 		RotateCcw,
 		Share2,
+		Smartphone,
 		Sparkles,
 		Sun,
 		ThumbsUp,
@@ -41,6 +42,12 @@
 	import { updateLocation, type LocationUpdateError } from '$lib/location-update';
 	import { theme, type ThemePreference } from '$lib/theme.svelte';
 	import { PLAN_NAME } from '$lib/subscription';
+
+	const dateFmt = new Intl.DateTimeFormat('en-US', {
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric'
+	});
 
 	const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
 		{ value: 'system', label: 'System', icon: Monitor },
@@ -401,7 +408,12 @@
 							bind:value={emailValue}
 							class="max-w-xs"
 						/>
-						<Button type="submit" size="sm" variant="outline" disabled={!emailValid || !emailDiffers}>
+						<Button
+							type="submit"
+							size="sm"
+							variant="outline"
+							disabled={!emailValid || !emailDiffers}
+						>
 							Change
 						</Button>
 					</div>
@@ -409,8 +421,8 @@
 						<p class="text-destructive text-xs">{form.emailError}</p>
 					{:else if form?.emailPending}
 						<p class="text-muted-foreground text-xs">
-							Check <span class="font-medium">{form.email}</span> for a link to confirm the change.
-							Your current email stays until you do.
+							Check <span class="font-medium">{form.email}</span> for a link to confirm the change. Your
+							current email stays until you do.
 						</p>
 					{:else}
 						<p class="text-muted-foreground text-xs">
@@ -553,9 +565,9 @@
 						</form>
 					</div>
 					<p class="text-muted-foreground mt-1 text-sm">
-						Hide yourself from other people. You won't appear as anyone's taste-twin and your profile
-						stays private, so no one can view it or message you. Your taste still informs others'
-						recommendations.
+						Hide yourself from other people. You won't appear as anyone's taste-twin and your
+						profile stays private, so no one can view it or message you. Your taste still informs
+						others' recommendations.
 					</p>
 					{#if form?.incognitoError}
 						<p class="text-destructive mt-1 text-xs">{form.incognitoError}</p>
@@ -651,8 +663,7 @@
 				<div class="min-w-0 flex-1">
 					<div class="text-sm font-medium">Invites</div>
 					<p class="text-muted-foreground mt-1 text-sm">
-						Invite people whose taste you trust. They'll get an email from you with a link to
-						join.
+						Invite people whose taste you trust. They'll get an email from you with a link to join.
 					</p>
 
 					<form
@@ -717,17 +728,12 @@
 						use:enhance
 						class="mt-3 flex items-center gap-2"
 					>
-						<Input
-							name="name"
-							placeholder="e.g. My map app"
-							autocomplete="off"
-							class="max-w-xs"
-						/>
+						<Input name="name" placeholder="e.g. My map app" autocomplete="off" class="max-w-xs" />
 						<Button
 							type="submit"
 							size="sm"
 							variant="outline"
-							disabled={data.apiTokens.length >= data.apiTokenLimit}
+							disabled={data.apiTokens.personal.length >= data.apiTokenLimit}
 						>
 							Create token
 						</Button>
@@ -736,16 +742,18 @@
 						<p class="text-destructive mt-1 text-xs">{form.tokenError}</p>
 					{:else}
 						<p class="text-muted-foreground mt-1 text-xs">
-							{data.apiTokens.length} of {data.apiTokenLimit} tokens used.
+							{data.apiTokens.personal.length} of {data.apiTokenLimit} tokens used.
 						</p>
 					{/if}
 
-					{#if data.apiTokens.length > 0}
+					{#if data.apiTokens.personal.length > 0}
 						<div class="mt-3 space-y-2">
-							{#each data.apiTokens as token (token.id)}
+							{#each data.apiTokens.personal as token (token.id)}
 								{@const justCreated =
 									!!form?.tokenCreated && form.tokenCreated.startsWith(token.prefix)}
-								<div class="rounded-lg border px-3 py-2 {justCreated ? 'border-primary bg-muted' : ''}">
+								<div
+									class="rounded-lg border px-3 py-2 {justCreated ? 'border-primary bg-muted' : ''}"
+								>
 									<div class="flex items-center justify-between gap-2">
 										<div class="min-w-0">
 											<div class="truncate text-sm font-medium">{token.name}</div>
@@ -796,6 +804,51 @@
 				</div>
 			</div>
 
+			{#if data.apiTokens.devices.length > 0}
+				<Separator />
+
+				<!-- Devices: the same credential type as above, but minted by signing
+				     in on a phone rather than chosen here. Listed so a lost device can
+				     be cut off without waiting on an admin; not budgeted, since the
+				     user didn't opt into creating them. -->
+				<div class="flex items-start gap-3">
+					<Smartphone class="text-muted-foreground mt-0.5 size-4" />
+					<div class="min-w-0 flex-1">
+						<div class="text-sm font-medium">Devices</div>
+						<p class="text-muted-foreground mt-1 text-sm">
+							Apps signed in to your account. Sign one out if you no longer have it.
+						</p>
+
+						<div class="mt-3 space-y-2">
+							{#each data.apiTokens.devices as device (device.id)}
+								<div class="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
+									<div class="min-w-0">
+										<div class="truncate text-sm font-medium">{device.name}</div>
+										<div class="text-muted-foreground text-xs">
+											{device.lastUsedAt
+												? `last used ${dateFmt.format(device.lastUsedAt)}`
+												: 'never used'}
+										</div>
+									</div>
+									<form method="post" action="?/revokeToken" use:enhance>
+										<input type="hidden" name="id" value={device.id} />
+										<Button
+											type="submit"
+											size="sm"
+											variant="ghost"
+											class="text-muted-foreground hover:text-destructive"
+										>
+											<LogOut class="size-3.5" />
+											Sign out
+										</Button>
+									</form>
+								</div>
+							{/each}
+						</div>
+					</div>
+				</div>
+			{/if}
+
 			<!-- Hidden file picker + form carrying the downscaled data URI. -->
 			<input
 				bind:this={avatarInput}
@@ -842,8 +895,8 @@
 			<Dialog.Header>
 				<Dialog.Title>Reset all your ratings?</Dialog.Title>
 				<Dialog.Description>
-					This permanently deletes every place you've liked, disliked, been to, or saved. It can't be
-					undone, export your ratings first if you'd like a backup.
+					This permanently deletes every place you've liked, disliked, been to, or saved. It can't
+					be undone, export your ratings first if you'd like a backup.
 				</Dialog.Description>
 			</Dialog.Header>
 			<Dialog.Footer>
@@ -868,8 +921,8 @@
 			<Dialog.Header>
 				<Dialog.Title>Delete your account?</Dialog.Title>
 				<Dialog.Description>
-					This permanently deletes your account, your likes and ratings, and your messages. It
-					can't be undone.
+					This permanently deletes your account, your likes and ratings, and your messages. It can't
+					be undone.
 				</Dialog.Description>
 			</Dialog.Header>
 			<Dialog.Footer>
