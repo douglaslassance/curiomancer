@@ -18,6 +18,17 @@
  * LISTEN/NOTIFY, so two participants in a conversation can land on different
  * instances and still reach each other.
  */
+// Must come first, and must not be dropped as "unused": this is Sentry's
+// server-side `Sentry.init`, and it has to run before the SvelteKit handler is
+// imported so its instrumentation can patch modules as they load.
+//
+// adapter-node's own `build/index.js` starts with this exact import. Owning the
+// HTTP server here means that entrypoint never runs, so without this line the
+// server half of Sentry is silently dead: `hooks.client.ts` still reports
+// browser errors, `PUBLIC_SENTRY_DSN` still shows up in the client bundle, and
+// every server-side 500 goes unrecorded. That combination is very hard to read
+// as "Sentry is broken", so leave this import at the top.
+import './build/instrumentation.server.js';
 import { createServer } from 'node:http';
 import { handler } from './build/handler.js';
 import { WebSocketServer } from 'ws';

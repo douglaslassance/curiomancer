@@ -56,6 +56,14 @@ COPY migrate.mjs server.ts ./
 
 ENV NODE_ENV=production
 
+# Commit this image was built from, surfaced by GET /api/health so a deploy can
+# be confirmed from outside. `.git` is excluded from the build context (see
+# .dockerignore), so it can't be derived here and has to arrive as a build arg.
+# Coolify passes SOURCE_COMMIT for git-based deploys; absent it, health reports
+# "unknown" rather than failing.
+ARG SOURCE_COMMIT=unknown
+ENV SOURCE_COMMIT=$SOURCE_COMMIT
+
 # Drop root: the node images ship an unprivileged `node` user. Own /app by it
 # so the runtime process (and tsx's cache under $HOME) has what it needs.
 RUN chown -R node:node /app
