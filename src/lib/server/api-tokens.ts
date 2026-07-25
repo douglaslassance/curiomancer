@@ -73,19 +73,23 @@ export async function createApiToken(userId: string, name: string): Promise<stri
 const DEVICE_TOKEN_TTL_DAYS = 90;
 
 /**
- * Hard ceiling on a user's live device tokens, as an abuse backstop rather than
- * a product limit. Device tokens sit outside `api_token_limit`, and a client
- * that sends a fresh `deviceId` each sign-in mints a new row every time, so
- * without a ceiling one account can grow rows without bound.
+ * How many devices one account can be signed in on at once. Device tokens sit
+ * outside `api_token_limit`, and a client sending a fresh `deviceId` each
+ * sign-in mints a new row every time, so without a ceiling one account can grow
+ * rows without bound.
  *
- * Set far above any real usage on purpose. The failure mode of a tight cap is
- * signing a genuine device out to make room, which is exactly the housekeeping
- * the TTL exists to avoid, so this should only ever bite someone doing it
- * deliberately. Eviction is least-recently-used rather than refusing the
- * sign-in: a real user on a new phone must never be locked out by their own
- * stale rows.
+ * At 3 this is a real product limit, not just an abuse backstop: the app builds
+ * for iPhone, iPad, and Mac Catalyst, so someone on all three is at the ceiling,
+ * and signing in on a fourth silently signs out whichever they have used least.
+ * That is the intended behaviour, but it does mean this number is reachable by
+ * ordinary use rather than only by abuse.
+ *
+ * Eviction is least-recently-used rather than refusing the sign-in: a real user
+ * on a new phone must never be locked out by their own stale rows. The 90-day
+ * TTL above still does the routine recycling, so this only bites people who
+ * genuinely keep more than three devices active.
  */
-const MAX_DEVICE_TOKENS = 20;
+const MAX_DEVICE_TOKENS = 3;
 
 /** Cutoff for `COALESCE(last_used_at, created_at)`: older than this is stale. */
 function deviceTokenCutoff(): Date {
