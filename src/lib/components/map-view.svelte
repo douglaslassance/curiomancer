@@ -438,6 +438,12 @@
 					showsCompass: window.mapkit.FeatureVisibility.Hidden,
 					showsZoomControl: false,
 					showsMapTypeControl: false,
+					// Draw the blue "you are here" dot so you can tell where you are
+					// relative to the pins. Prompts for browser geolocation once; if
+					// declined, no dot shows and nothing else changes. We only show
+					// it, we don't follow it (no tracksUserLocation), so the map stays
+					// framed where the page opened it.
+					showsUserLocation: true,
 					// We show Apple's native POIs for street-level context alongside
 					// our own curated pins. A place you've rated therefore appears
 					// twice (our colored pin over Apple's POI); MapKit has no way to
@@ -646,7 +652,7 @@
 	<div bind:this={mapElement} class="absolute inset-0 bg-muted"></div>
 
 	{#if status === 'ready' && showSearch}
-		<MapSearch {focus} {signedIn} onSelect={selectSearchHit} onClearPreview={clearPreviewMarker} />
+		<MapSearch {focus} onSelect={selectSearchHit} onClearPreview={clearPreviewMarker} />
 	{/if}
 
 	{#if status === 'ready' && (showFilters || showCategoryFilter)}
