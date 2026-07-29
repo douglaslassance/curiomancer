@@ -1,21 +1,7 @@
 <script lang="ts">
-	import { Bookmark, Eye, Loader2, MapPin, ThumbsDown, ThumbsUp, X } from '@lucide/svelte';
+	import { Loader2, MapPin, X } from '@lucide/svelte';
 	import { Input } from '$lib/components/ui/input';
-	import { Badge } from '$lib/components/ui/badge';
-	import { invalidateAll } from '$app/navigation';
 	import { mapAppleCategory } from '$lib/map-category';
-	import { categoryLabel } from '$lib/place-category';
-	import type { Component } from 'svelte';
-
-	type Kind = 'liked' | 'seen' | 'disliked' | 'want_to_go';
-	// Same four relations as RelationToggle, in the same order, so rating a
-	// search result matches rating a saved pin.
-	const RATINGS: { kind: Kind; label: string; icon: Component }[] = [
-		{ kind: 'liked', label: 'Like', icon: ThumbsUp },
-		{ kind: 'want_to_go', label: 'Want to go', icon: Bookmark },
-		{ kind: 'seen', label: 'Been there', icon: Eye },
-		{ kind: 'disliked', label: 'Dislike', icon: ThumbsDown }
-	];
 
 	type Hit = {
 		muid: string;
@@ -27,40 +13,41 @@
 		locality?: string;
 	};
 
+	// One typeahead suggestion. Comes from MapKit's autocomplete, which returns a
+	// name + address and a coordinate but no point-of-interest category (that only
+	// arrives when the pick is resolved), so a Suggestion can't be rated as-is.
+	type Suggestion = {
+		id: string;
+		muid: string;
+		name: string;
+		address: string;
+		latitude: number;
+		longitude: number;
+		locality?: string;
+	};
+
 	let {
 		focus,
-		signedIn,
 		onSelect,
 		onClearPreview
 	}: {
-		/** Current map focus (region center). Search is biased and sorted around
-		 * this, and it follows the map as the user pans/zooms. */
+		/** Current map focus (region center). Suggestions are biased and sorted
+		 * around this, and it follows the map as the user pans/zooms. */
 		focus: { latitude: number; longitude: number };
-		signedIn: boolean;
-		/** A result was picked - parent flies the map and opens the place panel,
+		/** A result was picked. We resolve it to a full place (for its category),
+		 * then hand it up so the parent flies the map and opens the place panel,
 		 * exactly as if the place's pin had been tapped. */
 		onSelect: (hit: Hit) => void;
 		onClearPreview: () => void;
 	} = $props();
 
 	let query = $state('');
-	let results = $state<Hit[]>([]);
+	let results = $state<Suggestion[]>([]);
 	let searching = $state(false);
-	// Which hit + kind is currently being saved, so we can spin the right button.
-	let saving = $state<{ muid: string; kind: Kind } | null>(null);
+	// Id of the suggestion currently being resolved, so we can spin its row.
+	let resolving = $state<string | null>(null);
 	let error = $state<string | null>(null);
 	let debounceId: ReturnType<typeof setTimeout> | null = null;
-
-	/** Great-circle distance in km, for sorting results by proximity to focus. */
-	function distanceKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
-		const toRad = (d: number) => (d * Math.PI) / 180;
-		const dLat = toRad(bLat - aLat);
-		const dLng = toRad(bLng - aLng);
-		const s =
-			Math.sin(dLat / 2) ** 2 +
-			Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
-		return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(s)));
-	}
 
 	function makeSearch() {
 		if (typeof window === 'undefined' || !window.mapkit) {
@@ -70,6 +57,15 @@
 		// as the user moves the map.
 		return new window.mapkit.Search({
 			getsUserLocation: false,
+			// Restrict to points of interest. With queries/addresses on (the
+			// default), a term that also names a locality wins globally over local
+			// businesses, so searching "monaco" while framed on Paris returned only
+			// the Principality of Monaco (690km away) and hid the "Le Monaco" bistro.
+			// We only ever rate POIs anyway (eat/drink/shop/visit), so this is a
+			// clean fit and keeps the region bias meaningful.
+			includePointsOfInterest: true,
+			includeAddresses: false,
+			includeQueries: false,
 			region: new window.mapkit.CoordinateRegion(
 				new window.mapkit.Coordinate(focus.latitude, focus.longitude),
 				new window.mapkit.CoordinateSpan(0.5, 0.5)
@@ -77,7 +73,9 @@
 		});
 	}
 
-	async function runSearch(q: string) {
+	// Live typeahead: MapKit's autocomplete returns suggestions incrementally as
+	// you type, like Apple Maps. Cheaper than a full search, so we debounce shorter.
+	async function runAutocomplete(q: string) {
 		if (!q.trim()) {
 			results = [];
 			return;
@@ -88,30 +86,29 @@
 			const s = makeSearch();
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const data = await new Promise<any>((resolve, reject) => {
-				s.search(q, (err: unknown, data: unknown) => {
+				s.autocomplete(q, (err: unknown, data: unknown) => {
 					if (err) reject(err);
 					else resolve(data);
 				});
 			});
 
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const places = (data?.places ?? []) as any[];
-			results = places
-				.map((p) => ({
-					muid: String(p.muid ?? p.id ?? ''),
-					name: p.name ?? '(unnamed)',
-					address: p.formattedAddress ?? '',
-					latitude: p.coordinate?.latitude ?? 0,
-					longitude: p.coordinate?.longitude ?? 0,
-					category: mapAppleCategory(p.pointOfInterestCategory),
-					locality: p.locality ?? p.subLocality ?? undefined
+			const raw = (data?.results ?? []) as any[];
+			results = raw
+				.map((r) => ({
+					id: String(r.id ?? r.muid ?? ''),
+					muid: String(r.muid ?? r.id ?? ''),
+					name: r.displayLines?.[0] ?? r.name ?? '(unnamed)',
+					address: r.displayLines?.[1] ?? r.formattedAddress ?? '',
+					latitude: r.coordinate?.latitude ?? 0,
+					longitude: r.coordinate?.longitude ?? 0,
+					locality: r.locality ?? r.subLocality ?? undefined
 				}))
-				// Nearest to what's on screen first, then keep the top 8.
-				.sort(
-					(a, b) =>
-						distanceKm(focus.latitude, focus.longitude, a.latitude, a.longitude) -
-						distanceKm(focus.latitude, focus.longitude, b.latitude, b.longitude)
-				)
+				// Keep only suggestions we can place on the map.
+				.filter((sug) => sug.id && sug.latitude !== 0)
+				// Keep Apple's own relevance order (region-biased, best-first), the
+				// same order iOS shows and Apple Maps shows, so Enter opens the same
+				// top recommendation on both clients. Just cap the list.
 				.slice(0, 8);
 		} catch (err) {
 			console.error('Search failed:', err);
@@ -125,10 +122,10 @@
 	function onInput(value: string) {
 		query = value;
 		if (debounceId) clearTimeout(debounceId);
-		debounceId = setTimeout(() => runSearch(value), 300);
+		debounceId = setTimeout(() => runAutocomplete(value), 200);
 	}
 
-	// Enter validates the first (nearest) result. If a search is still pending,
+	// Enter opens the first (nearest) suggestion. If a search is still pending,
 	// flush it so a fast typist who hits Enter immediately still gets results.
 	function onKeydown(e: KeyboardEvent) {
 		if (e.key !== 'Enter') return;
@@ -138,14 +135,46 @@
 			debounceId = null;
 		}
 		if (results.length > 0) selectHit(results[0]);
-		else runSearch(query);
+		else runAutocomplete(query);
 	}
 
-	// Picking a result behaves like tapping its pin: the parent flies there and
-	// opens the place panel on the right. We keep the query and result list intact
-	// so the field stays usable for the next search.
-	function selectHit(hit: Hit) {
-		onSelect(hit);
+	// Resolve a picked suggestion to a full place (autocomplete omits the POI
+	// category), then behave like tapping its pin: the parent flies there and opens
+	// the place panel, where the place is rated. We keep the query and result list
+	// intact so the field stays usable for the next search.
+	async function selectHit(sug: Suggestion) {
+		if (resolving) return;
+		resolving = sug.id;
+		error = null;
+		try {
+			// PlaceLookup takes a plain id (no proxied object), and mirrors how a
+			// tapped native POI is resolved in map-view.
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const place = window.mapkit?.PlaceLookup
+				? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+					await new Promise<any>((resolve) => {
+						const lookup = new window.mapkit.PlaceLookup();
+						lookup.getPlace(sug.id, (err: unknown, data: unknown) => resolve(err ? null : data));
+					})
+				: null;
+
+			const hit: Hit = place
+				? {
+						muid: String(place.muid ?? sug.muid),
+						name: place.name ?? sug.name,
+						address: place.formattedAddress ?? sug.address,
+						latitude: place.coordinate?.latitude ?? sug.latitude,
+						longitude: place.coordinate?.longitude ?? sug.longitude,
+						category: mapAppleCategory(place.pointOfInterestCategory),
+						locality: place.locality ?? place.subLocality ?? sug.locality
+					}
+				: // Lookup failed: still open the place, just without a resolved
+					// category (the panel then treats it as not-yet-rateable).
+					{ ...sug, category: null };
+			onSelect(hit);
+		} finally {
+			resolving = null;
+		}
 	}
 
 	function clearSelection() {
@@ -154,69 +183,28 @@
 		onClearPreview();
 	}
 
-	// Rate a hit directly (from a result row or the preview panel) - no need to
-	// "select" it first.
-	async function commit(kind: Kind, hit: Hit) {
-		if (!hit.category) {
-			error = "We don't support this place's type yet (only places to eat, drink, shop, or visit).";
-			return;
-		}
-		saving = { muid: hit.muid, kind };
-		error = null;
-		try {
-			const res = await fetch('/api/places', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
-					externalId: hit.muid,
-					source: 'apple',
-					name: hit.name,
-					category: hit.category,
-					city: hit.locality ?? '',
-					latitude: hit.latitude,
-					longitude: hit.longitude,
-					kind
-				})
-			});
-			if (!res.ok) {
-				const text = await res.text().catch(() => '');
-				throw new Error(text || `Server returned ${res.status}`);
+	// Split a suggestion name so the typed query reads bold within it, like Apple
+	// Maps. Case-insensitive, every occurrence.
+	function highlight(text: string, q: string): { text: string; match: boolean }[] {
+		const needle = q.trim();
+		if (!needle) return [{ text, match: false }];
+		const parts: { text: string; match: boolean }[] = [];
+		const lower = text.toLowerCase();
+		const lowerNeedle = needle.toLowerCase();
+		let i = 0;
+		while (i < text.length) {
+			const idx = lower.indexOf(lowerNeedle, i);
+			if (idx === -1) {
+				parts.push({ text: text.slice(i), match: false });
+				break;
 			}
-			query = '';
-			results = [];
-			onClearPreview();
-			await invalidateAll();
-		} catch (err) {
-			console.error('Failed to add place:', err);
-			error = err instanceof Error ? err.message : 'Could not add the place.';
-		} finally {
-			saving = null;
+			if (idx > i) parts.push({ text: text.slice(i, idx), match: false });
+			parts.push({ text: text.slice(idx, idx + needle.length), match: true });
+			i = idx + needle.length;
 		}
+		return parts;
 	}
 </script>
-
-<!-- Icon group mirroring RelationToggle: like / been there / dislike / want to go. -->
-{#snippet ratingGroup(hit: Hit)}
-	<div class="flex shrink-0 items-center gap-1">
-		{#each RATINGS as r (r.kind)}
-			{@const Icon = r.icon}
-			<button
-				type="button"
-				aria-label={r.label}
-				title={r.label}
-				disabled={saving !== null}
-				onclick={() => commit(r.kind, hit)}
-				class="hover:bg-background rounded-md border p-1.5 disabled:opacity-50"
-			>
-				{#if saving?.muid === hit.muid && saving.kind === r.kind}
-					<Loader2 class="size-4 animate-spin" />
-				{:else}
-					<Icon class="size-4" />
-				{/if}
-			</button>
-		{/each}
-	</div>
-{/snippet}
 
 <div class="absolute left-4 top-4 z-20 w-[min(22rem,calc(100vw-2rem))]">
 	<!-- Search input -->
@@ -250,24 +238,30 @@
 		</p>
 	{/if}
 
-	<!-- Results dropdown: rate inline, or click the text to open it on the map. -->
+	<!-- Suggestions: click one to open it on the map and rate it there. -->
 	{#if results.length > 0}
 		<div class="bg-card mt-1 max-h-96 overflow-y-auto rounded-xl border shadow-md backdrop-blur">
-			{#each results as hit (hit.muid)}
-				<div class="hover:bg-accent flex flex-col gap-2 px-3 py-2">
-					<button type="button" class="min-w-0 text-left" onclick={() => selectHit(hit)}>
-						<div class="flex items-center gap-2">
-							<span class="truncate text-sm font-medium">{hit.name}</span>
-							{#if hit.category}
-								<Badge variant="secondary" class="text-[10px]">{categoryLabel(hit.category)}</Badge>
-							{/if}
-						</div>
-						<p class="text-muted-foreground mt-0.5 truncate text-xs">{hit.address}</p>
-					</button>
-					{#if signedIn && hit.category}
-						{@render ratingGroup(hit)}
+			{#each results as sug (sug.id)}
+				<button
+					type="button"
+					class="hover:bg-accent flex w-full items-center gap-2 px-3 py-2 text-left"
+					disabled={resolving !== null}
+					onclick={() => selectHit(sug)}
+				>
+					<span class="min-w-0 flex-1">
+						<span class="block truncate text-sm">
+							{#each highlight(sug.name, query) as part}<span
+									class={part.match ? 'font-semibold' : ''}>{part.text}</span
+								>{/each}
+						</span>
+						{#if sug.address}
+							<span class="text-muted-foreground mt-0.5 block truncate text-xs">{sug.address}</span>
+						{/if}
+					</span>
+					{#if resolving === sug.id}
+						<Loader2 class="text-muted-foreground size-4 shrink-0 animate-spin" />
 					{/if}
-				</div>
+				</button>
 			{/each}
 		</div>
 	{/if}
