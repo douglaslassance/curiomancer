@@ -147,15 +147,15 @@
 	// region-change-end.
 	// Switch to full-detail pins once closer than this (~city/neighborhood).
 	const DETAIL_CAMERA_DISTANCE = 40_000;
-	// A location-centered map opens framed on this span around the center. Chosen
-	// so the resulting camera distance lands just inside the detail band (~28km,
-	// under DETAIL_CAMERA_DISTANCE), so full pins (glyph + label) show from the
-	// first paint instead of far-zoom dots - i.e. the opening zoom and the detail
-	// threshold coincide. We open via a region (not center + cameraDistance):
+	// A location-centered map opens framed on this span around the center. Sized
+	// to a neighborhood/street-level view, matching the default zoom of Apple Maps
+	// and Google Maps, rather than framing the whole city. That lands the camera
+	// ~3.4km out, well inside the detail band, so full pins (glyph + label) show
+	// from the first paint. We open via a region (not center + cameraDistance):
 	// MapKit reliably honors a constructor region, but a constructor cameraDistance
 	// can get dropped during the initial settle. (When fitting all pins the framing
 	// code computes its own region and this span is ignored.)
-	const OPEN_REGION_SPAN = 0.15;
+	const OPEN_REGION_SPAN = 0.02;
 	// Seed the detail state to a detailed value so pins build in full before the
 	// first region-change-end reports the real distance.
 	let cameraDistance = $state(30_000);
