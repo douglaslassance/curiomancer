@@ -105,6 +105,46 @@
 	const current = $derived(queue[index] ?? null);
 	const mapsUrl = $derived(current ? googleMapsUrl(current) : null);
 
+	// Place photos: resolved lazily per card (the venue website's preview image,
+	// via the Apple Place ID), cached by queue key and prefetched a couple ahead
+	// so swiping usually shows a photo instantly. In the cache, a string is the
+	// image URL, null means "resolved, no photo" (fall back to the map), and a
+	// missing key means "not fetched yet".
+	let photoCache = $state<Record<string, string | null>>({});
+	const photoInFlight = new Set<string>();
+
+	async function loadPhoto(item: RateItem | null | undefined) {
+		if (!item || item.key in photoCache || photoInFlight.has(item.key)) return;
+		const query = item.placeId
+			? `placeId=${encodeURIComponent(item.placeId)}`
+			: item.apple
+				? `externalId=${encodeURIComponent(item.apple.externalId)}`
+				: null;
+		if (!query) {
+			photoCache[item.key] = null;
+			return;
+		}
+		photoInFlight.add(item.key);
+		try {
+			const res = await fetch(`/api/place-photo?${query}`);
+			photoCache[item.key] = res.ok ? ((await res.json()) as { url: string | null }).url : null;
+		} catch {
+			photoCache[item.key] = null;
+		} finally {
+			photoInFlight.delete(item.key);
+		}
+	}
+
+	const currentPhoto = $derived(current ? photoCache[current.key] : undefined);
+
+	// Resolve the current card's photo and quietly prefetch the next two.
+	$effect(() => {
+		void index;
+		loadPhoto(current);
+		loadPhoto(queue[index + 1]);
+		loadPhoto(queue[index + 2]);
+	});
+
 	// Non-reactive dedupe + sweep state. muids we've already surfaced (DB apple
 	// places, plus every POI we enqueue) so Apple searches never repeat a place.
 	// Also seeded with Apple POIs the viewer skipped (still in cooldown) so the
@@ -385,14 +425,27 @@
 						{/if}
 					</div>
 
-					{#if current.latitude !== null && current.longitude !== null}
+					{#if typeof currentPhoto === 'string' || (current.latitude !== null && current.longitude !== null)}
 						<div class="h-52 w-full sm:order-first sm:h-56 sm:w-72 sm:shrink-0">
-							<PlaceMiniMap
-								latitude={current.latitude}
-								longitude={current.longitude}
-								name={current.name}
-								category={current.category}
-							/>
+							{#if typeof currentPhoto === 'string'}
+								<!-- Photo when we found one; the map stays the fallback. If the
+								     image fails to load (dead link, blocked hotlink), drop back
+								     to the map for this card. -->
+								<img
+									src={currentPhoto}
+									alt={current.name}
+									class="h-full w-full rounded-xl border object-cover"
+									loading="lazy"
+									onerror={() => (photoCache[current.key] = null)}
+								/>
+							{:else if current.latitude !== null && current.longitude !== null}
+								<PlaceMiniMap
+									latitude={current.latitude}
+									longitude={current.longitude}
+									name={current.name}
+									category={current.category}
+								/>
+							{/if}
 						</div>
 					{/if}
 				</div>

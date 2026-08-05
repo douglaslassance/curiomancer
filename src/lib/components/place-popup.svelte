@@ -24,21 +24,40 @@
 
 	let context = $state<Context | null>(null);
 	let loadError = $state<string | null>(null);
+	// The place's photo (the venue website's preview image), or null when there
+	// is none. Resolved alongside the context; unlike the Tune card this popup
+	// has no map, so it simply omits the image when absent.
+	let photoUrl = $state<string | null>(null);
 
-	// Re-fetch context whenever the placeId prop changes - switching pins.
+	// Re-fetch context and photo whenever the placeId prop changes - switching
+	// pins. The `cancelled` guard stops a slow response for a previous pin from
+	// clobbering the current one.
 	$effect(() => {
 		const id = placeId;
+		let cancelled = false;
 		context = null;
 		loadError = null;
+		photoUrl = null;
 		fetch(`/api/places/${id}`)
 			.then(async (res) => {
 				if (!res.ok) throw new Error(`Server returned ${res.status}`);
+				if (cancelled) return;
 				context = (await res.json()) as Context;
 			})
 			.catch((err) => {
+				if (cancelled) return;
 				console.error('Failed to load place context:', err);
 				loadError = err instanceof Error ? err.message : 'Could not load.';
 			});
+		fetch(`/api/place-photo?placeId=${id}`)
+			.then(async (res) => {
+				if (cancelled || !res.ok) return;
+				photoUrl = ((await res.json()) as { url: string | null }).url;
+			})
+			.catch(() => {});
+		return () => {
+			cancelled = true;
+		};
 	});
 </script>
 
@@ -64,6 +83,18 @@
 	{:else if loadError}
 		<p class="text-destructive py-2 text-sm">{loadError}</p>
 	{:else if context}
+		{#if photoUrl}
+			<!-- Venue photo when we have one. Omitted (no map fallback here) when
+			     absent or if the image fails to load. -->
+			<img
+				src={photoUrl}
+				alt={context.place.name}
+				class="mb-3 h-40 w-full rounded-lg border object-cover"
+				loading="lazy"
+				onerror={() => (photoUrl = null)}
+			/>
+		{/if}
+
 		<!-- Header -->
 		<div class="pr-6">
 			<div class="flex items-start gap-2">

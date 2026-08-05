@@ -109,6 +109,28 @@ export async function searchAppleMaps(
 }
 
 /**
+ * Fetch a place's rich MapKit record by its Apple Place ID, returning the
+ * venue's own website(s) in `urls`.
+ *
+ * This hits the MapKit JS backend host (api.apple-mapkit.com), NOT the
+ * documented Server API host (maps-api.apple.com). Only the former returns
+ * `urls`, even though both accept the same access token: the Server API's
+ * place record is address-only. It is a semi-private endpoint (versioned by
+ * `mkjsVersion`), so treat it as best-effort and let callers fall back when
+ * it returns nothing.
+ */
+export async function fetchApplePlaceUrls(placeId: string): Promise<string[]> {
+	const token = await getAccessToken();
+	const url = `https://api.apple-mapkit.com/v1/place/${encodeURIComponent(
+		placeId
+	)}?lang=en&mkjsVersion=6.0.122`;
+	const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+	if (!res.ok) return [];
+	const data = (await res.json()) as { urls?: string[] };
+	return Array.isArray(data.urls) ? data.urls : [];
+}
+
+/**
  * Reverse-geocode coordinates to a "City, Country" label via Apple, so the
  * splash "Detect" button yields the same style and source as the
  * autocomplete suggestions (rather than mixing in a second provider).

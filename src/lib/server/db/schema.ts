@@ -54,6 +54,23 @@ export const place = pgTable(
 	]
 );
 
+/**
+ * Cache of resolved display photos, keyed by Apple Place ID (the muid), not by
+ * a `place` row: the Tune feed shows Apple POIs that aren't saved yet, and a
+ * given Place ID is the same venue whether or not anyone has rated it. Each
+ * Apple place is resolved at most once. A row with `url` null means "checked,
+ * no photo found", so we don't re-resolve it. See src/lib/server/place-photo.ts.
+ */
+export const placePhoto = pgTable('place_photo', {
+	/** The Apple Place ID (muid) this photo belongs to. */
+	externalId: text('external_id').primaryKey(),
+	/** Resolved image URL (currently the venue website's og:image), or null. */
+	url: text('url'),
+	/** How we got it, e.g. 'website-og'. Null when no photo was found. */
+	source: text('source'),
+	checkedAt: timestamp('checked_at').notNull().defaultNow()
+});
+
 export type Place = typeof place.$inferSelect;
 export type NewPlace = typeof place.$inferInsert;
 

@@ -21,6 +21,7 @@
 		"backfill:email-verified": "tsx scripts/backfill-email-verified.ts",
 		"backfill:avatars": "tsx scripts/backfill-avatars-to-r2.ts",
 		"backfill:waitlist-coords": "tsx scripts/backfill-waitlist-coords.ts",
+		"probe:place-photos": "tsx scripts/probe-place-photos.ts",
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"auth:schema": "better-auth generate --config src/lib/server/auth.ts --output src/lib/server/db/auth.schema.ts --yes"
