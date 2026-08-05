@@ -55,11 +55,12 @@ export const place = pgTable(
 );
 
 /**
- * Cache of resolved display photos, keyed by Apple Place ID (the muid), not by
- * a `place` row: the Tune feed shows Apple POIs that aren't saved yet, and a
- * given Place ID is the same venue whether or not anyone has rated it. Each
- * Apple place is resolved at most once. A row with `url` null means "checked,
- * no photo found", so we don't re-resolve it. See src/lib/server/place-photo.ts.
+ * Cache of resolved display media (photo + venue website), keyed by Apple Place
+ * ID (the muid), not by a `place` row: the Tune feed shows Apple POIs that
+ * aren't saved yet, and a given Place ID is the same venue whether or not
+ * anyone has rated it. Each Apple place is resolved at most once. A row with
+ * `url` null means "checked, no photo found", so we don't re-resolve it. See
+ * src/lib/server/place-photo.ts.
  */
 export const placePhoto = pgTable('place_photo', {
 	/** The Apple Place ID (muid) this photo belongs to. */
@@ -68,6 +69,13 @@ export const placePhoto = pgTable('place_photo', {
 	url: text('url'),
 	/** How we got it, e.g. 'website-og'. Null when no photo was found. */
 	source: text('source'),
+	/** The venue's own website (the page the photo came from), or null. */
+	website: text('website'),
+	/**
+	 * When we last looked the website up. Null on rows cached before websites
+	 * were stored, which is how the resolver knows to fill them in once.
+	 */
+	websiteCheckedAt: timestamp('website_checked_at'),
 	checkedAt: timestamp('checked_at').notNull().defaultNow()
 });
 

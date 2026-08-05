@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { Badge } from '$lib/components/ui/badge';
-	import { Bookmark, Eye, Loader2, MapPin, ThumbsDown, ThumbsUp } from '@lucide/svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Bookmark, Eye, Loader2, MapPin, ThumbsDown, ThumbsUp, X } from '@lucide/svelte';
 	import { categoryLabel } from '$lib/place-category';
 	import type { Component } from 'svelte';
 
@@ -75,21 +76,22 @@
 		bottom-4 left-1/2 max-h-[calc(100vh-7rem)] w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2
 		sm:bottom-auto sm:left-auto sm:right-4 sm:top-4 sm:max-h-[calc(100vh-6rem)] sm:w-96 sm:translate-x-0"
 >
-	<button
-		type="button"
-		class="text-muted-foreground hover:text-foreground absolute right-3 top-3 text-sm"
-		onclick={onClose}
-		aria-label="Close"
-	>
-		✕
-	</button>
-
-	<div class="pr-6">
-		<div class="flex items-start gap-2">
+	<div>
+		<!-- In the header row next to the category, same as the place card. -->
+		<div class="flex items-center gap-2">
 			<h3 class="flex-1 text-sm font-semibold">{poi.name}</h3>
 			{#if poi.category}
 				<Badge variant="secondary">{categoryLabel(poi.category)}</Badge>
 			{/if}
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				class="text-muted-foreground hover:text-foreground -mr-1 shrink-0"
+				onclick={onClose}
+				aria-label="Close"
+			>
+				<X />
+			</Button>
 		</div>
 		{#if poi.address || poi.city}
 			<p class="text-muted-foreground mt-1 flex items-center gap-1 text-xs">

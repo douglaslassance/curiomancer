@@ -303,11 +303,56 @@
 		}
 	}
 
+	/** How far apart two coordinates can be and still be the same venue. Same
+	 *  radius the iOS and Android maps use for this (`savedMatch`). */
+	const SAME_VENUE_METERS = 80;
+
+	/** Metres between two coordinates, flat-earth approximation (fine at block scale). */
+	function metersBetween(aLat: number, aLng: number, bLat: number, bLng: number): number {
+		const latM = (aLat - bLat) * 111_320;
+		const lngM = (aLng - bLng) * 111_320 * Math.cos((aLat * Math.PI) / 180);
+		return Math.hypot(latM, lngM);
+	}
+
+	/**
+	 * The place we already have for an Apple POI, or undefined when it's new to
+	 * us. Matches on Apple muid first, then on name + proximity, because the same
+	 * venue carries different muids across MapKit JS, the Apple Server API, and
+	 * native MapKit. Without that fallback, picking a place you already rated
+	 * opens the "rate this new place" popup for Apple's copy of it instead of
+	 * your own card. The native maps have matched this way all along
+	 * (`savedMatch` in MapScreen); the web was the one still trusting the muid.
+	 *
+	 * The server dedupes the same two ways on save (`findExistingApplePlaceId`),
+	 * but with coordinates rounded to 3 decimals rather than a radius. Rounding
+	 * splits venues that straddle a grid line, and here a miss is a visibly wrong
+	 * popup rather than a duplicate row, so this side is the forgiving one.
+	 */
+	function findSavedPlace(hit: {
+		muid: string;
+		name: string;
+		latitude: number;
+		longitude: number;
+	}): Place | undefined {
+		const byMuid = places.find((p) => p.source === 'apple' && p.externalId === hit.muid);
+		if (byMuid) return byMuid;
+
+		const name = hit.name.trim().toLowerCase();
+		if (!name) return undefined;
+		return places.find(
+			(p) =>
+				p.latitude !== null &&
+				p.longitude !== null &&
+				p.name.trim().toLowerCase() === name &&
+				metersBetween(hit.latitude, hit.longitude, p.latitude, p.longitude) <= SAME_VENUE_METERS
+		);
+	}
+
 	/**
 	 * Picking a search result behaves exactly like tapping the place: fly there
-	 * and open the right-side panel. If we already have the place saved (matched
-	 * by Apple muid), open the full PlacePopup and highlight its pin; otherwise
-	 * drop the amber preview marker and open PoiPopup to rate-and-save it.
+	 * and open the right-side panel. If we already have the place saved, open the
+	 * full PlacePopup and highlight its pin; otherwise drop the amber preview
+	 * marker and open PoiPopup to rate-and-save it.
 	 */
 	function selectSearchHit(hit: {
 		muid: string;
@@ -319,7 +364,7 @@
 		locality?: string;
 	}) {
 		if (!mapRef || !window.mapkit) return;
-		const saved = places.find((p) => p.source === 'apple' && p.externalId === hit.muid);
+		const saved = findSavedPlace(hit);
 		if (saved) {
 			clearPreviewMarker();
 			selectedPoi = null;
@@ -352,7 +397,11 @@
 	 * Fires when any feature is selected. Our own pins carry `.data` and are
 	 * handled by their per-annotation listener, so here we only handle Apple's
 	 * native POIs: resolve the tapped feature to a mapkit.Place and open the
-	 * rating popup. Rating it saves the place (deduped by muid, like search).
+	 * rating popup. Rating it saves the place (deduped like search).
+	 *
+	 * Apple keeps showing its own POI for a venue we already have a pin for, so
+	 * a tap on Apple's copy resolves through `findSavedPlace` first and opens our
+	 * card when it's one of ours.
 	 */
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	async function handleFeatureSelect(event: any) {
@@ -377,6 +426,20 @@
 		}
 		if (!place || !place.coordinate) return;
 
+		const saved = findSavedPlace({
+			muid: String(place.muid ?? place.id),
+			name: place.name ?? '',
+			latitude: place.coordinate.latitude,
+			longitude: place.coordinate.longitude
+		});
+		if (saved) {
+			selectedPoi = null;
+			selectedPlace = saved;
+			const ours = placeAnnotations.get(saved.id);
+			if (ours && mapRef) mapRef.selectedAnnotation = ours;
+			return;
+		}
+
 		selectedPlace = null;
 		selectedPoi = {
 			muid: String(place.muid ?? place.id),
@@ -392,6 +455,13 @@
 	function closePoi() {
 		selectedPoi = null;
 		// Deselect the native feature so tapping it again re-opens the popup.
+		if (mapRef) mapRef.selectedAnnotation = null;
+	}
+
+	function closePlace() {
+		selectedPlace = null;
+		// Drop the pin's selected state too, otherwise it stays highlighted with
+		// no card open and tapping it again fires no select event.
 		if (mapRef) mapRef.selectedAnnotation = null;
 	}
 
@@ -707,7 +777,7 @@
 	{/if}
 
 	{#if selectedPlace}
-		<PlacePopup placeId={selectedPlace.id} onClose={() => (selectedPlace = null)} />
+		<PlacePopup placeId={selectedPlace.id} onClose={closePlace} />
 	{:else if selectedPoi}
 		<PoiPopup poi={selectedPoi} {signedIn} onClose={closePoi} />
 	{/if}

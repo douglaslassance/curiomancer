@@ -1,11 +1,13 @@
 /**
- * Resolves a display photo for a place that has none of its own.
+ * Resolves the display media for a place: its photo, and the venue website that
+ * photo came from.
  *
  * The chain is two best-effort hops. The Apple Place ID gives us the venue's
  * website (via `fetchApplePlaceUrls`), and that website's Open Graph preview
  * image (`og:image`, the picture that shows when you paste a link into a
  * message) is the photo. A place with no website, or a site with no preview
- * image, resolves to `null` and the UI shows a placeholder.
+ * image, resolves to `null` and the UI shows a placeholder. The website itself
+ * is kept alongside so the place cards can link out to it.
  *
  * There are no user uploads and no paid photo providers by design, so this is
  * the entire photo pipeline. Callers cache the outcome, including the null
@@ -18,7 +20,7 @@
  * today only `avatars/`) and store our own URL, so a venue changing, 404ing, or
  * blocking hotlinks can't break the photo. Deferred while user volume is low.
  */
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from './db';
 import { place, placePhoto } from './db/schema';
 import { fetchApplePlaceUrls } from './maps-search';
@@ -69,58 +71,83 @@ async function fetchPreviewImage(siteUrl: string): Promise<string | null> {
 	}
 }
 
-export type ResolvedPlacePhoto = { url: string; source: string };
+export type ResolvedPlacePhoto = {
+	url: string | null;
+	source: string | null;
+	website: string | null;
+};
 
 /**
- * Resolve a photo for an Apple-sourced place. Returns null when the place has
- * no website or the site exposes no usable preview image. Never throws: every
- * failure mode collapses to null so a caller can cache "no photo" and move on.
+ * Resolve the photo and website for an Apple-sourced place. Every field is
+ * null when the place has no website; `url` alone is null when the site
+ * exposes no usable preview image. Never throws: every failure mode collapses
+ * to nulls so a caller can cache "nothing there" and move on.
  */
-export async function resolvePlacePhoto(applePlaceId: string): Promise<ResolvedPlacePhoto | null> {
+export async function resolvePlacePhoto(applePlaceId: string): Promise<ResolvedPlacePhoto> {
+	const empty = { url: null, source: null, website: null };
 	try {
 		const urls = await fetchApplePlaceUrls(applePlaceId);
 		const site = urls.find((u) => /^https?:\/\//i.test(u));
-		if (!site) return null;
+		if (!site) return empty;
 		const image = await fetchPreviewImage(site);
-		return image ? { url: image, source: 'website-og' } : null;
+		return { url: image, source: image ? 'website-og' : null, website: site };
 	} catch {
-		return null;
+		return empty;
 	}
 }
 
+export type PlaceMedia = { url: string | null; website: string | null };
+
 /**
- * Cache-first photo lookup for an Apple Place ID. Returns the cached result if
+ * Cache-first media lookup for an Apple Place ID. Returns the cached result if
  * we've resolved this place before (including a cached `null` for "checked, no
  * photo"), otherwise resolves once and stores the outcome. Keyed by Apple ID so
  * one lookup serves the place everywhere, saved or not.
+ *
+ * A row with a null `websiteCheckedAt` predates website caching, so it counts
+ * as unresolved: it gets one re-resolution that fills the website in.
  */
-export async function getOrResolvePlacePhoto(externalId: string): Promise<{ url: string | null }> {
+export async function getOrResolvePlacePhoto(externalId: string): Promise<PlaceMedia> {
 	const cached = await db
-		.select({ url: placePhoto.url })
+		.select({
+			url: placePhoto.url,
+			website: placePhoto.website,
+			websiteCheckedAt: placePhoto.websiteCheckedAt
+		})
 		.from(placePhoto)
 		.where(eq(placePhoto.externalId, externalId))
 		.limit(1);
-	if (cached.length > 0) return { url: cached[0].url };
+	if (cached[0]?.websiteCheckedAt) return { url: cached[0].url, website: cached[0].website };
 
 	const resolved = await resolvePlacePhoto(externalId);
-	// onConflictDoNothing: a concurrent first-request may have inserted already.
+	const row = {
+		url: resolved.url,
+		source: resolved.source,
+		website: resolved.website,
+		// now() rather than a JS Date, so this lands on the same clock as the
+		// defaultNow() `checkedAt` right next to it.
+		websiteCheckedAt: sql`now()`
+	};
+	// onConflictDoUpdate: another request may have inserted first, and legacy
+	// rows (no websiteCheckedAt) are here precisely to be updated in place.
 	await db
 		.insert(placePhoto)
-		.values({ externalId, url: resolved?.url ?? null, source: resolved?.source ?? null })
-		.onConflictDoNothing();
-	return { url: resolved?.url ?? null };
+		.values({ externalId, ...row })
+		.onConflictDoUpdate({ target: placePhoto.externalId, set: row });
+	return { url: resolved.url, website: resolved.website };
 }
 
 /**
- * Resolve a photo from either a saved place id or an Apple Place ID directly.
- * Shared by the web (`/api/place-photo`) and native (`/api/v1/place-photo`)
- * routes so they can't drift. Returns `{ url: null }` when there's nothing to
- * resolve (a place with no Apple id), and the caller falls back to the map.
+ * Resolve the photo and website from either a saved place id or an Apple Place
+ * ID directly. Shared by the web (`/api/place-photo`) and native
+ * (`/api/v1/place-photo`) routes so they can't drift. Returns all-null when
+ * there's nothing to resolve (a place with no Apple id), and the caller falls
+ * back to the map.
  */
 export async function getPlacePhotoFor(params: {
 	placeId?: string | null;
 	externalId?: string | null;
-}): Promise<{ url: string | null }> {
+}): Promise<PlaceMedia> {
 	let externalId = params.externalId ?? null;
 	if (!externalId && params.placeId) {
 		const rows = await db
@@ -130,6 +157,6 @@ export async function getPlacePhotoFor(params: {
 			.limit(1);
 		externalId = rows[0]?.externalId ?? null;
 	}
-	if (!externalId) return { url: null };
+	if (!externalId) return { url: null, website: null };
 	return getOrResolvePlacePhoto(externalId);
 }

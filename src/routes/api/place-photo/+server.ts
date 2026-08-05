@@ -3,8 +3,9 @@ import { getPlacePhotoFor } from '$lib/server/place-photo';
 import type { RequestHandler } from './$types';
 
 /**
- * Returns a display photo URL for a place, or `{ url: null }` when none exists
- * (the caller then falls back to the map view).
+ * Returns `{ url, website }` for a place: its display photo (null when none
+ * exists, and the caller falls back to the map view) and the venue's own
+ * website (null when it has none), which the place cards link out to.
  *
  * Accepts either `?externalId=` (an Apple Place ID, e.g. a Tune POI not yet
  * saved) or `?placeId=` (a saved place row). Cached per Apple ID, so this is
