@@ -6,7 +6,7 @@
 	import PoiPopup, { type Poi } from './poi-popup.svelte';
 	import MapSearch from './map-search.svelte';
 	import CategoryFilter from './category-filter.svelte';
-	import { mapAppleCategory, mapCategoryVocabulary } from '$lib/map-category';
+	import { mapAppleCategory, mapCategoryVocabulary, placeCategoryFor } from '$lib/map-category';
 	import { buildPoiFilter } from '$lib/map-poi-filter';
 	import { Bookmark, Eye, Sparkles, ThumbsDown, ThumbsUp } from '@lucide/svelte';
 	import { RELATION_COLOR, RELATION_NEUTRAL, RELATION_RECOMMENDED } from '$lib/relation-colors';
@@ -99,6 +99,7 @@
 
 	// Place-type toggles (all on by default), shared with the places list.
 	let categories = $state<Record<Place['category'], boolean>>({
+		other: true,
 		eat: true,
 		drink: true,
 		shop: true,
@@ -385,7 +386,9 @@
 		selectedPoi = {
 			muid: hit.muid,
 			name: hit.name,
-			category: hit.category,
+			// Search hits carry the curated bucket or null; a null one is still
+			// rate-able, it just files under 'other'.
+			category: hit.category ?? 'other',
 			city: hit.locality ?? '',
 			address: hit.address,
 			latitude: hit.latitude,
@@ -445,7 +448,9 @@
 		selectedPoi = {
 			muid: String(place.muid ?? place.id),
 			name: place.name ?? 'Place',
-			category: mapAppleCategory(place.pointOfInterestCategory),
+			// Never null: anything Apple can show is rate-able, and whatever we
+			// can't bucket becomes 'other'.
+			category: placeCategoryFor(place.pointOfInterestCategory),
 			city: place.locality ?? place.subLocality ?? '',
 			address: place.formattedAddress ?? '',
 			latitude: place.coordinate.latitude,

@@ -20,7 +20,7 @@ import type { RequestHandler } from './$types';
  *
  *   returns: { center, places: [{ ...place, distanceKm, relation }] }
  */
-const CATEGORIES = ['eat', 'drink', 'shop', 'visit'] as const;
+const CATEGORIES = ['eat', 'drink', 'shop', 'visit', 'other'] as const;
 type Category = (typeof CATEGORIES)[number];
 
 function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): number {

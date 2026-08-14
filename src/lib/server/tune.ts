@@ -159,6 +159,10 @@ export async function getTuneQueue(
 		WHERE p.latitude IS NOT NULL
 		  AND p.longitude IS NOT NULL
 		  AND ${distance} <= ${MAX_DISTANCE_KM}
+		  -- Tune stays curated. You can rate anything Apple can show, and those
+		  -- land in 'other' (a university, a hospital); they belong on your map
+		  -- but not in a queue asking whether you'd go there.
+		  AND p.category IN ('eat', 'drink', 'shop', 'visit')
 		  -- Hide places the viewer skipped and that are still in cooldown/retired.
 		  -- A skip may be recorded by our place id or (for a POI skipped before it
 		  -- entered our DB) by Apple external id, so match either.

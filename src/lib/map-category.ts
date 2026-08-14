@@ -14,7 +14,18 @@
  * The extra Server-API synonyms (coffeeshop, grocerystore, gallery, ...) are
  * harmless on the client, which simply never encounters them.
  */
-export type PlaceCategory = 'eat' | 'drink' | 'shop' | 'visit';
+export type PlaceCategory = 'eat' | 'drink' | 'shop' | 'visit' | 'other';
+
+/**
+ * The categories the product is *about*. Tune only ever offers these, and the
+ * sets below are what sorts a POI into one.
+ *
+ * `other` is deliberately not here. You can rate anything Apple can show - a
+ * university, a hospital, a park - and those land in `other`, which keeps them
+ * off the Tune queue while still letting them onto your map.
+ */
+export const CURATED_CATEGORIES = ['eat', 'drink', 'shop', 'visit'] as const;
+export type CuratedCategory = (typeof CURATED_CATEGORIES)[number];
 
 const EAT = new Set(['bakery', 'cafe', 'restaurant', 'coffeeshop', 'coffee', 'dessert']);
 const DRINK = new Set(['brewery', 'distillery', 'nightlife', 'winery', 'bar', 'pub', 'brewpub']);
@@ -97,7 +108,23 @@ export function mapCategoryVocabulary() {
 	};
 }
 
-export function mapAppleCategory(poiCategory?: string): PlaceCategory | null {
+/**
+ * The category to *store* a place under. Never null: anything Apple can show is
+ * rate-able, and whatever we can't bucket lands in `other`.
+ *
+ * Use this on the rating path. Use `mapAppleCategory` on the discovery path
+ * (Tune, seed, import), where an unbucketed POI should be skipped rather than
+ * offered up as something to rate.
+ */
+export function placeCategoryFor(poiCategory?: string): PlaceCategory {
+	return mapAppleCategory(poiCategory) ?? 'other';
+}
+
+/**
+ * Bucket a POI into one of the curated categories, or null when it isn't one of
+ * them. Null means "not something Tune should offer", not "not rate-able".
+ */
+export function mapAppleCategory(poiCategory?: string): CuratedCategory | null {
 	if (!poiCategory) return null;
 	const c = normalizePoiKey(poiCategory);
 	if (EAT.has(c)) return 'eat';

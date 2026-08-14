@@ -1,14 +1,15 @@
 <script lang="ts">
-	import { ShoppingBag, Martini, UtensilsCrossed, Landmark } from '@lucide/svelte';
+	import { ShoppingBag, Martini, UtensilsCrossed, Landmark, MapPin } from '@lucide/svelte';
 	import { categoryLabel } from '$lib/place-category';
 	import type { Component } from 'svelte';
+	import type { PlaceCategory } from '$lib/map-category';
 
-	type Cat = 'eat' | 'drink' | 'shop' | 'visit';
+	type Cat = PlaceCategory;
 
 	// Toggle which place types are shown. Shared by the places list and the map
 	// so the "type of place" filter looks and behaves identically in both.
 	let {
-		value = $bindable({ eat: true, drink: true, shop: true, visit: true })
+		value = $bindable({ eat: true, drink: true, shop: true, visit: true, other: true })
 	}: {
 		value?: Record<Cat, boolean>;
 	} = $props();
@@ -17,7 +18,9 @@
 		{ key: 'eat', label: categoryLabel('eat'), icon: UtensilsCrossed },
 		{ key: 'drink', label: categoryLabel('drink'), icon: Martini },
 		{ key: 'shop', label: categoryLabel('shop'), icon: ShoppingBag },
-		{ key: 'visit', label: categoryLabel('visit'), icon: Landmark }
+		{ key: 'visit', label: categoryLabel('visit'), icon: Landmark },
+		// Anything rate-able that isn't one of the four the product is about.
+		{ key: 'other', label: categoryLabel('other'), icon: MapPin }
 	];
 </script>
 

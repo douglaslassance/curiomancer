@@ -13,6 +13,11 @@ import type { Place } from '$lib/server/db/schema';
 // Lucide source paths (24×24 viewBox, stroke-based). Keep in sync with
 // `node_modules/@lucide/svelte/dist/icons/<icon>.svelte` if we ever upgrade.
 const PATHS: Record<Place['category'], string[]> = {
+	// map-pin: anything rate-able that isn't one of the four curated kinds.
+	other: [
+		'M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0',
+		'M12 8a2 2 0 1 0 0 4 2 2 0 1 0 0-4'
+	],
 	// utensils-crossed
 	eat: [
 		'm16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8',

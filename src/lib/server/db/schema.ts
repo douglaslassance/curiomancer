@@ -31,7 +31,9 @@ export const place = pgTable(
 			.primaryKey()
 			.$defaultFn(() => crypto.randomUUID()),
 		name: text('name').notNull(),
-		category: text('category', { enum: ['eat', 'drink', 'shop', 'visit'] }).notNull(),
+		// 'other' is anything Apple can show that isn't one of the four curated
+		// kinds (a university, a hospital). Rate-able, but never offered by Tune.
+		category: text('category', { enum: ['eat', 'drink', 'shop', 'visit', 'other'] }).notNull(),
 		city: text('city').notNull(),
 		neighborhood: text('neighborhood'),
 		description: text('description').notNull(),

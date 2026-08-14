@@ -2,6 +2,7 @@ import { error } from '@sveltejs/kit';
 import { and, eq } from 'drizzle-orm';
 import { db } from './db';
 import { place, placeRelation, type PlaceRelationKind } from './db/schema';
+import type { PlaceCategory } from '../map-category';
 import { getPostHogClient } from './posthog';
 
 const VALID_KINDS = ['liked', 'disliked', 'seen', 'want_to_go'] as const satisfies PlaceRelationKind[];
@@ -135,7 +136,7 @@ export type ExportedRating = {
 	source: 'apple' | 'seed' | 'manual';
 	externalId: string | null;
 	name: string;
-	category: 'eat' | 'drink' | 'shop' | 'visit';
+	category: PlaceCategory;
 	city: string;
 	neighborhood: string | null;
 	latitude: number | null;

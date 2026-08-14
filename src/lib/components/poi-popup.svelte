@@ -4,6 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Bookmark, Eye, Loader2, MapPin, ThumbsDown, ThumbsUp, X } from '@lucide/svelte';
 	import { categoryLabel } from '$lib/place-category';
+	import type { PlaceCategory } from '$lib/map-category';
 	import type { Component } from 'svelte';
 
 	// A place tapped on the map that isn't in our DB yet. Rating it creates the
@@ -12,7 +13,7 @@
 	export type Poi = {
 		muid: string;
 		name: string;
-		category: 'eat' | 'drink' | 'shop' | 'visit' | null;
+		category: PlaceCategory;
 		city: string;
 		address: string;
 		latitude: number;
@@ -41,7 +42,6 @@
 	let error = $state<string | null>(null);
 
 	async function rate(kind: Kind) {
-		if (!poi.category) return;
 		saving = kind;
 		error = null;
 		try {
@@ -80,7 +80,7 @@
 		<!-- In the header row next to the category, same as the place card. -->
 		<div class="flex items-center gap-2">
 			<h3 class="flex-1 text-sm font-semibold">{poi.name}</h3>
-			{#if poi.category}
+			{#if poi.category !== 'other'}
 				<Badge variant="secondary">{categoryLabel(poi.category)}</Badge>
 			{/if}
 			<Button
@@ -103,10 +103,6 @@
 
 	{#if !signedIn}
 		<p class="text-muted-foreground mt-3 text-xs">Sign in to rate places.</p>
-	{:else if !poi.category}
-		<p class="text-muted-foreground mt-3 text-xs">
-			This type isn't supported yet, only places to eat, drink, shop, or visit.
-		</p>
 	{:else}
 		<div class="mt-3 flex items-center gap-1">
 			{#each RATINGS as r (r.kind)}

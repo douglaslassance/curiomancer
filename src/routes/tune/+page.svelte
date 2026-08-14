@@ -18,13 +18,18 @@
 	import { ensureMapKit } from '$lib/mapkit-client';
 	import PlaceMiniMap from '$lib/components/place-mini-map.svelte';
 	import { RELATION_COLOR } from '$lib/relation-colors';
-	import { mapAppleCategory } from '$lib/map-category';
+	import { mapAppleCategory, CURATED_CATEGORIES, type CuratedCategory } from '$lib/map-category';
 	import { categoryLabel } from '$lib/place-category';
 	import type { Component } from 'svelte';
 
 	let { data } = $props();
 
-	type Cat = 'eat' | 'drink' | 'shop' | 'visit';
+	// Tune only ever offers the curated kinds. A place stored as 'other' (a
+	// university, a hospital) is rate-able on the map but never queued here -
+	// the server filters it out, and isCurated keeps the client honest too.
+	type Cat = CuratedCategory;
+	const isCurated = (c: string): c is Cat =>
+		(CURATED_CATEGORIES as readonly string[]).includes(c);
 	type RateItem = {
 		key: string;
 		name: string;
@@ -78,6 +83,7 @@
 	// svelte-ignore state_referenced_locally
 	for (const p of data.places) {
 		if (ratedIds.has(p.id)) continue;
+		if (!isCurated(p.category)) continue;
 		const key = placeKey(p.name, p.latitude, p.longitude);
 		if (enqueuedKeys.has(key)) continue;
 		enqueuedKeys.add(key);
