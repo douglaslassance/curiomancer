@@ -2,7 +2,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { db } from './db';
 import { tuneSkip } from './db/schema';
 import { haversineKm, type NearbyPlace } from './nearby';
-import { twinSetCte } from './twin-set';
+import { tasteGraphCte } from './taste-graph';
 
 /**
  * Tune ranking knobs. These are documented + shown live in the admin Algorithm
@@ -96,7 +96,7 @@ export async function getTuneQueue(
 ): Promise<NearbyPlace[]> {
 	const distance = haversineKm(lat, lng, 'p.latitude', 'p.longitude');
 	const rows = await db.execute<TuneRow>(sql`
-		WITH ${twinSetCte(sql`${userId}`, TWIN_LIMIT)},
+		WITH ${tasteGraphCte(sql`${userId}`, TWIN_LIMIT)},
 		taste AS (
 			SELECT l.place_id, SUM(t.score)::float AS taste_score
 			FROM "place_relation" l

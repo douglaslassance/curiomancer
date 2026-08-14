@@ -25,8 +25,20 @@ export type SharedOpinion = {
 export type MatchBreakdown = {
 	/** True when an admin is looking at their own page: nothing to compare. */
 	isSelf: boolean;
-	/** -1..+1, or null when either side has no signal or nothing overlaps. */
+	/**
+	 * The propagated similarity (taste-graph.ts) - what twins and
+	 * recommendations both run on. Null when there's no signal in either
+	 * direction, direct or through anyone else.
+	 */
 	score: number | null;
+	/**
+	 * The measured half of `score`: these two people's own overlap. Null when
+	 * they've never rated the same place. Admin-only detail - `score` is the
+	 * number the product and the UI use.
+	 */
+	directScore: number | null;
+	/** What propagation added on top of `directScore`. Zero for a direct-only pair. */
+	propagatedScore: number | null;
 	/** The undamped cosine, before significance weighting. Null with no overlap. */
 	cosine: number | null;
 	/** min(shared, floor) / floor: how much the cosine was damped. */

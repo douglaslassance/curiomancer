@@ -10,7 +10,8 @@
 	 * drawn so the number is explainable rather than magic.
 	 *
 	 *   cosine = (agreements - disagreements) / sqrt(yourTotal * theirTotal)
-	 *   score  = cosine * min(shared, FLOOR) / FLOOR
+	 *   direct = cosine * min(shared, FLOOR) / FLOOR
+	 *   score  = direct + propagated        (see taste-graph.ts)
 	 *
 	 * The three tiles map one-to-one onto those terms: what you agreed on, how
 	 * much opinion each of you spread that agreement over, and how much the
@@ -43,7 +44,12 @@
 				return 'You have no likes or dislikes yet, so there is nothing to compare against.';
 			if (match.targetTotal === 0)
 				return `${name} has no likes or dislikes yet, so there is nothing to compare against.`;
-			return `You and ${name} have not rated any of the same places, so there is no signal either way.`;
+			return `You and ${name} have not rated any of the same places, and no chain of matches connects you, so there is no signal either way.`;
+		}
+		// A score with no overlap of its own came entirely through other people,
+		// so the agreement sentence below would be describing an empty set.
+		if (match.sharedCount === 0) {
+			return `You and ${name} have not rated any of the same places. This score reaches you entirely through people you both match with.`;
 		}
 		const parts: string[] = [];
 		if (match.disagreements > match.agreements) {
@@ -66,8 +72,18 @@
 				`spread across ${match.viewerTotal} of your opinions and ${match.targetTotal} of theirs`
 			);
 		}
+		if ((match.propagatedScore ?? 0) > 0.001) {
+			parts.push(
+				`plus ${points(match.propagatedScore)} carried in through people you both match with`
+			);
+		}
 		return `${parts.join(', ')}.`;
 	});
+
+	/** A score term as a percentage-point count, for the verdict sentence. */
+	function points(v: number | null): string {
+		return `${Math.round((v ?? 0) * 100)} points`;
+	}
 
 	// Venn geometry. Radii go as sqrt(total) so circle AREA tracks opinion count,
 	// and the centres are pushed together in proportion to how much of the
@@ -253,6 +269,14 @@
 						raw affinity
 					</span>
 					<span class="whitespace-nowrap">× {fmt(match.significance, 2)} confidence</span>
+					<span class="whitespace-nowrap">
+						= {match.directScore === null ? '-' : fmt(match.directScore, 3)} direct
+					</span>
+					<!-- The propagated term is what these two didn't measure themselves:
+					     similarity that reached them along chains of other matches. -->
+					<span class="whitespace-nowrap">
+						+ {match.propagatedScore === null ? '-' : fmt(match.propagatedScore, 3)} propagated
+					</span>
 					<span class="whitespace-nowrap">
 						= <span class="text-foreground font-semibold">{fmt(match.score, 3)}</span>
 						→ {pct}%

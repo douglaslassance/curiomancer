@@ -12,7 +12,7 @@ import { sql } from 'drizzle-orm';
 import { db } from './db';
 import type { Place } from './db/schema';
 import { AGREEMENT_EXPR, matchScoreExpr } from './similarity';
-import { twinSetCte } from './twin-set';
+import { tasteGraphCte } from './taste-graph';
 
 /**
  * SQL fragment computing great-circle distance in km between a fixed
@@ -108,10 +108,9 @@ export type NearbyPerson = {
 	score: number | null;
 	sharedCount: number;
 	/**
-	 * Whether this person is a taste-twin of the viewer, directly or one hop out
-	 * (see twin-set.ts). Carried rather than re-derived from `score`, because an
-	 * indirect twin's score is the product of its two links and sits below
-	 * MATCH_THRESHOLD by construction. Always false when there's no viewer.
+	 * Whether this person is a taste-twin of the viewer: their propagated
+	 * similarity clears MATCH_THRESHOLD (see taste-graph.ts). Always false when
+	 * there's no viewer to propagate from.
 	 */
 	isTwin: boolean;
 };
@@ -129,7 +128,7 @@ export async function getPeopleNearby(
 	// Signed-out callers have no viewer to hang a twin set off, so they get the
 	// shared totals plus an empty `twins` and every isTwin comes back false.
 	const twinPrelude = viewerUserId
-		? sql`${twinSetCte(sql`${viewerUserId}`, null)},`
+		? sql`${tasteGraphCte(sql`${viewerUserId}`, null)},`
 		: sql`
 			their_totals AS (
 				SELECT user_id, COUNT(*)::float AS n
@@ -137,6 +136,7 @@ export async function getPeopleNearby(
 				WHERE kind IN ('liked', 'disliked')
 				GROUP BY user_id
 			),
+			similarity AS (SELECT ''::text AS user_id, 0::float AS score WHERE FALSE),
 			twins AS (SELECT ''::text AS user_id, 0::float AS score WHERE FALSE),
 		`;
 
@@ -170,22 +170,15 @@ export async function getPeopleNearby(
 			  ))
 		),
 		viewer_total AS (SELECT COUNT(*)::float AS n FROM viewer_relations),
+		-- Display only: how many places we've both rated. Ranking uses the
+		-- propagated similarity below.
 		pair_stats AS (
-			SELECT
-				theirs.user_id,
-				COUNT(*)::int AS shared_count,
-				${matchScoreExpr(
-					sql`SUM(${AGREEMENT_EXPR})`,
-					sql`COUNT(*)`,
-					sql`(SELECT n FROM viewer_total)`,
-					sql`tt.n`
-				)} AS score
+			SELECT theirs.user_id, COUNT(*)::int AS shared_count
 			FROM "place_relation" theirs
 			JOIN viewer_relations mine ON mine.place_id = theirs.place_id
-			JOIN their_totals tt ON tt.user_id = theirs.user_id
 			WHERE theirs.user_id IN (SELECT user_id FROM nearby_users)
 			  AND theirs.kind IN ('liked', 'disliked')
-			GROUP BY theirs.user_id, tt.n
+			GROUP BY theirs.user_id
 		)
 		SELECT
 			u.id,
@@ -196,12 +189,13 @@ export async function getPeopleNearby(
 			ps.shared_count,
 			CASE
 				WHEN (SELECT COUNT(*) FROM viewer_relations) = 0 THEN NULL
-				ELSE ps.score
+				ELSE sim.score
 			END AS score,
 			(t.user_id IS NOT NULL) AS is_twin
 		FROM nearby_users nu
 		JOIN "user" u ON u.id = nu.user_id
 		LEFT JOIN pair_stats ps ON ps.user_id = nu.user_id
+		LEFT JOIN similarity sim ON sim.user_id = nu.user_id
 		LEFT JOIN twins t ON t.user_id = nu.user_id
 		WHERE u.incognito IS NOT TRUE
 		ORDER BY is_twin DESC, score DESC NULLS LAST, distance_km ASC

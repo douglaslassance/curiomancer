@@ -34,7 +34,7 @@ import { db } from './db';
 import { recommendationImpression, type Place, type RecommendationReason } from './db/schema';
 import { haversineKm } from './nearby';
 import { AGREEMENT_EXPR, MATCH_THRESHOLD, SIGNIFICANCE_FLOOR, matchScoreExpr } from './similarity';
-import { twinSetCte } from './twin-set';
+import { tasteGraphCte } from './taste-graph';
 import type { MatchBreakdown, SharedOpinion } from '$lib/match-breakdown';
 
 /**
@@ -63,12 +63,9 @@ export type MatchedPerson = {
 	/** -1..+1. UI typically clamps to [0, 1] when displaying as a percentage. */
 	score: number;
 	/**
-	 * Whether this person is a taste-twin. Carried on the record rather than
-	 * re-derived as `score > MATCH_THRESHOLD` by each caller: twinship is
-	 * transitive at one hop (see twin-set.ts), and an indirect twin's score is
-	 * the product of its two links, which sits below the threshold by
-	 * construction. Re-testing the score would filter out exactly the people the
-	 * hop was meant to include.
+	 * Whether this person is a taste-twin: their propagated similarity clears
+	 * MATCH_THRESHOLD (see taste-graph.ts). Carried on the record rather than
+	 * re-derived by each caller, so the bar is applied in exactly one place.
 	 */
 	isTwin: boolean;
 };
@@ -162,30 +159,25 @@ export async function areTwins(userIdA: string, userIdB: string): Promise<boolea
 /**
  * The score to show for a pair, and whether they're twins.
  *
- * A direct match reports its measured score. A pair reached through a hop has
- * no measurement of its own, so it reports the chain's weaker link (see
- * twin-set.ts) - which is above MATCH_THRESHOLD by construction, so an indirect
- * twin reads as an ordinary one. Callers shouldn't need to know, and neither
- * should the person looking at the badge.
+ * The propagated similarity (see taste-graph.ts), which is a measured overlap,
+ * paths through other people, or both added together. One number, so nothing
+ * here can tell you - and nothing downstream can leak - whether two people are
+ * connected directly or through someone else.
  *
- * Asymmetric in principle for indirect pairs - A's hops aren't B's - so
- * argument order matters here in a way it doesn't for the raw score.
+ * Argument order matters: propagation runs outward from `userIdA`, and A's
+ * intermediaries aren't B's.
  */
 export async function getTwinScore(
 	userIdA: string,
 	userIdB: string
 ): Promise<{ score: number | null; isTwin: boolean }> {
-	const { score } = await getPairScore(userIdA, userIdB);
-	if (score !== null && score > MATCH_THRESHOLD) return { score, isTwin: true };
-
-	// Unlimited: "is this person a twin" shouldn't depend on where they land in
-	// a top-N ranking.
 	const [row] = await db.execute<{ score: number }>(sql`
-		WITH ${twinSetCte(sql`${userIdA}`, null)}
-		SELECT score FROM twins WHERE user_id = ${userIdB} LIMIT 1
+		WITH ${tasteGraphCte(sql`${userIdA}`, null)}
+		SELECT score FROM similarity WHERE user_id = ${userIdB} LIMIT 1
 	`);
-	if (!row) return { score, isTwin: false };
-	return { score: Number(row.score), isTwin: true };
+	if (!row) return { score: null, isTwin: false };
+	const score = Number(row.score);
+	return { score, isTwin: score > MATCH_THRESHOLD };
 }
 
 /**
@@ -206,15 +198,13 @@ export async function getMatchedPeopleInCity(
 		score: number;
 		is_twin: boolean;
 	}>(sql`
-		WITH ${twinSetCte(sql`${userId}`, null)},
+		WITH ${tasteGraphCte(sql`${userId}`, null)},
+		-- Only for display: how many places we've both put an opinion on. The
+		-- ranking uses the propagated similarity, not this.
 		city_stats AS (
-			SELECT
-				theirs.user_id,
-				COUNT(*)::int AS shared_count,
-				SUM(${AGREEMENT_EXPR})::float AS agreement_sum
+			SELECT theirs.user_id, COUNT(*)::int AS shared_count
 			FROM "place_relation" theirs
-			JOIN my_relations mine
-				ON mine.place_id = theirs.place_id
+			JOIN my_relations mine ON mine.place_id = theirs.place_id
 			WHERE theirs.user_id <> ${userId}
 			  AND theirs.kind IN ('liked', 'disliked')
 			GROUP BY theirs.user_id
@@ -232,33 +222,19 @@ export async function getMatchedPeopleInCity(
 			  	SELECT blocker_id FROM "block" WHERE blocked_id = ${userId}
 			  )
 		)
-		-- People we actually overlap with, scored as measured.
 		SELECT
 			v.id,
 			v.name,
 			v.image,
-			cs.shared_count,
-			${matchScoreExpr(
-				sql`cs.agreement_sum`,
-				sql`cs.shared_count`,
-				sql`(SELECT n FROM my_total)`,
-				sql`tt.n`
-			)} AS score,
+			COALESCE(cs.shared_count, 0) AS shared_count,
+			COALESCE(s.score, 0) AS score,
 			(t.user_id IS NOT NULL) AS is_twin
-		FROM city_stats cs
-		JOIN visible v ON v.id = cs.user_id
-		JOIN their_totals tt ON tt.user_id = cs.user_id
-		LEFT JOIN twins t ON t.user_id = cs.user_id
-
-		UNION ALL
-
-		-- Twins reached through a hop. No overlap of our own to measure, so the
-		-- score is the chain's product and sharedCount is honestly zero.
-		SELECT v.id, v.name, v.image, 0 AS shared_count, t.score, TRUE AS is_twin
-		FROM twins t
-		JOIN visible v ON v.id = t.user_id
-		WHERE t.user_id NOT IN (SELECT user_id FROM city_stats)
-
+		FROM visible v
+		LEFT JOIN city_stats cs ON cs.user_id = v.id
+		LEFT JOIN similarity s ON s.user_id = v.id
+		LEFT JOIN twins t ON t.user_id = v.id
+		-- Someone we have neither an overlap nor a path to isn't a match at all.
+		WHERE cs.user_id IS NOT NULL OR s.user_id IS NOT NULL
 		ORDER BY is_twin DESC, score DESC, shared_count DESC
 		LIMIT ${limit}
 	`);
@@ -400,7 +376,7 @@ export async function getRecommendedPlaces(
 		score: number;
 		twin_count: number;
 	}>(sql`
-		WITH ${twinSetCte(sql`${userId}`, TWIN_LIMIT)},
+		WITH ${tasteGraphCte(sql`${userId}`, TWIN_LIMIT)},
 		all_my_relations AS (
 			SELECT place_id FROM "place_relation" WHERE user_id = ${userId}
 		)
@@ -546,12 +522,19 @@ export async function getMatchBreakdown(
 		shared: []
 	};
 	if (viewerId === targetId) {
-		return { ...empty, isSelf: true, score: null, cosine: null };
+		return {
+			...empty,
+			isSelf: true,
+			score: null,
+			directScore: null,
+			propagatedScore: null,
+			cosine: null
+		};
 	}
 
 	// Only liked/disliked carry taste signal; want_to_go and seen are ignored
 	// here exactly as they are in the score itself.
-	const [twin, { sharedCount }, [totals], sharedRows] = await Promise.all([
+	const [twin, { score: directScore, sharedCount }, [totals], sharedRows] = await Promise.all([
 		getTwinScore(viewerId, targetId),
 		getPairScore(viewerId, targetId),
 		db.execute<{ viewer_total: number; target_total: number }>(sql`
@@ -604,10 +587,14 @@ export async function getMatchBreakdown(
 
 	return {
 		isSelf: false,
-		// The hop-aware score: measured for a direct pair, the chain's weaker
-		// link for an indirect one. Same shape either way, so the badge doesn't
-		// disclose how the two are connected.
+		// The propagated score - what the product actually runs on.
 		score: twin.score,
+		// Its measured half, so the admin panel can show how much of the total
+		// came from places these two both rated and how much travelled in
+		// through other people. Null when they have no overlap at all.
+		directScore,
+		// Whatever the propagation added on top. Zero for a purely direct pair.
+		propagatedScore: twin.score === null ? null : twin.score - (directScore ?? 0),
 		cosine: norm > 0 && shared.length > 0 ? (agreements - disagreements) / norm : null,
 		significance: Math.min(shared.length, SIGNIFICANCE_FLOOR) / SIGNIFICANCE_FLOOR,
 		agreements,
