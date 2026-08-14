@@ -118,8 +118,7 @@
 				<p class="text-muted-foreground">
 					Nothing is hidden. Every point of interest Apple draws is visible and rate-able. The list
 					is still wired through <code>/api/v1/map-config</code>, so hiding a category is a
-					server-side change that reaches the web and both apps on the next map load, with no client
-					release.
+					server-side change that reaches all clients without a release.
 				</p>
 			{/if}
 		</Card.Content>
