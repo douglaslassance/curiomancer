@@ -2,14 +2,15 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Shapes } from '@lucide/svelte';
-	import { categoryLabel } from '$lib/place-category';
+	import { categoryIcon, categoryLabel } from '$lib/place-category';
 	import { CURATED_CATEGORIES } from '$lib/map-category';
 
 	let { data } = $props();
 	const v = $derived(data.vocabulary);
 
-	// What each bucket is for, in product terms. The membership lists below come
-	// from the live vocabulary, so this page can only go stale on the prose.
+	const OtherIcon = categoryIcon('other');
+
+	// What each bucket is for, in product terms.
 	const BLURB: Record<string, string> = {
 		eat: 'Somewhere you sit down and eat, from a bakery counter to a full restaurant.',
 		drink: 'Somewhere you go for a drink, whether that is a wine bar, a brewery, or a night out.',
@@ -29,16 +30,18 @@
 		</h2>
 		<p class="text-muted-foreground mt-1 text-sm">
 			Every place is filed under one category. It decides the pin glyph, the map's type filter, and
-			whether Tune will ever offer the place.
+			whether <a href="/admin/codex" class="underline underline-offset-2">Tune</a> will ever offer
+			the place.
 		</p>
 	</div>
 
 	<Card.Root>
 		<Card.Content class="flex flex-col gap-3 text-sm">
 			<p class="text-muted-foreground">
-				You can rate <strong>anything Apple Maps can show</strong> — a university, a hospital, a park.
-				What you cannot do is have Tune ask you about them. The four curated categories below are what
-				the product is about, and Tune only ever queues those.
+				You can rate <strong>anything Apple Maps can show</strong>, including a university, a
+				hospital, or a park. What you cannot do is have
+				<a href="/admin/codex" class="underline underline-offset-2">Tune</a> ask you about them. The
+				four curated categories below are what the product is about, and Tune only ever queues those.
 			</p>
 			<p class="text-muted-foreground">
 				Categories come from Apple's own point-of-interest vocabulary. Each Apple category maps to
@@ -46,18 +49,22 @@
 			</p>
 			<p class="text-muted-foreground">
 				The lists below are read live from <code>map-category.ts</code>, which is also what
-				<code>/api/v1/map-config</code> serves to the iOS and Android apps — so this page, the web map,
+				<code>/api/v1/map-config</code> serves to the iOS and Android apps, so this page, the web map,
 				and both native maps can't disagree.
 			</p>
 		</Card.Content>
 	</Card.Root>
 
 	{#each CURATED_CATEGORIES as key (key)}
+		{@const Icon = categoryIcon(key)}
 		<Card.Root>
 			<Card.Header>
 				<Card.Title class="flex items-center gap-2 text-base">
+					<Icon class="size-4" />
 					{categoryLabel(key)}
-					<Badge variant="secondary" class="font-mono text-xs">{key}</Badge>
+					{#if categoryLabel(key).toLowerCase() !== key}
+						<Badge variant="secondary" class="font-mono text-xs">{key}</Badge>
+					{/if}
 				</Card.Title>
 			</Card.Header>
 			<Card.Content class="flex flex-col gap-3 text-sm">
@@ -74,15 +81,16 @@
 	<Card.Root>
 		<Card.Header>
 			<Card.Title class="flex items-center gap-2 text-base">
+				<OtherIcon class="size-4" />
 				Other
-				<Badge variant="secondary" class="font-mono text-xs">other</Badge>
 			</Card.Title>
 		</Card.Header>
 		<Card.Content class="flex flex-col gap-3 text-sm">
 			<p class="text-muted-foreground">
 				Everything else Apple can show. A university, a hospital, a police station, a park. These are
-				rate-able and they appear on your map with a neutral pin, but Tune never queues them and they
-				never surface as recommendations.
+				rate-able and they appear on your map with a neutral pin, but
+				<a href="/admin/codex" class="underline underline-offset-2">Tune</a> never queues them and
+				they never surface as recommendations.
 			</p>
 			<p class="text-muted-foreground">
 				There is no membership list. Other is the fallback for any Apple category not claimed above,

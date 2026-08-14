@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { ShoppingBag, Martini, UtensilsCrossed, Landmark, MapPin } from '@lucide/svelte';
-	import { categoryLabel } from '$lib/place-category';
+	import { categoryIcon, categoryLabel } from '$lib/place-category';
 	import type { Component } from 'svelte';
 	import type { PlaceCategory } from '$lib/map-category';
 
@@ -14,14 +13,9 @@
 		value?: Record<Cat, boolean>;
 	} = $props();
 
-	const CATS: { key: Cat; label: string; icon: Component }[] = [
-		{ key: 'eat', label: categoryLabel('eat'), icon: UtensilsCrossed },
-		{ key: 'drink', label: categoryLabel('drink'), icon: Martini },
-		{ key: 'shop', label: categoryLabel('shop'), icon: ShoppingBag },
-		{ key: 'visit', label: categoryLabel('visit'), icon: Landmark },
-		// Anything rate-able that isn't one of the four the product is about.
-		{ key: 'other', label: categoryLabel('other'), icon: MapPin }
-	];
+	const CATS: { key: Cat; label: string; icon: Component }[] = (
+		['eat', 'drink', 'shop', 'visit', 'other'] as const
+	).map((key) => ({ key, label: categoryLabel(key), icon: categoryIcon(key) }));
 </script>
 
 <div class="flex flex-wrap gap-1.5">
