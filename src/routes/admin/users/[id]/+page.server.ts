@@ -150,6 +150,37 @@ export const actions: Actions = {
 		return { tokenLimitSet: limit };
 	},
 
+	/**
+	 * Promote to admin, or demote back to a plain user.
+	 *
+	 * Self-demotion is refused, which is also what guarantees the app can never
+	 * end up with zero admins: only an admin can reach this action, so every
+	 * demotion leaves at least the person performing it. That matters because
+	 * there's no recovery path - /setup only bootstraps an admin while the
+	 * database has no users at all.
+	 */
+	setRole: async ({ params, locals }) => {
+		if (!isAdmin(locals.user)) return fail(403, { message: 'Admins only.' });
+
+		const [target] = await db
+			.select({ role: userTable.role })
+			.from(userTable)
+			.where(eq(userTable.id, params.id))
+			.limit(1);
+		if (!target) return fail(404, { roleError: 'No such user.' });
+
+		const promoting = target.role !== 'admin';
+		if (!promoting && params.id === locals.user.id) {
+			return fail(400, { roleError: "You can't remove your own admin rights." });
+		}
+
+		await db
+			.update(userTable)
+			.set({ role: promoting ? 'admin' : 'user' })
+			.where(eq(userTable.id, params.id));
+		return { roleSet: promoting ? 'admin' : 'user' };
+	},
+
 	grantSubscription: async ({ params, locals }) => {
 		if (!isAdmin(locals.user)) return fail(403, { message: 'Admins only.' });
 		await grantSubscription(params.id);

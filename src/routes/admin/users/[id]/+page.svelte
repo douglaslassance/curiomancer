@@ -7,11 +7,23 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Separator } from '$lib/components/ui/separator';
-	import { Check, ExternalLink, Gift, Loader2, Mail, MapPin, VenetianMask } from '@lucide/svelte';
+	import {
+		Check,
+		ExternalLink,
+		Gift,
+		Loader2,
+		Mail,
+		MapPin,
+		Shield,
+		VenetianMask
+	} from '@lucide/svelte';
 	import { PLAN_NAME } from '$lib/subscription';
 
 	let { data, form } = $props();
 	const u = $derived(data.user);
+	// Viewing your own profile: you can be granted nothing and can't demote
+	// yourself, which is what keeps at least one admin in place.
+	const isSelf = $derived(data.match.isSelf);
 
 	const dateFmt = new Intl.DateTimeFormat('en-US', {
 		year: 'numeric',
@@ -20,6 +32,7 @@
 	});
 
 	let subscriptionBusy = $state(false);
+	let roleBusy = $state(false);
 	let impersonating = $state(false);
 
 	const stats = $derived([
@@ -188,6 +201,57 @@
 						{#if subscriptionBusy}
 							<Loader2 class="size-3.5 animate-spin" />
 						{:else if u.isSubscriber}
+							Revoke
+						{:else}
+							Grant
+						{/if}
+					</Button>
+				</form>
+			</div>
+
+			<Separator />
+
+			<div class="flex items-start gap-3">
+				<div class="min-w-0 flex-1">
+					<div class="flex items-center gap-2 text-sm font-medium">
+						Admin rights
+						{#if u.role === 'admin'}
+							<Badge variant="secondary" class="gap-1"><Shield class="size-3" />Admin</Badge>
+						{:else}
+							<span class="text-muted-foreground text-xs font-normal">User</span>
+						{/if}
+					</div>
+					<p class="text-muted-foreground mt-1 text-sm">
+						{#if isSelf}
+							You can't remove your own admin rights, so the app always keeps at least one admin.
+						{:else}
+							Full access to this panel, including granting admin rights to others.
+						{/if}
+					</p>
+					{#if form?.roleError}
+						<p class="text-destructive mt-1 text-sm">{form.roleError}</p>
+					{/if}
+				</div>
+				<form
+					method="post"
+					action="?/setRole"
+					use:enhance={() => {
+						roleBusy = true;
+						return async ({ update }) => {
+							await update();
+							roleBusy = false;
+						};
+					}}
+				>
+					<Button
+						type="submit"
+						size="sm"
+						variant={u.role === 'admin' ? 'outline' : 'secondary'}
+						disabled={roleBusy || (u.role === 'admin' && isSelf)}
+					>
+						{#if roleBusy}
+							<Loader2 class="size-3.5 animate-spin" />
+						{:else if u.role === 'admin'}
 							Revoke
 						{:else}
 							Grant
