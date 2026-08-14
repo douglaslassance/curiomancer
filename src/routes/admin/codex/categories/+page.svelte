@@ -46,7 +46,8 @@
 			<p class="text-muted-foreground">
 				The lists below are read live from <code>map-category.ts</code>, which is also what
 				<code>/api/v1/map-config</code> serves to the iOS and Android apps, so this page, the web map,
-				and both native maps can't disagree.
+				and both native maps can't disagree. That endpoint can also hide a category outright. Nothing
+				is hidden today, and adding one reaches every client without a release.
 			</p>
 		</Card.Content>
 	</Card.Root>
@@ -92,12 +93,14 @@
 		</Card.Content>
 	</Card.Root>
 
-	<Card.Root>
-		<Card.Header>
-			<Card.Title class="text-base">Hidden on the map</Card.Title>
-		</Card.Header>
-		<Card.Content class="flex flex-col gap-3 text-sm">
-			{#if v.hiddenPois.length}
+	<!-- Only when something is actually hidden. The empty state said nothing a
+	     whole card's worth, so it moved into the intro above. -->
+	{#if v.hiddenPois.length}
+		<Card.Root>
+			<Card.Header>
+				<Card.Title class="text-base">Hidden on the map</Card.Title>
+			</Card.Header>
+			<Card.Content class="flex flex-col gap-3 text-sm">
 				<p class="text-muted-foreground">
 					Apple categories the maps don't draw at all. Hidden means you can't tap or rate them, so
 					this list stays deliberately short.
@@ -107,13 +110,7 @@
 						<Badge variant="outline" class="font-mono text-xs font-normal">{apple}</Badge>
 					{/each}
 				</div>
-			{:else}
-				<p class="text-muted-foreground">
-					Nothing is hidden. Every point of interest Apple draws is visible and rate-able. The list
-					is still wired through <code>/api/v1/map-config</code>, so hiding a category is a
-					server-side change that reaches all clients without a release.
-				</p>
-			{/if}
-		</Card.Content>
-	</Card.Root>
+			</Card.Content>
+		</Card.Root>
+	{/if}
 </div>
