@@ -4,6 +4,7 @@ import { getRelationMap } from '$lib/server/likes';
 import { getMappablePlaces } from '$lib/server/places';
 import { getUserLocation } from '$lib/server/current-location';
 import { displayDescription } from '$lib/place-description';
+import { getRecommendedScores } from '$lib/server/recommended-scores';
 import { savePlaceRelation } from '$lib/server/add-place';
 import type { SavePlaceInput } from '$lib/server/add-place';
 import type { RequestHandler } from './$types';
@@ -19,7 +20,13 @@ import type { RequestHandler } from './$types';
  * Center defaults to the viewer's saved location; override with ?lat=&lng=.
  * Optional ?category=eat,drink narrows the set server-side.
  *
- *   returns: { center, places: [{ ...place, distanceKm, relation }] }
+ *   returns: { center, places: [{ ...place, distanceKm, relation, recommended }] }
+ *
+ * `recommended` marks a place a taste-twin likes that the viewer hasn't rated.
+ * It's what lets the native maps tell the two unrated states apart: a plain
+ * corpus place gets no pin of ours (Apple's own marker shows through), while a
+ * recommended one keeps a pin. The web reads the same scores from
+ * `getRecommendedScores`.
  */
 const CATEGORIES = ['eat', 'drink', 'shop', 'visit', 'other'] as const;
 type Category = (typeof CATEGORIES)[number];
@@ -61,7 +68,13 @@ export const GET: RequestHandler = async ({ request, url }) => {
 			)
 		: null;
 
-	const [rows, relationMap] = await Promise.all([getMappablePlaces(), getRelationMap(userId)]);
+	const [rows, relationMap, recommendedScores] = await Promise.all([
+		getMappablePlaces(),
+		getRelationMap(userId),
+		// Center is a coordinate; recommendations are scored per city, which only
+		// the viewer's saved location carries.
+		getUserLocation(userId).then((loc) => getRecommendedScores(userId, loc?.city))
+	]);
 
 	let places = rows
 		.filter((p) => !categories || categories.has(p.category))
@@ -71,6 +84,7 @@ export const GET: RequestHandler = async ({ request, url }) => {
 			// client has to learn that rule (see place-description.ts).
 			description: displayDescription(p),
 			relation: relationMap[p.id] ?? null,
+			recommended: (recommendedScores[p.id] ?? 0) > 0,
 			distanceKm:
 				center && p.latitude != null && p.longitude != null
 					? haversineKm(center.latitude, center.longitude, p.latitude, p.longitude)

@@ -90,9 +90,9 @@
 
 	// Which relation categories are shown. Seen and disliked default off so the
 	// map stays uncluttered; the filter chips let the user reveal them (unless
-	// the caller passes different defaults). Neutral ("other") discovery pins
-	// are always shown - they're the base layer. Only the initial value of
-	// defaultFilters matters - once mounted, `filters` is independently
+	// the caller passes different defaults). Places with no relation and no
+	// recommendation ("other") draw no pin at all - see isVisible. Only the
+	// initial value of defaultFilters matters - once mounted, `filters` is independently
 	// toggleable client state.
 	// svelte-ignore state_referenced_locally
 	let filters = $state<Record<FilterKey, boolean>>({ ...defaultFilters });
@@ -136,10 +136,16 @@
 		return 'other';
 	}
 
-	/** Neutral pins always show; relationship pins follow their filter chip. */
+	/**
+	 * A place with no relation and no recommendation gets no pin of ours at all,
+	 * so Apple's own marker shows through: un-rating a place puts the map back
+	 * exactly as it first showed it, rather than leaving a grey pin behind that
+	 * reads like a rating you didn't make. Recommended places keep a pin - that
+	 * one is the map telling you something. The rest follow their filter chip.
+	 */
 	function isVisible(id: string): boolean {
 		const rel = relationOf(id);
-		return rel === 'other' ? true : filters[rel];
+		return rel === 'other' ? false : filters[rel];
 	}
 
 	// Level of detail: far out we draw simplified pins (no category glyph, no

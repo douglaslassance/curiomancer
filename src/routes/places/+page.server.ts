@@ -3,7 +3,7 @@ import { db } from '$lib/server/db';
 import { userLocation, type PlaceRelationKind } from '$lib/server/db/schema';
 import { getRelationMap } from '$lib/server/likes';
 import { getMappablePlaces } from '$lib/server/places';
-import { getRecommendedPlaces } from '$lib/server/matching';
+import { getRecommendedScores } from '$lib/server/recommended-scores';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -30,28 +30,17 @@ export const load: PageServerLoad = async ({ locals }) => {
 		// One relation lookup (getRelationMap) instead of four getPlaceIdsByKind
 		// round trips, so the /places relation data comes from the SAME query as
 		// GET /api/v1/places (which also reads getRelationMap) and can't drift.
-		const [relations, recsByCategory] = await Promise.all([
+		const [relations, recs] = await Promise.all([
 			getRelationMap(locals.user.id),
-			// Recommendation scores are per-city, so there's nothing to compute
-			// until we know where the viewer is.
-			loc
-				? Promise.all([
-						getRecommendedPlaces(locals.user.id, { kind: 'city', city: loc.city }, 'eat', 100),
-						getRecommendedPlaces(locals.user.id, { kind: 'city', city: loc.city }, 'drink', 100),
-						getRecommendedPlaces(locals.user.id, { kind: 'city', city: loc.city }, 'shop', 100),
-						getRecommendedPlaces(locals.user.id, { kind: 'city', city: loc.city }, 'visit', 100)
-					])
-				: Promise.resolve([])
+			getRecommendedScores(locals.user.id, loc?.city)
 		]);
+		Object.assign(recommendedScores, recs);
 		const idsOf = (kind: PlaceRelationKind) =>
 			Object.keys(relations).filter((id) => relations[id] === kind);
 		likedIds = idsOf('liked');
 		dislikedIds = idsOf('disliked');
 		seenIds = idsOf('seen');
 		wantToGoIds = idsOf('want_to_go');
-		for (const set of recsByCategory) {
-			for (const rec of set) recommendedScores[rec.id] = rec.score;
-		}
 	}
 
 	// All places with coords. Seen and disliked are no longer filtered out -
