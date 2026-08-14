@@ -49,9 +49,57 @@ const VISIT = new Set([
 	'amusementpark'
 ]);
 
+/**
+ * Apple POI categories the map hides outright.
+ *
+ * Empty today: every point of interest Apple draws is shown. The list stays
+ * wired through `/api/v1/map-config` because that is exactly the kind of call
+ * that shouldn't need three client releases to reverse - adding an entry here
+ * hides it on the web, iOS, and Android on their next map load.
+ *
+ * Written in Apple's canonical form rather than our normalized one. It's the
+ * only form a client can turn back into a real SDK category without naming
+ * symbols (iOS does `MKPointOfInterestCategory(rawValue:)` straight off these),
+ * and every client already normalizes with `normalizePoiKey` on the way in, so
+ * matching costs nothing.
+ */
+const HIDDEN_POIS: string[] = [];
+
+/**
+ * Reduce any spelling of an Apple POI category to our comparison key.
+ *
+ * The same category reaches us as `MKPOICategoryGasStation` (MapKit, and the
+ * canonical form we serve) or `GasStation` (MapKit JS), so strip the prefix and
+ * lowercase. Every client implements this same two-step, which is what lets one
+ * served vocabulary drive all three maps.
+ */
+export function normalizePoiKey(key: string): string {
+	return key.replace(/^MKPOICategory/i, '').toLowerCase();
+}
+
+/**
+ * The whole Apple-category vocabulary as plain data, for `/api/v1/map-config`.
+ *
+ * The buckets are our normalized keys (`restaurant`); `hiddenPois` is Apple's
+ * canonical form (`MKPOICategoryATM`). Both sides of every comparison run
+ * through `normalizePoiKey` on the client, so a category Apple adds is a change
+ * here and nowhere else - no App Store or Play release to make the maps agree.
+ */
+export function mapCategoryVocabulary() {
+	return {
+		categories: {
+			eat: [...EAT],
+			drink: [...DRINK],
+			shop: [...SHOP],
+			visit: [...VISIT]
+		},
+		hiddenPois: [...HIDDEN_POIS]
+	};
+}
+
 export function mapAppleCategory(poiCategory?: string): PlaceCategory | null {
 	if (!poiCategory) return null;
-	const c = poiCategory.toLowerCase();
+	const c = normalizePoiKey(poiCategory);
 	if (EAT.has(c)) return 'eat';
 	if (DRINK.has(c)) return 'drink';
 	if (SHOP.has(c)) return 'shop';

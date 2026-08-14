@@ -6,7 +6,8 @@
 	import PoiPopup, { type Poi } from './poi-popup.svelte';
 	import MapSearch from './map-search.svelte';
 	import CategoryFilter from './category-filter.svelte';
-	import { mapAppleCategory } from '$lib/map-category';
+	import { mapAppleCategory, mapCategoryVocabulary } from '$lib/map-category';
+	import { buildPoiFilter } from '$lib/map-poi-filter';
 	import { Bookmark, Eye, Sparkles, ThumbsDown, ThumbsUp } from '@lucide/svelte';
 	import { RELATION_COLOR, RELATION_NEUTRAL, RELATION_RECOMMENDED } from '$lib/relation-colors';
 	import { theme } from '$lib/theme.svelte';
@@ -527,6 +528,12 @@
 							? window.mapkit.Map.ColorSchemes.Dark
 							: window.mapkit.Map.ColorSchemes.Light
 				});
+
+				// Apply the served hidden-POI list. The web reads the vocabulary
+				// straight from map-category.ts; iOS and Android get the same list
+				// over /api/v1/map-config.
+				const poiFilter = buildPoiFilter(window.mapkit, mapCategoryVocabulary().hiddenPois);
+				if (poiFilter) mapRef.pointOfInterestFilter = poiFilter;
 
 				// Make Apple's native POIs tappable so any place on the map can be
 				// rated, not just our own pins. handleFeatureSelect turns a tapped
