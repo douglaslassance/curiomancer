@@ -34,6 +34,7 @@ import { db } from './db';
 import { recommendationImpression, type Place, type RecommendationReason } from './db/schema';
 import { haversineKm } from './nearby';
 import { AGREEMENT_EXPR, MATCH_THRESHOLD, SIGNIFICANCE_FLOOR, matchScoreExpr } from './similarity';
+import { twinSetCte } from './twin-set';
 import type { MatchBreakdown, SharedOpinion } from '$lib/match-breakdown';
 
 /**
@@ -147,7 +148,18 @@ export async function getPairScore(
  */
 export async function areTwins(userIdA: string, userIdB: string): Promise<boolean> {
 	const { score } = await getPairScore(userIdA, userIdB);
-	return score !== null && score > MATCH_THRESHOLD;
+	if (score !== null && score > MATCH_THRESHOLD) return true;
+
+	// Not a direct match, so fall back to the one-hop set: twinship is
+	// transitive at one remove (see twin-set.ts). Unlimited, because "is this
+	// person a twin" shouldn't depend on where they land in a top-N ranking.
+	// Asymmetric in principle - A's hops aren't B's - so the caller's argument
+	// order now matters for indirect pairs, unlike the raw score.
+	const rows = await db.execute<{ user_id: string }>(sql`
+		WITH ${twinSetCte(sql`${userIdA}`, null)}
+		SELECT user_id FROM twins WHERE user_id = ${userIdB} LIMIT 1
+	`);
+	return rows.length > 0;
 }
 
 /**
@@ -348,52 +360,9 @@ export async function getRecommendedPlaces(
 		score: number;
 		twin_count: number;
 	}>(sql`
-		WITH my_relations AS (
-			SELECT place_id, kind FROM "place_relation"
-			WHERE user_id = ${userId} AND kind IN ('liked', 'disliked')
-		),
+		WITH ${twinSetCte(sql`${userId}`, TWIN_LIMIT)},
 		all_my_relations AS (
 			SELECT place_id FROM "place_relation" WHERE user_id = ${userId}
-		),
-		my_total AS (SELECT COUNT(*)::float AS n FROM my_relations),
-		their_totals AS (
-			SELECT user_id, COUNT(*)::float AS n
-			FROM "place_relation"
-			WHERE kind IN ('liked', 'disliked')
-			GROUP BY user_id
-		),
-		pair_stats AS (
-			SELECT
-				theirs.user_id,
-				${matchScoreExpr(
-					sql`SUM(${AGREEMENT_EXPR})`,
-					sql`COUNT(*)`,
-					sql`(SELECT n FROM my_total)`,
-					sql`tt.n`
-				)} AS score
-			FROM "place_relation" theirs
-			JOIN my_relations mine ON mine.place_id = theirs.place_id
-			JOIN their_totals tt ON tt.user_id = theirs.user_id
-			WHERE theirs.user_id <> ${userId}
-			  AND theirs.kind IN ('liked', 'disliked')
-			  AND theirs.user_id NOT IN (
-			  	SELECT blocked_id FROM "block" WHERE blocker_id = ${userId}
-			  	UNION
-			  	SELECT blocker_id FROM "block" WHERE blocked_id = ${userId}
-			  )
-			GROUP BY theirs.user_id, tt.n
-		),
-		twins AS (
-			SELECT user_id, score
-			FROM pair_stats
-			-- Only real taste-twins drive recommendations: the same
-			-- MATCH_THRESHOLD the people rail and /twins use, not any positive
-			-- overlap. A user with no twins above this bar gets no recs (the
-			-- home then nudges them to Tune) rather than recs built from
-			-- near-noise agreement.
-			WHERE score > ${MATCH_THRESHOLD}
-			ORDER BY score DESC
-			LIMIT ${TWIN_LIMIT}
 		)
 		SELECT
 			p.id,

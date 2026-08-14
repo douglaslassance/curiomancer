@@ -2,7 +2,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { db } from './db';
 import { tuneSkip } from './db/schema';
 import { haversineKm, type NearbyPlace } from './nearby';
-import { AGREEMENT_EXPR, MATCH_THRESHOLD, matchScoreExpr } from './similarity';
+import { twinSetCte } from './twin-set';
 
 /**
  * Tune ranking knobs. These are documented + shown live in the admin Algorithm
@@ -96,45 +96,7 @@ export async function getTuneQueue(
 ): Promise<NearbyPlace[]> {
 	const distance = haversineKm(lat, lng, 'p.latitude', 'p.longitude');
 	const rows = await db.execute<TuneRow>(sql`
-		WITH my_relations AS (
-			SELECT place_id, kind FROM "place_relation"
-			WHERE user_id = ${userId} AND kind IN ('liked', 'disliked')
-		),
-		my_total AS (SELECT COUNT(*)::float AS n FROM my_relations),
-		their_totals AS (
-			SELECT user_id, COUNT(*)::float AS n
-			FROM "place_relation"
-			WHERE kind IN ('liked', 'disliked')
-			GROUP BY user_id
-		),
-		pair_stats AS (
-			SELECT
-				theirs.user_id,
-				${matchScoreExpr(
-					sql`SUM(${AGREEMENT_EXPR})`,
-					sql`COUNT(*)`,
-					sql`(SELECT n FROM my_total)`,
-					sql`tt.n`
-				)} AS score
-			FROM "place_relation" theirs
-			JOIN my_relations mine ON mine.place_id = theirs.place_id
-			JOIN their_totals tt ON tt.user_id = theirs.user_id
-			WHERE theirs.user_id <> ${userId}
-			  AND theirs.kind IN ('liked', 'disliked')
-			  AND theirs.user_id NOT IN (
-			  	SELECT blocked_id FROM "block" WHERE blocker_id = ${userId}
-			  	UNION
-			  	SELECT blocker_id FROM "block" WHERE blocked_id = ${userId}
-			  )
-			GROUP BY theirs.user_id, tt.n
-		),
-		twins AS (
-			SELECT user_id, score
-			FROM pair_stats
-			WHERE score > ${MATCH_THRESHOLD}
-			ORDER BY score DESC
-			LIMIT ${TWIN_LIMIT}
-		),
+		WITH ${twinSetCte(sql`${userId}`, TWIN_LIMIT)},
 		taste AS (
 			SELECT l.place_id, SUM(t.score)::float AS taste_score
 			FROM "place_relation" l

@@ -83,6 +83,26 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	if (!row) throw error(404, 'User not found.');
 
+	// Bubbles, not pins: coordinates are rounded to a tenth of a degree (~11km)
+	// so a metro area collapses into a handful of circles that answer "where has
+	// this person rated" rather than "which venue is this".
+	const ratingLocations = await db.execute<{
+		latitude: number;
+		longitude: number;
+		count: number;
+	}>(sql`
+		SELECT
+			round(p.latitude::numeric, 1)::double precision AS latitude,
+			round(p.longitude::numeric, 1)::double precision AS longitude,
+			COUNT(*)::int AS count
+		FROM place_relation pr
+		JOIN place p ON p.id = pr.place_id
+		WHERE pr.user_id = ${params.id}
+			AND p.latitude IS NOT NULL
+			AND p.longitude IS NOT NULL
+		GROUP BY 1, 2
+	`);
+
 	const user: AdminUserDetail = {
 		id: row.id,
 		name: row.name,
@@ -107,7 +127,12 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 	};
 
 	// Impersonation is a real auth-bypass, so it only renders (and runs) in dev.
-	return { user, match: await getMatchBreakdown(locals.user!.id, params.id), canImpersonate: dev };
+	return {
+		user,
+		ratingLocations,
+		match: await getMatchBreakdown(locals.user!.id, params.id),
+		canImpersonate: dev
+	};
 };
 
 export const actions: Actions = {
