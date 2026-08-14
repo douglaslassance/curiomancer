@@ -123,7 +123,7 @@
 
 <Card.Root>
 	<Card.Header>
-		<Card.Title>Why this match</Card.Title>
+		<Card.Title>Match analysis</Card.Title>
 		<Card.Description>
 			{#if match.isSelf}
 				There is no pair to score on your own account.

@@ -39,7 +39,16 @@
 		<Tabs.List>
 			{#each tabs as t (t.href)}
 				{@const Icon = t.icon}
-				<Tabs.Trigger value={t.href}>
+				<Tabs.Trigger
+					value={t.href}
+					onclick={() => {
+						// Clicking the already-selected tab does not change the Tabs
+						// value, so onValueChange never fires. On a nested route
+						// (/admin/users/123 keeps the Users tab lit) that left the tab
+						// looking dead instead of returning to the list, so navigate here.
+						if (active === t.href && page.url.pathname !== t.href) goto(t.href);
+					}}
+				>
 					<Icon class="size-4" />
 					{t.label}
 				</Tabs.Trigger>
