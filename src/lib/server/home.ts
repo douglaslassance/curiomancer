@@ -70,7 +70,7 @@ export async function buildHome(userId: string): Promise<Home> {
 		// something, since with no ratings there's nothing to match on.
 		myLikeCount > 0
 			? getMatchedPeopleInCity(userId, loc.city).then((people) =>
-					people.filter((p) => p.score > MATCH_THRESHOLD)
+					people.filter((p) => p.isTwin)
 				)
 			: Promise.resolve([] as MatchedPerson[]),
 		getRecommendedPlaces(userId, scope, 'eat'),

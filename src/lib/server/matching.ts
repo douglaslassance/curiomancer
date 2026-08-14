@@ -62,6 +62,15 @@ export type MatchedPerson = {
 	sharedCount: number;
 	/** -1..+1. UI typically clamps to [0, 1] when displaying as a percentage. */
 	score: number;
+	/**
+	 * Whether this person is a taste-twin. Carried on the record rather than
+	 * re-derived as `score > MATCH_THRESHOLD` by each caller: twinship is
+	 * transitive at one hop (see twin-set.ts), and an indirect twin's score is
+	 * the product of its two links, which sits below the threshold by
+	 * construction. Re-testing the score would filter out exactly the people the
+	 * hop was meant to include.
+	 */
+	isTwin: boolean;
 };
 
 export type RecommendedPlace = Place & {
@@ -178,19 +187,10 @@ export async function getMatchedPeopleInCity(
 		image: string | null;
 		shared_count: number;
 		score: number;
+		is_twin: boolean;
 	}>(sql`
-		WITH my_relations AS (
-			SELECT place_id, kind FROM "place_relation"
-			WHERE user_id = ${userId} AND kind IN ('liked', 'disliked')
-		),
-		my_total AS (SELECT COUNT(*)::float AS n FROM my_relations),
-		their_totals AS (
-			SELECT user_id, COUNT(*)::float AS n
-			FROM "place_relation"
-			WHERE kind IN ('liked', 'disliked')
-			GROUP BY user_id
-		),
-		pair_stats AS (
+		WITH ${twinSetCte(sql`${userId}`, null)},
+		city_stats AS (
 			SELECT
 				theirs.user_id,
 				COUNT(*)::int AS shared_count,
@@ -201,30 +201,48 @@ export async function getMatchedPeopleInCity(
 			WHERE theirs.user_id <> ${userId}
 			  AND theirs.kind IN ('liked', 'disliked')
 			GROUP BY theirs.user_id
+		),
+		visible AS (
+			SELECT u.id, u.name, u.image
+			FROM "user" u
+			JOIN user_location ul ON ul.user_id = u.id
+			WHERE ul.city = ${city}
+			  AND u.incognito IS NOT TRUE
+			  AND u.id <> ${userId}
+			  AND u.id NOT IN (
+			  	SELECT blocked_id FROM "block" WHERE blocker_id = ${userId}
+			  	UNION
+			  	SELECT blocker_id FROM "block" WHERE blocked_id = ${userId}
+			  )
 		)
+		-- People we actually overlap with, scored as measured.
 		SELECT
-			u.id,
-			u.name,
-			u.image,
-			ps.shared_count,
+			v.id,
+			v.name,
+			v.image,
+			cs.shared_count,
 			${matchScoreExpr(
-				sql`ps.agreement_sum`,
-				sql`ps.shared_count`,
+				sql`cs.agreement_sum`,
+				sql`cs.shared_count`,
 				sql`(SELECT n FROM my_total)`,
 				sql`tt.n`
-			)} AS score
-		FROM pair_stats ps
-		JOIN their_totals tt ON tt.user_id = ps.user_id
-		JOIN "user" u ON u.id = ps.user_id
-		JOIN user_location ul ON ul.user_id = ps.user_id
-		WHERE ul.city = ${city}
-		  AND u.incognito IS NOT TRUE
-		  AND u.id NOT IN (
-		  	SELECT blocked_id FROM "block" WHERE blocker_id = ${userId}
-		  	UNION
-		  	SELECT blocker_id FROM "block" WHERE blocked_id = ${userId}
-		  )
-		ORDER BY score DESC, ps.shared_count DESC
+			)} AS score,
+			(t.user_id IS NOT NULL) AS is_twin
+		FROM city_stats cs
+		JOIN visible v ON v.id = cs.user_id
+		JOIN their_totals tt ON tt.user_id = cs.user_id
+		LEFT JOIN twins t ON t.user_id = cs.user_id
+
+		UNION ALL
+
+		-- Twins reached through a hop. No overlap of our own to measure, so the
+		-- score is the chain's product and sharedCount is honestly zero.
+		SELECT v.id, v.name, v.image, 0 AS shared_count, t.score, TRUE AS is_twin
+		FROM twins t
+		JOIN visible v ON v.id = t.user_id
+		WHERE t.user_id NOT IN (SELECT user_id FROM city_stats)
+
+		ORDER BY is_twin DESC, score DESC, shared_count DESC
 		LIMIT ${limit}
 	`);
 
@@ -233,7 +251,8 @@ export async function getMatchedPeopleInCity(
 		name: r.name,
 		image: r.image,
 		sharedCount: r.shared_count,
-		score: Number(r.score) || 0
+		score: Number(r.score) || 0,
+		isTwin: r.is_twin
 	}));
 }
 
@@ -324,7 +343,11 @@ export async function getSharedTwins(
 		name: r.name,
 		image: r.image,
 		sharedCount: r.shared_count,
-		score: Number(r.score) || 0
+		score: Number(r.score) || 0,
+		// Both links here are measured directly against A and B, so twinship is
+		// just the threshold. No hop is involved: "who do we both match with" is
+		// already a statement about two direct pairs.
+		isTwin: (Number(r.score) || 0) > MATCH_THRESHOLD
 	}));
 }
 
@@ -573,7 +596,10 @@ export async function getMatchBreakdown(
 		sharedCount: shared.length || sharedCount,
 		viewerTotal,
 		targetTotal,
-		isTwin: score !== null && score > MATCH_THRESHOLD,
+		// Hop-aware, so the badge agrees with profile access, chat, and the
+		// people list. An indirect twin has no measured pair score, so this is
+		// deliberately not derived from `score`.
+		isTwin: await areTwins(viewerId, targetId),
 		threshold: MATCH_THRESHOLD,
 		significanceFloor: SIGNIFICANCE_FLOOR,
 		shared

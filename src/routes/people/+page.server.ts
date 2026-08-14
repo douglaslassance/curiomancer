@@ -30,7 +30,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// Surface genuine taste-twins: cosine similarity clearing MATCH_THRESHOLD.
 	const people = (
 		await getPeopleNearby(loc.latitude, loc.longitude, radiusKm, locals.user.id)
-	).filter((p) => p.score !== null && p.score > MATCH_THRESHOLD);
+	).filter((p) => p.isTwin);
 
 	return {
 		center: { latitude: loc.latitude, longitude: loc.longitude },

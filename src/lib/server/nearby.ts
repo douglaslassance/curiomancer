@@ -12,6 +12,7 @@ import { sql } from 'drizzle-orm';
 import { db } from './db';
 import type { Place } from './db/schema';
 import { AGREEMENT_EXPR, matchScoreExpr } from './similarity';
+import { twinSetCte } from './twin-set';
 
 /**
  * SQL fragment computing great-circle distance in km between a fixed
@@ -106,6 +107,13 @@ export type NearbyPerson = {
 	/** -1..+1; null if viewer has no signal to compare against. */
 	score: number | null;
 	sharedCount: number;
+	/**
+	 * Whether this person is a taste-twin of the viewer, directly or one hop out
+	 * (see twin-set.ts). Carried rather than re-derived from `score`, because an
+	 * indirect twin's score is the product of its two links and sits below
+	 * MATCH_THRESHOLD by construction. Always false when there's no viewer.
+	 */
+	isTwin: boolean;
 };
 
 /**
@@ -118,6 +126,20 @@ export async function getPeopleNearby(
 	radiusKm: number,
 	viewerUserId: string | null
 ): Promise<NearbyPerson[]> {
+	// Signed-out callers have no viewer to hang a twin set off, so they get the
+	// shared totals plus an empty `twins` and every isTwin comes back false.
+	const twinPrelude = viewerUserId
+		? sql`${twinSetCte(sql`${viewerUserId}`, null)},`
+		: sql`
+			their_totals AS (
+				SELECT user_id, COUNT(*)::float AS n
+				FROM "place_relation"
+				WHERE kind IN ('liked', 'disliked')
+				GROUP BY user_id
+			),
+			twins AS (SELECT ''::text AS user_id, 0::float AS score WHERE FALSE),
+		`;
+
 	const rows = await db.execute<{
 		id: string;
 		name: string;
@@ -126,8 +148,10 @@ export async function getPeopleNearby(
 		distance_km: number;
 		shared_count: number | null;
 		score: number | null;
+		is_twin: boolean;
 	}>(sql`
-		WITH viewer_relations AS (
+		WITH ${twinPrelude}
+		viewer_relations AS (
 			SELECT place_id, kind FROM "place_relation"
 			WHERE user_id = ${viewerUserId ?? ''} AND kind IN ('liked', 'disliked')
 		),
@@ -146,12 +170,6 @@ export async function getPeopleNearby(
 			  ))
 		),
 		viewer_total AS (SELECT COUNT(*)::float AS n FROM viewer_relations),
-		their_totals AS (
-			SELECT user_id, COUNT(*)::float AS n
-			FROM "place_relation"
-			WHERE kind IN ('liked', 'disliked')
-			GROUP BY user_id
-		),
 		pair_stats AS (
 			SELECT
 				theirs.user_id,
@@ -179,12 +197,14 @@ export async function getPeopleNearby(
 			CASE
 				WHEN (SELECT COUNT(*) FROM viewer_relations) = 0 THEN NULL
 				ELSE ps.score
-			END AS score
+			END AS score,
+			(t.user_id IS NOT NULL) AS is_twin
 		FROM nearby_users nu
 		JOIN "user" u ON u.id = nu.user_id
 		LEFT JOIN pair_stats ps ON ps.user_id = nu.user_id
+		LEFT JOIN twins t ON t.user_id = nu.user_id
 		WHERE u.incognito IS NOT TRUE
-		ORDER BY score DESC NULLS LAST, distance_km ASC
+		ORDER BY is_twin DESC, score DESC NULLS LAST, distance_km ASC
 	`);
 
 	return rows.map((r) => ({
@@ -194,6 +214,7 @@ export async function getPeopleNearby(
 		city: r.city,
 		distanceKm: Number(r.distance_km) || 0,
 		score: r.score === null ? null : Number(r.score),
-		sharedCount: r.shared_count ?? 0
+		sharedCount: r.shared_count ?? 0,
+		isTwin: r.is_twin
 	}));
 }

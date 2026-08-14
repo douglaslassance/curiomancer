@@ -10,8 +10,7 @@ import {
 	type PlaceRelationKind
 } from '$lib/server/db/schema';
 import { isBlocked } from '$lib/server/blocks';
-import { getPairScore } from '$lib/server/matching';
-import { MATCH_THRESHOLD } from '$lib/server/similarity';
+import { areTwins, getPairScore } from '$lib/server/matching';
 import { isAdmin } from '$lib/server/admin';
 import { isSubscriber } from '$lib/server/subscriptions';
 import type { LayoutServerLoad } from './$types';
@@ -25,7 +24,7 @@ export type SharedPlace = Place & { kind: PlaceRelationKind };
  *
  * Access is twins-only: unless you're viewing yourself (or you're an admin),
  * you can only see a profile if you're an actual taste-twin of theirs (match
- * above MATCH_THRESHOLD). Guessing someone's URL as a non-twin 404s. An
+ * above the match threshold, or one hop out). Guessing someone's URL as a non-twin 404s. An
  * incognito user is hidden from everyone but themselves, so their profile
  * 404s for all others too. Blocked pairs 404 either way.
  *
@@ -60,8 +59,11 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 		if (!locals.user) throw error(404, 'User not found');
 		if (await isBlocked(locals.user.id, params.id)) throw error(404, 'User not found');
 		if (profile.incognito) throw error(404, 'User not found');
+		// The score is still fetched for display; access is decided by areTwins,
+		// which covers the hop. An indirect twin has no measured pair score, so
+		// gating on the number would shut out exactly the people the hop admits.
 		pair = await getPairScore(locals.user.id, params.id);
-		if (pair.score === null || pair.score <= MATCH_THRESHOLD) {
+		if (!(await areTwins(locals.user.id, params.id))) {
 			throw error(404, 'User not found');
 		}
 	}

@@ -4,7 +4,6 @@ import { db } from '$lib/server/db';
 import { user } from '$lib/server/db/schema';
 import { isBlocked } from '$lib/server/blocks';
 import { areTwins, getPairScore } from '$lib/server/matching';
-import { MATCH_THRESHOLD } from '$lib/server/similarity';
 import {
 	createConversation,
 	DEFAULT_PAGE_SIZE,
@@ -35,12 +34,17 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	// Same signed-similarity score shown everywhere else (people list, profile),
 	// so the ring around their avatar here never disagrees with those.
-	const pair = await getPairScore(locals.user.id, params.id);
+	const [pair, twins] = await Promise.all([
+		getPairScore(locals.user.id, params.id),
+		areTwins(locals.user.id, params.id)
+	]);
 
 	// You can only START a chat with a taste-twin who isn't incognito. Existing
 	// conversations keep working regardless (you may have drifted apart, or they
 	// may have gone incognito, since you first connected).
-	const canStart = !other.incognito && pair.score !== null && pair.score > MATCH_THRESHOLD;
+	// areTwins covers the hop; the raw score can't, since an indirect twin has
+	// no measured pair score of its own.
+	const canStart = !other.incognito && twins;
 	const existingId = await findConversation(locals.user.id, params.id);
 	if (!existingId && !canStart) {
 		return {

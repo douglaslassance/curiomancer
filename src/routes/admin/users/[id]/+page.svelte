@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import AvatarMatch from '$lib/components/avatar-match.svelte';
+	import LocationBubbleMap from '$lib/components/location-bubble-map.svelte';
 	import MatchBreakdown from '$lib/components/match-breakdown.svelte';
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
@@ -41,6 +42,11 @@
 		{ label: 'Want to go', value: u.wantToGo },
 		{ label: 'Been there', value: u.seen }
 	]);
+
+	const totalRatings = $derived(u.likes + u.dislikes + u.wantToGo + u.seen);
+	// Ratings on places we never got coordinates for (old manual entries) can't
+	// be plotted, so say how many made it onto the map.
+	const mappedRatings = $derived(data.ratingLocations.reduce((sum, l) => sum + l.count, 0));
 </script>
 
 <svelte:head>
@@ -295,6 +301,34 @@
 
 			{#if form?.message}
 				<p class="text-destructive text-sm">{form.message}</p>
+			{/if}
+		</Card.Content>
+	</Card.Root>
+
+	<Card.Root>
+		<Card.Header>
+			<Card.Title>Where they rate</Card.Title>
+			<Card.Description>
+				{#if mappedRatings === totalRatings}
+					{mappedRatings}
+					{mappedRatings === 1 ? 'rating' : 'ratings'}, grouped by area. Bigger circles mean more
+					ratings.
+				{:else}
+					{mappedRatings} of {totalRatings} ratings have coordinates, grouped by area. Bigger circles
+					mean more ratings.
+				{/if}
+			</Card.Description>
+		</Card.Header>
+		<Card.Content>
+			{#if data.ratingLocations.length > 0}
+				<div class="h-72">
+					<LocationBubbleMap
+						locations={data.ratingLocations}
+						tooltipLabel={(n) => `${n} ${n === 1 ? 'rating' : 'ratings'}`}
+					/>
+				</div>
+			{:else}
+				<p class="text-muted-foreground text-sm">No rated places to map yet.</p>
 			{/if}
 		</Card.Content>
 	</Card.Root>

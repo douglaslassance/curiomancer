@@ -30,7 +30,7 @@ export const GET: RequestHandler = async ({ request, url }) => {
 	}
 
 	const people = (await getPeopleNearby(loc.latitude, loc.longitude, radiusKm, userId)).filter(
-		(p) => p.score !== null && p.score > MATCH_THRESHOLD
+		(p) => p.isTwin
 	);
 
 	return json({
