@@ -179,6 +179,10 @@
 	// than tearing everything down on every render.
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const placeAnnotations = new Map<string, any>();
+	// Pins we pulled ourselves (a place that stopped being one of ours, e.g.
+	// un-rated). Their deselect isn't the user tapping the map, so it must not
+	// close the card.
+	const removedPinIds = new Set<string>();
 	// The detail band the current annotations were built for. When `detailed`
 	// flips we swap every pin between its two forms (full marker <-> dot), which
 	// means recreating them, so we track what's on the map to know when to.
@@ -270,6 +274,14 @@
 		});
 		ann.addEventListener('deselect', () => {
 			setTimeout(() => {
+				// Not when we pulled the pin ourselves: un-rating a place stops it
+				// being one of ours, and MapKit answers with a deselect that would
+				// otherwise close the card underneath the user. Rating one keeps
+				// the card open, so un-rating should too.
+				if (removedPinIds.has(p.id)) {
+					removedPinIds.delete(p.id);
+					return;
+				}
 				if (selectedPlace?.id === p.id) selectedPlace = null;
 			}, 100);
 		});
@@ -665,7 +677,9 @@
 			if (!incoming.has(id)) {
 				toRemove.push(ann);
 				placeAnnotations.delete(id);
-				if (selectedPlace?.id === id) selectedPlace = null;
+				// Keep the card open on a place that just lost its pin: un-rating
+				// swaps our marker back to Apple's, it doesn't dismiss the card.
+				if (selectedPlace?.id === id) removedPinIds.add(id);
 			}
 		}
 		if (toRemove.length > 0) mapRef.removeAnnotations(toRemove);
