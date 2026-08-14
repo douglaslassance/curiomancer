@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import * as Avatar from '$lib/components/ui/avatar';
+	import AvatarMatch from '$lib/components/avatar-match.svelte';
+	import MatchBreakdown from '$lib/components/match-breakdown.svelte';
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -18,15 +19,6 @@
 		day: 'numeric'
 	});
 
-	const initials = $derived(
-		u.name
-			.split(/\s+/)
-			.filter(Boolean)
-			.slice(0, 2)
-			.map((s) => s[0]?.toUpperCase() ?? '')
-			.join('') || '?'
-	);
-
 	let subscriptionBusy = $state(false);
 	let impersonating = $state(false);
 
@@ -42,16 +34,19 @@
 	<title>Admin · {u.name} · Curiomancer</title>
 </svelte:head>
 
-<div>
+<div class="space-y-6">
 	<Card.Root>
 		<Card.Header>
 			<div class="flex items-start gap-4">
-				<Avatar.Root class="size-14">
-					{#if u.image}
-						<Avatar.Image src={u.image} alt={u.name} />
-					{/if}
-					<Avatar.Fallback class="text-base font-medium">{initials}</Avatar.Fallback>
-				</Avatar.Root>
+				<!-- Same ringed avatar the public profile uses, so the match reads
+				     identically in both places. -->
+				<AvatarMatch
+					name={u.name}
+					image={u.image}
+					score={data.match.isSelf ? null : data.match.score}
+					size={72}
+					showPercent
+				/>
 				<div class="min-w-0 flex-1">
 					<Card.Title class="flex items-center gap-2">
 						{u.name}
@@ -239,4 +234,6 @@
 			{/if}
 		</Card.Content>
 	</Card.Root>
+
+	<MatchBreakdown match={data.match} name={u.name} />
 </div>

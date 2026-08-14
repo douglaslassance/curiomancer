@@ -13,6 +13,11 @@
 		day: 'numeric'
 	});
 
+	/** Same clamp the avatar ring uses: negative similarity reads as 0%. */
+	function matchPct(score: number | null) {
+		return score === null ? null : Math.max(0, Math.min(100, Math.round(score * 100)));
+	}
+
 	let query = $state('');
 	const filteredUsers = $derived.by(() => {
 		const q = query.trim().toLowerCase();
@@ -32,61 +37,76 @@
 	<Input placeholder="Search by name or email…" bind:value={query} class="pl-9" />
 </div>
 
-<div class="bg-card overflow-x-auto rounded-xl border">
-	<table class="w-full text-sm">
-		<thead class="border-b">
-			<tr class="text-muted-foreground text-left text-xs uppercase tracking-wide">
-				<th class="px-4 py-3 font-medium">Name</th>
-				<th class="px-4 py-3 font-medium">Email</th>
-				<th class="px-4 py-3 font-medium">Joined</th>
-				<th class="px-4 py-3 font-medium">City</th>
-				<th class="px-4 py-3 text-right font-medium">
-					<ThumbsUp class="ml-auto size-3.5" />
-				</th>
-				<th class="px-4 py-3 text-right font-medium">Subscription</th>
-			</tr>
-		</thead>
-		<tbody>
-			{#each filteredUsers as u (u.id)}
-				<tr
-					class="hover:bg-accent/40 cursor-pointer border-b last:border-b-0"
-					onclick={() => goto(`/admin/users/${u.id}`)}
-				>
-					<td class="px-4 py-3">
-						<span class="font-medium">{u.name}</span>
-						{#if u.role === 'admin'}
-							<Badge class="ml-1">Admin</Badge>
-						{/if}
-					</td>
-					<td class="text-muted-foreground px-4 py-3 text-xs">{u.email}</td>
-					<td class="text-muted-foreground px-4 py-3 text-xs tabular-nums">
-						{dateFmt.format(u.createdAt)}
-					</td>
-					<td class="text-muted-foreground px-4 py-3 text-xs">{u.city ?? '-'}</td>
-					<td class="px-4 py-3 text-right tabular-nums">{u.likes}</td>
-					<td class="px-4 py-3 text-right">
-						{#if u.subscriptionStatus === 'active'}
-							<Badge variant="secondary" class="gap-1">
-								<Check class="size-3" />
-								{PLAN_NAME}
-							</Badge>
-						{:else if u.subscriptionStatus === 'granted'}
-							<Badge variant="outline" class="gap-1">
-								<Gift class="size-3" />
-								Granted
-							</Badge>
-						{:else}
-							<span class="text-muted-foreground text-xs">Free</span>
-						{/if}
-					</td>
+<!-- grid wrapper: a scroll container that is a grid item gets an automatic
+     minimum size of 0, so the table scrolls sideways instead of widening the
+     page. overflow-x-auto on its own does not stop that propagation. -->
+<div class="grid">
+	<div class="bg-card overflow-x-auto rounded-xl border">
+		<table class="w-full text-sm">
+			<thead class="border-b">
+				<tr class="text-muted-foreground text-left text-xs uppercase tracking-wide">
+					<th class="px-4 py-3 font-medium">Name</th>
+					<th class="px-4 py-3 font-medium">Email</th>
+					<th class="px-4 py-3 font-medium">Joined</th>
+					<th class="px-4 py-3 font-medium">City</th>
+					<th class="px-4 py-3 text-right font-medium">
+						<ThumbsUp class="ml-auto size-3.5" />
+					</th>
+					<th class="px-4 py-3 text-right font-medium">Match</th>
+					<th class="px-4 py-3 text-right font-medium">Subscription</th>
 				</tr>
-			{:else}
-				<tr>
-					<td colspan="6" class="text-muted-foreground py-8 text-center">
-						{data.users.length === 0 ? 'No users.' : 'No users match your search.'}
-					</td>
-				</tr>
-			{/each}
-		</tbody>
-	</table>
+			</thead>
+			<tbody>
+				{#each filteredUsers as u (u.id)}
+					<tr
+						class="hover:bg-accent/40 cursor-pointer border-b last:border-b-0"
+						onclick={() => goto(`/admin/users/${u.id}`)}
+					>
+						<td class="px-4 py-3">
+							<span class="font-medium">{u.name}</span>
+							{#if u.role === 'admin'}
+								<Badge class="ml-1">Admin</Badge>
+							{/if}
+						</td>
+						<td class="text-muted-foreground px-4 py-3 text-xs">{u.email}</td>
+						<td class="text-muted-foreground px-4 py-3 text-xs tabular-nums">
+							{dateFmt.format(u.createdAt)}
+						</td>
+						<td class="text-muted-foreground px-4 py-3 text-xs">{u.city ?? '-'}</td>
+						<td class="px-4 py-3 text-right tabular-nums">{u.likes}</td>
+						<td class="px-4 py-3 text-right tabular-nums">
+							{#if matchPct(u.matchScore) === null}
+								<span class="text-muted-foreground text-xs">-</span>
+							{:else}
+								<span title="{u.sharedCount} shared {u.sharedCount === 1 ? 'place' : 'places'}">
+									{matchPct(u.matchScore)}%
+								</span>
+							{/if}
+						</td>
+						<td class="px-4 py-3 text-right">
+							{#if u.subscriptionStatus === 'active'}
+								<Badge variant="secondary" class="gap-1">
+									<Check class="size-3" />
+									{PLAN_NAME}
+								</Badge>
+							{:else if u.subscriptionStatus === 'granted'}
+								<Badge variant="outline" class="gap-1">
+									<Gift class="size-3" />
+									Granted
+								</Badge>
+							{:else}
+								<span class="text-muted-foreground text-xs">Free</span>
+							{/if}
+						</td>
+					</tr>
+				{:else}
+					<tr>
+						<td colspan="7" class="text-muted-foreground py-8 text-center">
+							{data.users.length === 0 ? 'No users.' : 'No users match your search.'}
+						</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</div>
 </div>

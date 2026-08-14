@@ -33,7 +33,8 @@ import { sql } from 'drizzle-orm';
 import { db } from './db';
 import { recommendationImpression, type Place, type RecommendationReason } from './db/schema';
 import { haversineKm } from './nearby';
-import { AGREEMENT_EXPR, MATCH_THRESHOLD, matchScoreExpr } from './similarity';
+import { AGREEMENT_EXPR, MATCH_THRESHOLD, SIGNIFICANCE_FLOOR, matchScoreExpr } from './similarity';
+import type { MatchBreakdown, SharedOpinion } from '$lib/match-breakdown';
 
 /**
  * Where to look for candidate places: an exact city match (what /places and
@@ -508,4 +509,104 @@ export async function getPopularPlaces(
 		twinCount: 0,
 		reason: 'popular_fallback' as const
 	}));
+}
+
+/**
+ * Pulls apart the match between the viewing admin and `targetId` into the terms
+ * that produced it, for the admin "why this match" panel. Read-only: two
+ * SELECTs plus getPairScore.
+ *
+ * The headline `score` comes from getPairScore, the same helper the profile and
+ * people list use, so the percentage here can't drift from the rest of the app.
+ * The other fields are its inputs, recomputed from the raw overlap.
+ */
+export async function getMatchBreakdown(
+	viewerId: string,
+	targetId: string
+): Promise<MatchBreakdown> {
+	const empty = {
+		significance: 0,
+		agreements: 0,
+		disagreements: 0,
+		sharedCount: 0,
+		viewerTotal: 0,
+		targetTotal: 0,
+		isTwin: false,
+		threshold: MATCH_THRESHOLD,
+		significanceFloor: SIGNIFICANCE_FLOOR,
+		shared: []
+	};
+	if (viewerId === targetId) {
+		return { ...empty, isSelf: true, score: null, cosine: null };
+	}
+
+	// Only liked/disliked carry taste signal; want_to_go and seen are ignored
+	// here exactly as they are in the score itself.
+	const [{ score, sharedCount }, [totals], sharedRows] = await Promise.all([
+		getPairScore(viewerId, targetId),
+		db.execute<{ viewer_total: number; target_total: number }>(sql`
+			SELECT
+				(SELECT COUNT(*)::int FROM "place_relation"
+				 WHERE user_id = ${viewerId} AND kind IN ('liked', 'disliked')) AS viewer_total,
+				(SELECT COUNT(*)::int FROM "place_relation"
+				 WHERE user_id = ${targetId} AND kind IN ('liked', 'disliked')) AS target_total
+		`),
+		db.execute<{
+			place_id: string;
+			name: string;
+			city: string;
+			category: 'eat' | 'drink' | 'shop' | 'visit';
+			viewer_kind: 'liked' | 'disliked';
+			target_kind: 'liked' | 'disliked';
+		}>(sql`
+			SELECT
+				p.id AS place_id,
+				p.name,
+				p.city,
+				p.category,
+				mine.kind AS viewer_kind,
+				theirs.kind AS target_kind
+			FROM place p
+			JOIN "place_relation" mine
+				ON mine.place_id = p.id AND mine.user_id = ${viewerId}
+				AND mine.kind IN ('liked', 'disliked')
+			JOIN "place_relation" theirs
+				ON theirs.place_id = p.id AND theirs.user_id = ${targetId}
+				AND theirs.kind IN ('liked', 'disliked')
+			ORDER BY (mine.kind = theirs.kind) DESC, p.city, p.name
+		`)
+	]);
+
+	const shared: SharedOpinion[] = sharedRows.map((r) => ({
+		placeId: r.place_id,
+		name: r.name,
+		city: r.city,
+		category: r.category,
+		viewerKind: r.viewer_kind,
+		targetKind: r.target_kind,
+		agrees: r.viewer_kind === r.target_kind
+	}));
+	const agreements = shared.filter((s) => s.agrees).length;
+	const disagreements = shared.length - agreements;
+	const viewerTotal = totals?.viewer_total ?? 0;
+	const targetTotal = totals?.target_total ?? 0;
+	const norm = Math.sqrt(viewerTotal * targetTotal);
+
+	return {
+		isSelf: false,
+		score,
+		cosine: norm > 0 && shared.length > 0 ? (agreements - disagreements) / norm : null,
+		significance: Math.min(shared.length, SIGNIFICANCE_FLOOR) / SIGNIFICANCE_FLOOR,
+		agreements,
+		disagreements,
+		// getPairScore reports 0 when there's nothing to compare; the raw overlap
+		// is the same number whenever a score exists.
+		sharedCount: shared.length || sharedCount,
+		viewerTotal,
+		targetTotal,
+		isTwin: score !== null && score > MATCH_THRESHOLD,
+		threshold: MATCH_THRESHOLD,
+		significanceFloor: SIGNIFICANCE_FLOOR,
+		shared
+	};
 }

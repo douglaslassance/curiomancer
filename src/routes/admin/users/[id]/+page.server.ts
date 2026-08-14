@@ -6,6 +6,7 @@ import { user as userTable } from '$lib/server/db/schema';
 import { auth } from '$lib/server/auth';
 import { isAdmin } from '$lib/server/admin';
 import { grantSubscription, revokeSubscription } from '$lib/server/subscriptions';
+import { getMatchBreakdown } from '$lib/server/matching';
 import type { Actions, PageServerLoad } from './$types';
 
 export type AdminUserDetail = {
@@ -32,7 +33,7 @@ export type AdminUserDetail = {
 	subscriptionStatus: 'free' | 'active' | 'granted';
 };
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, locals }) => {
 	const [row] = await db.execute<{
 		id: string;
 		name: string;
@@ -106,7 +107,7 @@ export const load: PageServerLoad = async ({ params }) => {
 	};
 
 	// Impersonation is a real auth-bypass, so it only renders (and runs) in dev.
-	return { user, canImpersonate: dev };
+	return { user, match: await getMatchBreakdown(locals.user!.id, params.id), canImpersonate: dev };
 };
 
 export const actions: Actions = {
