@@ -2,7 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { Bookmark, Eye, Globe, Loader2, MapPin, ThumbsDown, ThumbsUp, X } from '@lucide/svelte';
+	import { Bookmark, Eye, Globe, Loader2, MapPin, Navigation, ThumbsDown, ThumbsUp, X } from '@lucide/svelte';
 	import { categoryLabel } from '$lib/place-category';
 	import type { PlaceCategory } from '$lib/map-category';
 	import type { Component } from 'svelte';
@@ -127,19 +127,33 @@
 		</div>
 	{/if}
 
-	{#if poi.website}
-		<div class="mt-3 border-t pt-3">
-			<a
+	<!-- Same actions, same order, same row as the saved-place card. -->
+	<div class="mt-3 flex items-center gap-2 border-t pt-3">
+		<Button
+			href="https://www.google.com/maps/dir/?api=1&destination={poi.latitude},{poi.longitude}"
+			target="_blank"
+			rel="noopener noreferrer"
+			variant="outline"
+			size="sm"
+			class="flex-1"
+		>
+			<Navigation />
+			Directions
+		</Button>
+		{#if poi.website}
+			<Button
 				href={poi.website}
 				target="_blank"
 				rel="noopener noreferrer"
-				class="text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-xs"
+				variant="outline"
+				size="sm"
+				class="flex-1"
 			>
-				<Globe class="size-3.5" />
+				<Globe />
 				Website
-			</a>
-		</div>
-	{/if}
+			</Button>
+		{/if}
+	</div>
 
 	{#if error}
 		<p class="text-destructive mt-2 text-xs">{error}</p>

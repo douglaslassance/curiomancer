@@ -752,13 +752,10 @@
 	{/if}
 
 	{#if status === 'ready' && (showFilters || showCategoryFilter)}
-		<!-- Filters: place-type toggles on top, relation toggles below. They sit
-		     under the search field rather than at the bottom edge: the chips
-		     narrow what the map shows, so they read as part of searching it.
-		     Offset down when the search overlay is present so they clear it. -->
-		<div
-			class="absolute left-4 z-10 flex flex-col gap-1.5 {showSearch ? 'top-[68px]' : 'top-4'}"
-		>
+		<!-- Filters: place-type toggles on top, relation toggles below. Raised so
+		     they clear Apple's map attribution/logo at the bottom edge. Same
+		     bottom placement on iOS and Android. -->
+		<div class="absolute bottom-[66px] left-4 z-10 flex flex-col gap-1.5">
 			{#if showCategoryFilter}
 				<CategoryFilter bind:value={categories} />
 			{/if}
