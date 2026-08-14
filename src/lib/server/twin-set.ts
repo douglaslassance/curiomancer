@@ -9,8 +9,16 @@ import { AGREEMENT_EXPR, MATCH_THRESHOLD, matchScoreExpr } from './similarity';
  * of A. That's a product decision rather than a property of the score - the
  * score is a cosine, and two links at the threshold bound the indirect pair no
  * better than "could be anything" - so an indirect twin is admitted on the
- * strength of its chain, not re-measured, and ranked below direct twins by the
- * product of the two links.
+ * strength of its chain rather than re-measured.
+ *
+ * Its score is the weaker of the two links, which is the same rule
+ * `getSharedTwins` already uses for a chained pair. That keeps the number
+ * meaningful (a chain is only as good as its weakest step) and, just as
+ * importantly, keeps it above MATCH_THRESHOLD - so an indirect twin reads as an
+ * ordinary twin everywhere it's displayed. How twinship was derived is internal;
+ * nobody should be able to tell from a match percentage that they were reached
+ * through someone else. Multiplying the links instead would drag every indirect
+ * twin below the threshold and give the mechanism away.
  *
  * Stopping at one hop is deliberate. Each hop multiplies a number below 1, and
  * the reachable set grows toward everybody; past one hop the ranking degenerates
@@ -101,7 +109,7 @@ export function twinSetCte(userId: SQL | string, limit: number | null): SQL {
 			GROUP BY dt.user_id, theirs.user_id, vn.n, tt.n
 		),
 		indirect_twins AS (
-			SELECT hs.user_id, MAX(dt.score * hs.score)::float AS score
+			SELECT hs.user_id, MAX(LEAST(dt.score, hs.score))::float AS score
 			FROM hop_stats hs
 			JOIN direct_twins dt ON dt.user_id = hs.via
 			WHERE hs.score > ${MATCH_THRESHOLD}

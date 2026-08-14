@@ -156,19 +156,36 @@ export async function getPairScore(
  * score is symmetric, so argument order doesn't matter.
  */
 export async function areTwins(userIdA: string, userIdB: string): Promise<boolean> {
-	const { score } = await getPairScore(userIdA, userIdB);
-	if (score !== null && score > MATCH_THRESHOLD) return true;
+	return (await getTwinScore(userIdA, userIdB)).isTwin;
+}
 
-	// Not a direct match, so fall back to the one-hop set: twinship is
-	// transitive at one remove (see twin-set.ts). Unlimited, because "is this
-	// person a twin" shouldn't depend on where they land in a top-N ranking.
-	// Asymmetric in principle - A's hops aren't B's - so the caller's argument
-	// order now matters for indirect pairs, unlike the raw score.
-	const rows = await db.execute<{ user_id: string }>(sql`
+/**
+ * The score to show for a pair, and whether they're twins.
+ *
+ * A direct match reports its measured score. A pair reached through a hop has
+ * no measurement of its own, so it reports the chain's weaker link (see
+ * twin-set.ts) - which is above MATCH_THRESHOLD by construction, so an indirect
+ * twin reads as an ordinary one. Callers shouldn't need to know, and neither
+ * should the person looking at the badge.
+ *
+ * Asymmetric in principle for indirect pairs - A's hops aren't B's - so
+ * argument order matters here in a way it doesn't for the raw score.
+ */
+export async function getTwinScore(
+	userIdA: string,
+	userIdB: string
+): Promise<{ score: number | null; isTwin: boolean }> {
+	const { score } = await getPairScore(userIdA, userIdB);
+	if (score !== null && score > MATCH_THRESHOLD) return { score, isTwin: true };
+
+	// Unlimited: "is this person a twin" shouldn't depend on where they land in
+	// a top-N ranking.
+	const [row] = await db.execute<{ score: number }>(sql`
 		WITH ${twinSetCte(sql`${userIdA}`, null)}
-		SELECT user_id FROM twins WHERE user_id = ${userIdB} LIMIT 1
+		SELECT score FROM twins WHERE user_id = ${userIdB} LIMIT 1
 	`);
-	return rows.length > 0;
+	if (!row) return { score, isTwin: false };
+	return { score: Number(row.score), isTwin: true };
 }
 
 /**
@@ -534,7 +551,8 @@ export async function getMatchBreakdown(
 
 	// Only liked/disliked carry taste signal; want_to_go and seen are ignored
 	// here exactly as they are in the score itself.
-	const [{ score, sharedCount }, [totals], sharedRows] = await Promise.all([
+	const [twin, { sharedCount }, [totals], sharedRows] = await Promise.all([
+		getTwinScore(viewerId, targetId),
 		getPairScore(viewerId, targetId),
 		db.execute<{ viewer_total: number; target_total: number }>(sql`
 			SELECT
@@ -586,7 +604,10 @@ export async function getMatchBreakdown(
 
 	return {
 		isSelf: false,
-		score,
+		// The hop-aware score: measured for a direct pair, the chain's weaker
+		// link for an indirect one. Same shape either way, so the badge doesn't
+		// disclose how the two are connected.
+		score: twin.score,
 		cosine: norm > 0 && shared.length > 0 ? (agreements - disagreements) / norm : null,
 		significance: Math.min(shared.length, SIGNIFICANCE_FLOOR) / SIGNIFICANCE_FLOOR,
 		agreements,
@@ -596,10 +617,7 @@ export async function getMatchBreakdown(
 		sharedCount: shared.length || sharedCount,
 		viewerTotal,
 		targetTotal,
-		// Hop-aware, so the badge agrees with profile access, chat, and the
-		// people list. An indirect twin has no measured pair score, so this is
-		// deliberately not derived from `score`.
-		isTwin: await areTwins(viewerId, targetId),
+		isTwin: twin.isTwin,
 		threshold: MATCH_THRESHOLD,
 		significanceFloor: SIGNIFICANCE_FLOOR,
 		shared
