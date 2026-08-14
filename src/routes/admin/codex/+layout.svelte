@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { MapPin, Sparkles, Users } from '@lucide/svelte';
+	import { MapPin, Shapes, Sparkles, Users } from '@lucide/svelte';
 
 	let { children } = $props();
 
 	const sections = [
 		{ href: '/admin/codex', label: 'Tune', icon: MapPin },
 		{ href: '/admin/codex/match', label: 'Match', icon: Sparkles },
-		{ href: '/admin/codex/twins', label: 'Twins', icon: Users }
+		{ href: '/admin/codex/twins', label: 'Twins', icon: Users },
+		{ href: '/admin/codex/categories', label: 'Categories', icon: Shapes }
 	];
 </script>
 

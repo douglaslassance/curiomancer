@@ -6,6 +6,7 @@ import {
 	TWIN_LIMIT
 } from '$lib/server/tune';
 import { MATCH_THRESHOLD, SIGNIFICANCE_FLOOR } from '$lib/server/similarity';
+import { mapCategoryVocabulary } from '$lib/map-category';
 import type { LayoutServerLoad } from './$types';
 
 /**
@@ -19,6 +20,9 @@ import type { LayoutServerLoad } from './$types';
 export const load: LayoutServerLoad = async () => {
 	return {
 		tune: { NEGATIVE_AT_KM, MAX_DISTANCE_KM, MATCH_WEIGHT, POPULARITY_WEIGHT, TWIN_LIMIT },
-		matching: { MATCH_THRESHOLD, SIGNIFICANCE_FLOOR }
+		matching: { MATCH_THRESHOLD, SIGNIFICANCE_FLOOR },
+		// The live category vocabulary, so the Codex lists exactly what the map,
+		// Tune, and the native clients are actually bucketing on.
+		vocabulary: mapCategoryVocabulary()
 	};
 };
