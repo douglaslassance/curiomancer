@@ -134,7 +134,13 @@
 	});
 </script>
 
-<div class="bg-muted relative h-full min-h-40 w-full overflow-hidden rounded-xl border">
+<!-- transform-gpu is load-bearing, not a perf tweak: MapKit paints the map into
+     its own compositing layer, and a composited descendant ignores an ancestor's
+     border-radius unless that ancestor is composited too. Without it the map
+     renders with square corners inside this rounded box. -->
+<div
+	class="bg-muted relative h-full min-h-40 w-full transform-gpu overflow-hidden rounded-xl border"
+>
 	<!-- pointer-events-none keeps the map read-only (no pan/zoom) without locking
 	     MapKit's interaction flags, which can suppress the annotation. -->
 	<div bind:this={mapElement} class="pointer-events-none absolute inset-0"></div>

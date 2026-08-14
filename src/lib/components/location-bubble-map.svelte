@@ -98,7 +98,10 @@
 	});
 </script>
 
-<div class="relative h-full w-full overflow-hidden rounded-xl border">
+<!-- transform-gpu: same reason as place-mini-map. A composited MapKit layer
+     isn't clipped by an ancestor's border-radius unless that ancestor is
+     composited too. -->
+<div class="relative h-full w-full transform-gpu overflow-hidden rounded-xl border">
 	<div bind:this={mapElement} class="bg-muted absolute inset-0"></div>
 
 	{#if status === 'loading'}
