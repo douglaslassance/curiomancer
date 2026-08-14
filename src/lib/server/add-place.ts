@@ -77,7 +77,12 @@ export async function savePlaceRelation(
 				category,
 				city,
 				neighborhood: input.neighborhood?.trim() || null,
-				description: input.description?.trim() || `${name}, ${city}`,
+				// No synthesized blurb. This used to fall back to `${name}, ${city}`,
+				// which every Apple-saved place inherited and which then rendered
+				// under a card header already showing exactly that. Empty means the
+				// card simply omits the line. `displayDescription` strips the old
+				// placeholder off rows written before this.
+				description: input.description?.trim() || '',
 				latitude: input.latitude ?? null,
 				longitude: input.longitude ?? null,
 				source,

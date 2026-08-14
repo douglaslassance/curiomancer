@@ -3,6 +3,7 @@ import { requireApiUser } from '$lib/server/api-auth';
 import { getRelationMap } from '$lib/server/likes';
 import { getMappablePlaces } from '$lib/server/places';
 import { getUserLocation } from '$lib/server/current-location';
+import { displayDescription } from '$lib/place-description';
 import { savePlaceRelation } from '$lib/server/add-place';
 import type { SavePlaceInput } from '$lib/server/add-place';
 import type { RequestHandler } from './$types';
@@ -66,6 +67,9 @@ export const GET: RequestHandler = async ({ request, url }) => {
 		.filter((p) => !categories || categories.has(p.category))
 		.map((p) => ({
 			...p,
+			// Strip the `${name}, ${city}` placeholder older rows carry, so no
+			// client has to learn that rule (see place-description.ts).
+			description: displayDescription(p),
 			relation: relationMap[p.id] ?? null,
 			distanceKm:
 				center && p.latitude != null && p.longitude != null

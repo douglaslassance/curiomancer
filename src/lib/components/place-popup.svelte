@@ -126,7 +126,9 @@
 			</p>
 		</div>
 
-		<p class="text-muted-foreground mt-2 text-xs leading-relaxed">{context.place.description}</p>
+		{#if context.place.description}
+			<p class="text-muted-foreground mt-2 text-xs leading-relaxed">{context.place.description}</p>
+		{/if}
 
 		<!-- Like + count -->
 		<div class="mt-3 flex items-center gap-3">
