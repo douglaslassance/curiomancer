@@ -28,11 +28,7 @@
 		<h2 class="flex items-center gap-2 text-lg font-semibold">
 			<Shapes class="size-5" /> Categories
 		</h2>
-		<p class="text-muted-foreground mt-1 text-sm">
-			Every place is filed under one category. It decides the pin glyph, the map's type filter, and
-			whether <a href="/admin/codex" class="underline underline-offset-2">Tune</a> will ever offer
-			the place.
-		</p>
+		<p class="text-muted-foreground mt-1 text-sm">How we categorize places.</p>
 	</div>
 
 	<Card.Root>
