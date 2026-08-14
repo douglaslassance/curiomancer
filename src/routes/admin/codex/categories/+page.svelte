@@ -86,11 +86,8 @@
 				Everything else Apple can show. A university, a hospital, a police station, a park. These are
 				rate-able and they appear on your map with a neutral pin, but
 				<a href="/admin/codex" class="underline underline-offset-2">Tune</a> never queues them and
-				they never surface as recommendations.
-			</p>
-			<p class="text-muted-foreground">
-				There is no membership list. Other is the fallback for any Apple category not claimed above,
-				so it stays correct as Apple adds new ones.
+				they never surface as recommendations. There is no membership list. Other is the fallback for
+				any Apple category not claimed above, so it stays correct as Apple adds new ones.
 			</p>
 		</Card.Content>
 	</Card.Root>
