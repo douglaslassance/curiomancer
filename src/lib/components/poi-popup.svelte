@@ -25,11 +25,18 @@
 	let {
 		poi,
 		signedIn,
-		onClose
+		onClose,
+		onSaved
 	}: {
 		poi: Poi;
 		signedIn: boolean;
 		onClose: () => void;
+		/**
+		 * Rated, and so saved. Carries the new place id so the map can swap this
+		 * card for the saved place's own, rather than leaving the pin it just
+		 * created with nothing open on it.
+		 */
+		onSaved: (placeId: string) => void;
 	} = $props();
 
 	type Kind = 'liked' | 'want_to_go' | 'seen' | 'disliked';
@@ -62,8 +69,12 @@
 				})
 			});
 			if (!res.ok) throw new Error((await res.text().catch(() => '')) || `Server returned ${res.status}`);
+			const { placeId } = (await res.json().catch(() => ({}))) as { placeId?: string };
+			// Reload first, so the place exists in `places` by the time the map
+			// goes looking for it.
 			await invalidateAll();
-			onClose();
+			if (placeId) onSaved(placeId);
+			else onClose();
 		} catch (err) {
 			console.error('Failed to rate place:', err);
 			error = err instanceof Error ? err.message : 'Could not save.';

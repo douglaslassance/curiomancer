@@ -59,6 +59,9 @@
 		frameAllPlaces?: boolean;
 	} = $props();
 
+	// A place we've been asked to open that wasn't in `places` yet (just rated,
+	// the reload hasn't landed). Cleared as soon as it shows up.
+	let pendingSelectId = $state<string | null>(null);
 	let mapElement: HTMLDivElement;
 	let status = $state<'loading' | 'ready' | 'error'>('loading');
 	let errorMessage = $state<string | null>(null);
@@ -484,6 +487,23 @@
 		return place?.url ? String(place.url) : null;
 	}
 
+	/**
+	 * A tapped POI has just been rated, so it's one of our places now. Swap the
+	 * POI card for the saved place's own and light up the pin that replaced
+	 * Apple's marker - rating shouldn't leave you looking at a new pin with
+	 * nothing open on it. The pin may not exist yet: `places` has only just
+	 * refreshed, and the annotation sync runs in its own effect, so fall back to
+	 * selecting it once it appears.
+	 */
+	function openSavedPlace(placeId: string) {
+		selectedPoi = null;
+		const p = places.find((x) => x.id === placeId);
+		if (p) selectedPlace = p;
+		else pendingSelectId = placeId;
+		const ann = placeAnnotations.get(placeId);
+		if (ann && mapRef) mapRef.selectedAnnotation = ann;
+	}
+
 	function closePoi() {
 		selectedPoi = null;
 		// Deselect the native feature so tapping it again re-opens the popup.
@@ -743,6 +763,17 @@
 	let flownToId: string | null = null;
 	$effect(() => {
 		if (status !== 'ready' || !mapRef || !window.mapkit) return;
+		// A place rated a moment ago, now present in the refreshed set.
+		if (pendingSelectId) {
+			const justSaved = places.find((x) => x.id === pendingSelectId);
+			if (justSaved) {
+				selectedPlace = justSaved;
+				const ann = placeAnnotations.get(pendingSelectId);
+				if (ann && mapRef) mapRef.selectedAnnotation = ann;
+				pendingSelectId = null;
+			}
+		}
+
 		if (!selectPlaceId || selectPlaceId === flownToId) return;
 		const p = places.find((x) => x.id === selectPlaceId);
 		if (!p || p.latitude === null || p.longitude === null) return;
@@ -820,6 +851,6 @@
 	{#if selectedPlace}
 		<PlacePopup placeId={selectedPlace.id} onClose={closePlace} />
 	{:else if selectedPoi}
-		<PoiPopup poi={selectedPoi} {signedIn} onClose={closePoi} />
+		<PoiPopup poi={selectedPoi} {signedIn} onClose={closePoi} onSaved={openSavedPlace} />
 	{/if}
 </div>
