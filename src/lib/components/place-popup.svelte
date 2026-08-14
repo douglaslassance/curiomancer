@@ -99,18 +99,6 @@
 			{@render closeButton()}
 		</div>
 	{:else if context}
-		{#if photoUrl}
-			<!-- Venue photo when we have one. Omitted (no map fallback here) when
-			     absent or if the image fails to load. -->
-			<img
-				src={photoUrl}
-				alt={context.place.name}
-				class="mb-3 h-40 w-full rounded-lg border object-cover"
-				loading="lazy"
-				onerror={() => (photoUrl = null)}
-			/>
-		{/if}
-
 		<!-- Header -->
 		<div>
 			<div class="flex items-center gap-2">
