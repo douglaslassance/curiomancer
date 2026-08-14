@@ -2,7 +2,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { Bookmark, Eye, Loader2, MapPin, ThumbsDown, ThumbsUp, X } from '@lucide/svelte';
+	import { Bookmark, Eye, Globe, Loader2, MapPin, ThumbsDown, ThumbsUp, X } from '@lucide/svelte';
 	import { categoryLabel } from '$lib/place-category';
 	import type { PlaceCategory } from '$lib/map-category';
 	import type { Component } from 'svelte';
@@ -18,6 +18,8 @@
 		address: string;
 		latitude: number;
 		longitude: number;
+		/** The venue's own site, when Apple knows one. */
+		website?: string | null;
 	};
 
 	let {
@@ -122,6 +124,20 @@
 					{/if}
 				</button>
 			{/each}
+		</div>
+	{/if}
+
+	{#if poi.website}
+		<div class="mt-3 border-t pt-3">
+			<a
+				href={poi.website}
+				target="_blank"
+				rel="noopener noreferrer"
+				class="text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-xs"
+			>
+				<Globe class="size-3.5" />
+				Website
+			</a>
 		</div>
 	{/if}
 

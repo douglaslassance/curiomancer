@@ -460,8 +460,16 @@
 			city: place.locality ?? place.subLocality ?? '',
 			address: place.formattedAddress ?? '',
 			latitude: place.coordinate.latitude,
-			longitude: place.coordinate.longitude
+			longitude: place.coordinate.longitude,
+			website: websiteOf(place)
 		};
+	}
+
+	/** The venue's own site from a mapkit.Place, whichever shape it uses. */
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	function websiteOf(place: any): string | null {
+		if (Array.isArray(place?.urls) && place.urls.length) return String(place.urls[0]);
+		return place?.url ? String(place.url) : null;
 	}
 
 	function closePoi() {
