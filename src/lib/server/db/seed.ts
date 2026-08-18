@@ -4,16 +4,18 @@
  * demonstrate and stress-test the taste-matching algorithm without
  * waiting for organic user signal.
  *
- * Never runs in production. The places themselves are real Apple Maps
- * POIs; the personas and their like patterns are entirely fabricated.
+ * Never runs in production. The places are real Apple Maps POIs exported from
+ * production into places-fixture.json; the personas and their opinions are
+ * entirely fabricated, and no production rating is ever copied.
  *
  * Run with: pnpm db:seed:demo
  *
- * Apple Maps lookups are cached in seed-cache.json (committed to git) so
- * re-runs are deterministic and don't hit the network.
+ * Fully offline and deterministic: the catalogue is read from the committed
+ * fixture, and personas are derived from it by a stable hash, so re-running
+ * produces the same taste graph every time.
  */
 import 'dotenv/config';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -32,7 +34,6 @@ import {
 	type NewUserLocation
 } from './schema.js';
 import { user } from './auth.schema.js';
-import { mapAppleCategory, searchAppleMaps, type AppleSearchResult } from '../maps-search.js';
 
 /** Matches both the current demo domain and the pre-rename "Bond" one. */
 const DEMO_EMAIL_PATTERNS = ['%@demo.curiomancer', '%@demo.bond'];
@@ -50,228 +51,46 @@ if (!url) throw new Error('DATABASE_URL is not set');
 const sql = postgres(url, { max: 1 });
 const db = drizzle(sql);
 
-const CACHE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), 'seed-cache.json');
-
-// --- Places we want personas to know about --------------------------------
+// --- Place catalogue ------------------------------------------------------
 //
-// Each entry is a search hint we'll pass to Apple Maps. The result gets
-// cached so re-runs are offline.
+// Real venues, exported from production by `pnpm pull:snapshot -- --places-fixture`
+// and committed. Venue names and coordinates are not personal data, so unlike
+// ratings they are safe to check in, and reading them from a file keeps the
+// seed offline and deterministic (the old path resolved a hand-written hint
+// list through Apple Maps on first run).
+//
+// Refresh it whenever production has meaningfully more places. Nothing here
+// reads production at seed time.
 
-type PlaceHint = {
-	query: string;
-	city: 'Los Angeles' | 'Tokyo';
-	/** Override category if Apple's mapping disagrees with us. */
-	category?: 'eat' | 'drink' | 'shop' | 'visit';
-	neighborhood?: string;
-	description?: string;
-};
-
-const PLACE_HINTS: PlaceHint[] = [
-	// LA
-	{
-		query: 'Bestia Los Angeles',
-		city: 'Los Angeles',
-		neighborhood: 'Arts District',
-		category: 'eat'
-	},
-	{
-		query: 'Sqirl Los Angeles',
-		city: 'Los Angeles',
-		neighborhood: 'Virgil Village',
-		category: 'eat'
-	},
-	{
-		query: 'Gjusta Venice CA',
-		city: 'Los Angeles',
-		neighborhood: 'Venice',
-		category: 'eat'
-	},
-	{
-		query: 'Found Oyster Los Angeles',
-		city: 'Los Angeles',
-		neighborhood: 'East Hollywood',
-		category: 'eat'
-	},
-	{
-		query: 'Cobi Los Angeles',
-		city: 'Los Angeles',
-		neighborhood: 'Sawtelle',
-		category: 'eat'
-	},
-	{
-		query: 'The Varnish Los Angeles',
-		city: 'Los Angeles',
-		neighborhood: 'Downtown',
-		category: 'drink'
-	},
-	{
-		query: 'Bar Bandini Echo Park',
-		city: 'Los Angeles',
-		neighborhood: 'Echo Park',
-		category: 'drink'
-	},
-	{
-		query: 'Tabula Rasa Bar Los Angeles',
-		city: 'Los Angeles',
-		neighborhood: 'Thai Town',
-		category: 'drink'
-	},
-	{
-		query: 'Thunderbolt Los Angeles',
-		city: 'Los Angeles',
-		neighborhood: 'Historic Filipinotown',
-		category: 'drink'
-	},
-	{
-		query: 'Stories Books and Cafe Echo Park',
-		city: 'Los Angeles',
-		neighborhood: 'Echo Park',
-		category: 'shop'
-	},
-	{
-		query: 'Mohawk General Store Silver Lake',
-		city: 'Los Angeles',
-		neighborhood: 'Silver Lake',
-		category: 'shop'
-	},
-	{
-		query: 'Skylight Books Los Angeles',
-		city: 'Los Angeles',
-		neighborhood: 'Los Feliz',
-		category: 'shop'
-	},
-	{
-		query: 'Tartine bakery Downtown Los Angeles',
-		city: 'Los Angeles',
-		neighborhood: 'Downtown',
-		category: 'shop'
-	},
-
-	// Tokyo
-	{ query: 'Fuglen Tokyo Shibuya', city: 'Tokyo', neighborhood: 'Shibuya', category: 'shop' },
-	{ query: 'Bar Trench Ebisu Tokyo', city: 'Tokyo', neighborhood: 'Ebisu', category: 'drink' },
-	{
-		query: 'Tsuta ramen Tokyo',
-		city: 'Tokyo',
-		neighborhood: 'Yoyogi-Uehara',
-		category: 'eat'
-	},
-	{
-		query: 'Sushi Saito Roppongi Tokyo',
-		city: 'Tokyo',
-		neighborhood: 'Roppongi',
-		category: 'eat'
-	},
-	{
-		query: 'Cow Books Nakameguro Tokyo',
-		city: 'Tokyo',
-		neighborhood: 'Nakameguro',
-		category: 'shop'
-	},
-	{
-		query: 'Beard restaurant Meguro Tokyo',
-		city: 'Tokyo',
-		neighborhood: 'Meguro',
-		category: 'eat'
-	},
-	{
-		query: 'Gen Yamamoto Azabu-Juban',
-		city: 'Tokyo',
-		neighborhood: 'Azabu-Juban',
-		category: 'drink'
-	},
-	{
-		query: 'Coutume Aoyama 5-50-7 Minato Tokyo',
-		city: 'Tokyo',
-		neighborhood: 'Aoyama',
-		category: 'shop'
-	},
-	{
-		query: 'Den restaurant Jingumae Shibuya Tokyo',
-		city: 'Tokyo',
-		neighborhood: 'Jingumae',
-		category: 'eat'
-	},
-	{
-		query: 'Bear Pond Espresso Shimokitazawa',
-		city: 'Tokyo',
-		neighborhood: 'Shimokitazawa',
-		category: 'shop'
-	},
-	{ query: 'SG Club Shibuya Tokyo', city: 'Tokyo', neighborhood: 'Shibuya', category: 'drink' },
-	{ query: 'Daikanyama T-Site', city: 'Tokyo', neighborhood: 'Daikanyama', category: 'shop' }
-];
-
-// --- Cache plumbing -------------------------------------------------------
-
-type CachedPlace = {
-	muid: string;
+type FixturePlace = {
 	name: string;
-	city: string;
 	category: 'eat' | 'drink' | 'shop' | 'visit';
+	city: string;
+	neighborhood: string | null;
+	description: string | null;
 	latitude: number;
 	longitude: number;
-	formattedAddress: string;
+	external_id: string;
 };
 
-type Cache = Record<string, CachedPlace>;
+const FIXTURE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), 'places-fixture.json');
 
-async function readCache(): Promise<Cache> {
+/** Cities need enough places to host personas with distinct-but-overlapping taste. */
+const MIN_PLACES_PER_CITY = 25;
+/** How many cities personas live in. The rest of the catalogue still lands in
+ *  the database, it just has nobody resident. */
+const MAX_CITIES = 8;
+
+async function readFixture(): Promise<FixturePlace[]> {
 	try {
-		const raw = await readFile(CACHE_PATH, 'utf8');
-		return JSON.parse(raw) as Cache;
+		const raw = await readFile(FIXTURE_PATH, 'utf8');
+		return JSON.parse(raw) as FixturePlace[];
 	} catch {
-		return {};
+		throw new Error(
+			`No place fixture at ${FIXTURE_PATH}.\n` +
+				`Generate one with: pnpm pull:snapshot -- --places-fixture`
+		);
 	}
-}
-
-async function writeCache(cache: Cache) {
-	await writeFile(CACHE_PATH, JSON.stringify(cache, null, '\t') + '\n');
-}
-
-function cacheKey(hint: PlaceHint): string {
-	return `${hint.query}|${hint.city}`;
-}
-
-function resultToCached(
-	r: AppleSearchResult,
-	city: string,
-	categoryOverride?: 'eat' | 'drink' | 'shop' | 'visit'
-): CachedPlace | null {
-	const category = categoryOverride ?? mapAppleCategory(r.poiCategory);
-	if (!category) return null;
-	return {
-		muid: r.muid,
-		name: r.name,
-		city,
-		category,
-		latitude: r.latitude,
-		longitude: r.longitude,
-		formattedAddress: r.formattedAddress
-	};
-}
-
-async function resolvePlace(hint: PlaceHint, cache: Cache): Promise<CachedPlace | null> {
-	const key = cacheKey(hint);
-	if (cache[key]) return cache[key];
-
-	console.log(`  → searching Apple Maps for "${hint.query}"…`);
-	const center =
-		hint.city === 'Tokyo'
-			? { latitude: 35.6762, longitude: 139.6503 }
-			: { latitude: 34.0522, longitude: -118.2437 };
-	const results = await searchAppleMaps(hint.query, { center });
-	if (results.length === 0) {
-		console.warn(`  ⚠ No Apple Maps result for "${hint.query}"`);
-		return null;
-	}
-	const cached = resultToCached(results[0], hint.city, hint.category);
-	if (!cached) {
-		console.warn(`  ⚠ Could not classify "${hint.query}" (poiCategory=${results[0].poiCategory})`);
-		return null;
-	}
-	cache[key] = cached;
-	return cached;
 }
 
 // --- Events ----------------------------------------------------------------
@@ -389,167 +208,244 @@ const EVENTS: NewEvent[] = [
 
 // --- Personas -------------------------------------------------------------
 //
-// Each persona's `likes` is a list of `PlaceHint.query` strings - the
-// matching query, not the place name. This keeps everything indirectable
-// through the cache.
+// Generated rather than hand-written, because the point of the demo data is to
+// exercise matching, and matching needs pairs that actually clear
+// MATCH_THRESHOLD. A hand-written list of ten people with four likes each
+// produces zero twins, which is exactly the state production is in and the one
+// state you cannot demo from.
+//
+// The construction: every place falls into one of TASTE_CLUSTERS buckets by a
+// stable hash of its external id. A persona draws most of its opinions from one
+// cluster, so two personas sharing a cluster overlap heavily and score as twins,
+// while personas in different clusters barely overlap and stay strangers.
+//
+// Each persona also rates places in a hub city they do not live in, which is
+// what produces cross-city twins: an LA resident and a Paris resident who match
+// because they liked the same places on a trip. That is the actual product
+// pitch, and no amount of single-city data demonstrates it.
+
+/** Distinct taste groups. More clusters means sparser overlap. */
+const TASTE_CLUSTERS = 4;
+/** Personas per resident city. Above TASTE_CLUSTERS so some cities host two
+ *  people of the same cluster, which is what produces same-city twins. */
+const PERSONAS_PER_CITY = 5;
+/** Opinions drawn from the persona's home city, inside its own cluster. This
+ *  is most of a persona's history, so it also sets the cosine denominator: too
+ *  few and every overlap reads as a near-perfect match. */
+const HOME_PICKS = 14;
+/** How far each persona's home window slides. Coprime-ish with HOME_PICKS so
+ *  successive personas overlap partially rather than in lockstep. */
+const WINDOW_STRIDE = 5;
+/** Stagger between travel windows. Two personas of the same cluster share
+ *  TRAVEL_PICKS minus their stagger distance, so hub overlap decays with
+ *  distance instead of being all-or-nothing. */
+const TRAVEL_STRIDE = 2;
+/** Opinions from a cluster that is not theirs, recorded as dislikes. Prod has
+ *  almost none, so without these the disagreement half of the score is dead. */
+const DISLIKE_PICKS = 3;
+/** Opinions in the shared hub city, which is what lets twins cross cities. */
+const TRAVEL_PICKS = 6;
+/** Bookmarks. No taste signal, they exist so the UI has want-to-go state. */
+const WANT_TO_GO_PICKS = 4;
+
+/** FNV-1a. Any stable hash works; this one keeps the seed dependency-free. */
+function stableHash(input: string): number {
+	let h = 0x811c9dc5;
+	for (let i = 0; i < input.length; i++) {
+		h ^= input.charCodeAt(i);
+		h = Math.imul(h, 0x01000193);
+	}
+	return h >>> 0;
+}
+
+function clusterOf(p: FixturePlace): number {
+	return stableHash(p.external_id) % TASTE_CLUSTERS;
+}
+
+/** Deterministic slice, wrapping so a short pool still yields the full count. */
+function window<T>(pool: T[], offset: number, count: number): T[] {
+	if (pool.length === 0) return [];
+	const out: T[] = [];
+	for (let i = 0; i < Math.min(count, pool.length); i++) {
+		out.push(pool[(offset + i) % pool.length]);
+	}
+	return out;
+}
+
+const FIRST_NAMES = [
+	'Maya',
+	'Sam',
+	'Camille',
+	'Marcus',
+	'Yuki',
+	'Aiden',
+	'Priya',
+	'Theo',
+	'Hana',
+	'Leo',
+	'Noor',
+	'Diego',
+	'Ines',
+	'Kenji',
+	'Amara',
+	'Felix',
+	'Rosa',
+	'Omar',
+	'Lena',
+	'Tomas',
+	'Zara',
+	'Nils',
+	'Bea',
+	'Ravi'
+];
+const LAST_NAMES = [
+	'Tanaka',
+	'Okafor',
+	'Rivera',
+	'Hill',
+	'Mori',
+	'Walsh',
+	'Nair',
+	'Adams',
+	'Sato',
+	'Dubois',
+	'Haddad',
+	'Alvarez',
+	'Costa',
+	'Ito',
+	'Diallo',
+	'Berger',
+	'Marques',
+	'Aziz',
+	'Novak',
+	'Silva',
+	'Khan',
+	'Larsen',
+	'Font',
+	'Menon'
+];
 
 type Persona = {
 	name: string;
 	email: string;
-	city: 'Los Angeles' | 'Tokyo';
+	city: string;
 	latitude: number;
 	longitude: number;
-	timezone: string;
-	likes: string[];
+	cluster: number;
+	/** externalId -> stance. One map so a place can never get two stances. */
+	opinions: Map<string, 'liked' | 'disliked' | 'want_to_go'>;
 };
 
-const LA = {
-	city: 'Los Angeles' as const,
-	lat: 34.0522,
-	lng: -118.2437,
-	tz: 'America/Los_Angeles'
-};
-const TY = { city: 'Tokyo' as const, lat: 35.6762, lng: 139.6503, tz: 'Asia/Tokyo' };
-
-const PERSONAS: Persona[] = [
-	{
-		name: 'Maya Tanaka',
-		email: 'maya@demo.curiomancer',
-		city: TY.city,
-		latitude: TY.lat,
-		longitude: TY.lng,
-		timezone: TY.tz,
-		likes: [
-			'Fuglen Tokyo Shibuya',
-			'Bar Trench Ebisu Tokyo',
-			'Cow Books Nakameguro Tokyo',
-			'Coutume Aoyama 5-50-7 Minato Tokyo'
-		]
-	},
-	{
-		name: 'Sam Okafor',
-		email: 'sam@demo.curiomancer',
-		city: TY.city,
-		latitude: TY.lat,
-		longitude: TY.lng,
-		timezone: TY.tz,
-		likes: [
-			'Tsuta ramen Tokyo',
-			'Sushi Saito Roppongi Tokyo',
-			'Beard restaurant Meguro Tokyo',
-			'Den restaurant Jingumae Shibuya Tokyo',
-			'Bar Trench Ebisu Tokyo',
-			'SG Club Shibuya Tokyo'
-		]
-	},
-	{
-		name: 'Léo Bernard',
-		email: 'leo@demo.curiomancer',
-		city: TY.city,
-		latitude: TY.lat,
-		longitude: TY.lng,
-		timezone: TY.tz,
-		likes: [
-			'Fuglen Tokyo Shibuya',
-			'Coutume Aoyama 5-50-7 Minato Tokyo',
-			'Daikanyama T-Site',
-			'Bestia Los Angeles'
-		]
-	},
-	{
-		name: 'Yuki Nakamura',
-		email: 'yuki@demo.curiomancer',
-		city: TY.city,
-		latitude: TY.lat,
-		longitude: TY.lng,
-		timezone: TY.tz,
-		likes: [
-			'Den restaurant Jingumae Shibuya Tokyo',
-			'Gen Yamamoto Azabu-Juban',
-			'Beard restaurant Meguro Tokyo',
-			'Bestia Los Angeles',
-			'Sqirl Los Angeles'
-		]
-	},
-	{
-		name: 'Hana Wright',
-		email: 'hana@demo.curiomancer',
-		city: TY.city,
-		latitude: TY.lat,
-		longitude: TY.lng,
-		timezone: TY.tz,
-		likes: [
-			'Bear Pond Espresso Shimokitazawa',
-			'Bar Trench Ebisu Tokyo',
-			'Cow Books Nakameguro Tokyo'
-		]
-	},
-	{
-		name: 'Aiden Park',
-		email: 'aiden@demo.curiomancer',
-		city: LA.city,
-		latitude: LA.lat,
-		longitude: LA.lng,
-		timezone: LA.tz,
-		likes: [
-			'Bestia Los Angeles',
-			'Gjusta Venice CA',
-			'Bar Bandini Echo Park',
-			'Mohawk General Store Silver Lake',
-			'Cow Books Nakameguro Tokyo'
-		]
-	},
-	{
-		name: 'Camille Rivera',
-		email: 'camille@demo.curiomancer',
-		city: LA.city,
-		latitude: LA.lat,
-		longitude: LA.lng,
-		timezone: LA.tz,
-		likes: [
-			'Sqirl Los Angeles',
-			'Tartine bakery Downtown Los Angeles',
-			'Stories Books and Cafe Echo Park',
-			'Skylight Books Los Angeles',
-			'Daikanyama T-Site',
-			'Bear Pond Espresso Shimokitazawa'
-		]
-	},
-	{
-		name: 'Marcus Hill',
-		email: 'marcus@demo.curiomancer',
-		city: LA.city,
-		latitude: LA.lat,
-		longitude: LA.lng,
-		timezone: LA.tz,
-		likes: [
-			'Thunderbolt Los Angeles',
-			'Bar Bandini Echo Park',
-			'The Varnish Los Angeles',
-			'Tabula Rasa Bar Los Angeles',
-			'SG Club Shibuya Tokyo',
-			'Bar Trench Ebisu Tokyo'
-		]
-	},
-	{
-		name: 'Priya Shah',
-		email: 'priya@demo.curiomancer',
-		city: LA.city,
-		latitude: LA.lat,
-		longitude: LA.lng,
-		timezone: LA.tz,
-		likes: ['Found Oyster Los Angeles', 'Cobi Los Angeles', 'Coutume Aoyama 5-50-7 Minato Tokyo']
-	},
-	{
-		name: 'Theo Lambert',
-		email: 'theo@demo.curiomancer',
-		city: LA.city,
-		latitude: LA.lat,
-		longitude: LA.lng,
-		timezone: LA.tz,
-		likes: ['Mohawk General Store Silver Lake', 'Bear Pond Espresso Shimokitazawa']
+/**
+ * Build the persona set from whatever cities the fixture actually contains, so
+ * this keeps working as the catalogue grows or shifts.
+ */
+function buildPersonas(places: FixturePlace[]): Persona[] {
+	const byCity = new Map<string, FixturePlace[]>();
+	for (const p of places) {
+		// "Unknown" is the catch-all for places whose city never resolved; nobody
+		// should live there.
+		if (!p.city || p.city === 'Unknown') continue;
+		const list = byCity.get(p.city) ?? [];
+		list.push(p);
+		byCity.set(p.city, list);
 	}
-];
+
+	const cities = [...byCity.entries()]
+		.filter(([, list]) => list.length >= MIN_PLACES_PER_CITY)
+		.sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
+		.slice(0, MAX_CITIES)
+		.map(([city]) => city);
+
+	if (cities.length === 0) {
+		throw new Error(`No city in the fixture has ${MIN_PLACES_PER_CITY}+ places.`);
+	}
+
+	// The biggest city doubles as the hub everyone "travels" to.
+	const hub = cities[0];
+
+	/**
+	 * A city's whole catalogue, ordered by how close each place sits to
+	 * `cluster`. Own-cluster places come first, the opposite cluster last.
+	 *
+	 * Ordering the full list beats filtering to one cluster. Filtering leaves
+	 * pools of a handful of places in smaller cities, so every window wraps onto
+	 * the same few venues and personas end up holding near-identical histories,
+	 * which scores as a perfect match. Here the pool is always the full city, so
+	 * a window is always HOME_PICKS distinct places and overlap falls off with
+	 * distance between windows.
+	 */
+	const affinityPool = (city: string, cluster: number) =>
+		(byCity.get(city) ?? []).slice().sort((a, b) => {
+			const da = (clusterOf(a) - cluster + TASTE_CLUSTERS) % TASTE_CLUSTERS;
+			const db = (clusterOf(b) - cluster + TASTE_CLUSTERS) % TASTE_CLUSTERS;
+			return da - db || a.external_id.localeCompare(b.external_id);
+		});
+
+	const personas: Persona[] = [];
+	// Windows slide per (city, cluster) rather than per persona, so they stay
+	// near the front of the affinity pool (inside the persona's own taste) and
+	// two people of the same cluster in the same city overlap predictably.
+	const seatByGroup = new Map<string, number>();
+	let n = 0;
+	for (const city of cities) {
+		const sample = byCity.get(city)![0];
+		for (let i = 0; i < PERSONAS_PER_CITY; i++) {
+			const cluster = i % TASTE_CLUSTERS;
+			// Slide by the persona's global index, not its index within the city:
+			// keying off `i` alone left every window at zero, which made same-cluster
+			// personas hold identical lists and score as near-perfect matches.
+			const group = `${city}:${cluster}`;
+			const seat = seatByGroup.get(group) ?? 0;
+			seatByGroup.set(group, seat + 1);
+			const homeOffset = seat * WINDOW_STRIDE;
+			// Travel windows stagger by cluster seat too, so cross-city twins of the
+			// same cluster share most of the hub but never all of it.
+			const travelSeat = seatByGroup.get(`travel:${cluster}`) ?? 0;
+			seatByGroup.set(`travel:${cluster}`, travelSeat + 1);
+			const travelOffset = (travelSeat % 3) * TRAVEL_STRIDE;
+			const first = FIRST_NAMES[n % FIRST_NAMES.length];
+			// Shift the surname by one extra step on each wrap of the first names,
+			// otherwise both indices cycle with the same period and persona 24 gets
+			// persona 0's exact name, colliding on the unique email.
+			const last = LAST_NAMES[(n * 7 + Math.floor(n / FIRST_NAMES.length)) % LAST_NAMES.length];
+			const opinions = new Map<string, 'liked' | 'disliked' | 'want_to_go'>();
+
+			for (const p of window(affinityPool(city, cluster), homeOffset, HOME_PICKS)) {
+				opinions.set(p.external_id, 'liked');
+			}
+			// The hub is where personas of the same cluster meet regardless of where
+			// they live, which is what makes cross-city twins possible at all.
+			for (const p of window(affinityPool(hub, cluster), travelOffset, TRAVEL_PICKS)) {
+				if (!opinions.has(p.external_id)) opinions.set(p.external_id, 'liked');
+			}
+			// Furthest from their taste, so shared dislikes mean something.
+			const opposite = affinityPool(city, (cluster + 2) % TASTE_CLUSTERS);
+			for (const p of window(opposite, homeOffset, DISLIKE_PICKS)) {
+				if (!opinions.has(p.external_id)) opinions.set(p.external_id, 'disliked');
+			}
+			for (const p of window(
+				affinityPool(city, (cluster + 1) % TASTE_CLUSTERS),
+				homeOffset,
+				WANT_TO_GO_PICKS
+			)) {
+				if (!opinions.has(p.external_id)) opinions.set(p.external_id, 'want_to_go');
+			}
+
+			personas.push({
+				name: `${first} ${last}`,
+				email: `${first.toLowerCase()}.${last.toLowerCase()}@demo.curiomancer`,
+				city,
+				latitude: sample.latitude,
+				longitude: sample.longitude,
+				cluster,
+				opinions
+			});
+			n++;
+		}
+	}
+	return personas;
+}
 
 // --- Invites & waitlist -----------------------------------------------------
 //
@@ -589,15 +485,14 @@ const WAITLIST_ENTRIES: { email: string; city: string; status: 'pending' | 'invi
 
 // --- Run -------------------------------------------------------------------
 
-console.log('Resolving places via Apple Maps (with cache)…');
-const cache = await readCache();
-const hintByQuery = new Map(PLACE_HINTS.map((h) => [h.query, h]));
-const resolved = new Map<string, CachedPlace>();
-for (const hint of PLACE_HINTS) {
-	const r = await resolvePlace(hint, cache);
-	if (r) resolved.set(hint.query, r);
-}
-await writeCache(cache);
+const fixture = await readFixture();
+const PERSONAS = buildPersonas(fixture);
+const residentCities = [...new Set(PERSONAS.map((p) => p.city))];
+console.log(
+	`Loaded ${fixture.length} places from the fixture; ` +
+		`${PERSONAS.length} personas across ${residentCities.length} cities ` +
+		`(${residentCities.join(', ')})…`
+);
 
 console.log('Clearing previous demo personas and their data…');
 // Scoped to demo persona users only - never touches real accounts or places
@@ -624,21 +519,18 @@ await db.delete(event);
 // them explicitly by the same demo email pattern.
 await db.delete(waitlist).where(or(...DEMO_EMAIL_PATTERNS.map((p) => like(waitlist.email, p))));
 
-console.log(`Upserting ${resolved.size} places (source=apple)…`);
-const placeRows: NewPlace[] = [...resolved.entries()].map(([query, r]) => {
-	const hint = hintByQuery.get(query)!;
-	return {
-		name: r.name,
-		category: r.category,
-		city: r.city,
-		neighborhood: hint.neighborhood ?? null,
-		description: hint.description ?? `${r.name} - ${r.formattedAddress}`,
-		latitude: r.latitude,
-		longitude: r.longitude,
-		source: 'apple' as const,
-		externalId: r.muid
-	};
-});
+console.log(`Upserting ${fixture.length} places (source=apple)…`);
+const placeRows: NewPlace[] = fixture.map((r) => ({
+	name: r.name,
+	category: r.category,
+	city: r.city,
+	neighborhood: r.neighborhood,
+	description: r.description ?? r.name,
+	latitude: r.latitude,
+	longitude: r.longitude,
+	source: 'apple' as const,
+	externalId: r.external_id
+}));
 // Upsert on the (source, externalId) dedupe key instead of delete+insert, so
 // re-running this script reuses (rather than orphans or duplicates) a place
 // row that a real user has already liked via the same Apple Maps POI.
@@ -659,10 +551,10 @@ const insertedPlaces = await db
 		}
 	})
 	.returning();
-const placeIdByQuery = new Map<string, string>();
-for (const [query, r] of resolved) {
-	const created = insertedPlaces.find((p) => p.externalId === r.muid);
-	if (created) placeIdByQuery.set(query, created.id);
+// Keyed by Apple muid, which is what personas hold references to.
+const placeIdByExternalId = new Map<string, string>();
+for (const p of insertedPlaces) {
+	if (p.externalId) placeIdByExternalId.set(p.externalId, p.id);
 }
 
 console.log(`Inserting ${EVENTS.length} events…`);
@@ -684,25 +576,18 @@ const locationRows: NewUserLocation[] = PERSONAS.map((p) => ({
 	userId: userIdByEmail.get(p.email)!,
 	city: p.city,
 	latitude: p.latitude,
-	longitude: p.longitude,
-	timezone: p.timezone,
-	countryCode: p.city === 'Tokyo' ? 'JP' : 'US'
+	longitude: p.longitude
 }));
 await db.insert(userLocation).values(locationRows);
 
-const likeRows = PERSONAS.flatMap((p) =>
-	p.likes
-		.map((query) => {
-			const placeId = placeIdByQuery.get(query);
-			if (!placeId) {
-				console.warn(`  ⚠ Persona ${p.name} likes "${query}" but it didn't resolve; skipping.`);
-				return null;
-			}
-			return { userId: userIdByEmail.get(p.email)!, placeId };
-		})
-		.filter((row): row is { userId: string; placeId: string } => row !== null)
+const relationRows = PERSONAS.flatMap((p) =>
+	[...p.opinions].flatMap(([externalId, kind]) => {
+		const placeId = placeIdByExternalId.get(externalId);
+		if (!placeId) return [];
+		return [{ userId: userIdByEmail.get(p.email)!, placeId, kind }];
+	})
 );
-if (likeRows.length > 0) await db.insert(placeRelation).values(likeRows);
+if (relationRows.length > 0) await db.insert(placeRelation).values(relationRows);
 
 console.log(`Minting ${PERSONAS.length * 3} invites (3 per persona, some redeemed)…`);
 const redeemedToByFrom = new Map(INVITE_CHAINS.map((c) => [c.from, c.to]));
@@ -742,8 +627,8 @@ if (extraInviteRows.length > 0) await db.insert(invite).values(extraInviteRows);
 await db.insert(waitlist).values(waitlistRows);
 
 console.log(
-	`Done - ${resolved.size} places, ${EVENTS.length} events, ${PERSONAS.length} personas, ` +
-		`${likeRows.length} likes, ${inviteRows.length + extraInviteRows.length} invites, ` +
+	`Done - ${fixture.length} places, ${EVENTS.length} events, ${PERSONAS.length} personas, ` +
+		`${relationRows.length} opinions, ${inviteRows.length + extraInviteRows.length} invites, ` +
 		`${waitlistRows.length} waitlist entries.`
 );
 await sql.end();

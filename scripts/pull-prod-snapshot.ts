@@ -29,6 +29,11 @@
  *
  * Run with: pnpm pull:snapshot [-- --yes] [--anonymize-emails] [--keep-file]
  *
+ * A separate mode, `--places-fixture`, writes production's `place` rows to a
+ * committed JSON fixture the demo seed reads. Venue names and coordinates are
+ * not personal data, so unlike the tables above the fixture is safe to check
+ * in; no ratings, users or locations go anywhere near it.
+ *
  * Without --yes it dumps and stops, so you can inspect the file before anything
  * local is touched.
  *
@@ -53,6 +58,15 @@ const sshHost = process.env.PROD_SSH_HOST;
 const container = process.env.PROD_PG_CONTAINER;
 const pgUser = process.env.PROD_PG_USER ?? 'postgres';
 const pgDb = process.env.PROD_PG_DB ?? 'curiomancer';
+
+/**
+ * Quote one argument for the remote shell. `ssh host a b c` does not exec argv
+ * remotely, it concatenates and runs the result through sh, so a SQL string or
+ * a quoted identifier like "user" has to survive a second round of parsing.
+ */
+function shq(arg: string): string {
+	return `'` + arg.replace(/'/g, `'\\''`) + `'`;
+}
 
 function fail(message: string): never {
 	console.error(`\n  ${message}\n`);
@@ -79,6 +93,48 @@ if (!LOCAL_HOSTS.has(targetHost)) {
 	);
 }
 
+/**
+ * `--places-fixture`: export just the place catalogue for the demo seed, and
+ * stop. Nothing local is truncated, so this mode is safe to run at any time.
+ */
+if (has('--places-fixture')) {
+	const query =
+		'SELECT json_agg(row_to_json(p)) FROM (' +
+		'SELECT name, category, city, neighborhood, description, latitude, longitude, external_id ' +
+		'FROM place WHERE latitude IS NOT NULL AND longitude IS NOT NULL AND external_id IS NOT NULL ' +
+		'ORDER BY city, name) p';
+	let json: string;
+	try {
+		const remote = [
+			'docker exec -i',
+			shq(container),
+			'psql -U',
+			shq(pgUser),
+			'-d',
+			shq(pgDb),
+			'-tAc',
+			shq(query)
+		].join(' ');
+		json = execFileSync('ssh', [sshHost, remote], {
+			encoding: 'utf8',
+			maxBuffer: 512 * 1024 * 1024
+		});
+	} catch (err) {
+		fail(`Place export failed: ${(err as Error).message}`);
+	}
+	const rows = JSON.parse(json.trim() || '[]');
+	const fixture = join(process.cwd(), 'src/lib/server/db/places-fixture.json');
+	writeFileSync(fixture, JSON.stringify(rows, null, '\t') + '\n');
+	const byCity = new Map<string, number>();
+	for (const r of rows) byCity.set(r.city, (byCity.get(r.city) ?? 0) + 1);
+	const top = [...byCity.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+	console.log(`  Wrote ${rows.length} places to ${fixture}`);
+	console.log(
+		`  Cities: ${top.map(([c, n]) => `${c} (${n})`).join(', ')}${byCity.size > 8 ? ', …' : ''}`
+	);
+	process.exit(0);
+}
+
 const workDir = mkdtempSync(join(tmpdir(), 'curiomancer-snapshot-'));
 const dumpPath = join(workDir, 'snapshot.sql');
 
@@ -89,19 +145,16 @@ console.log(`  tables  ${TABLES.join(', ')}\n`);
 console.log('  Dumping...');
 const dumpArgs = [
 	sshHost,
-	'docker',
-	'exec',
-	'-i',
-	container,
-	'pg_dump',
-	'-U',
-	pgUser,
-	'-d',
-	pgDb,
-	'--data-only',
-	'--no-owner',
-	'--no-privileges',
-	...TABLES.flatMap((t) => ['-t', t])
+	[
+		'docker exec -i',
+		shq(container),
+		'pg_dump -U',
+		shq(pgUser),
+		'-d',
+		shq(pgDb),
+		'--data-only --no-owner --no-privileges',
+		...TABLES.map((t) => `-t ${shq(t)}`)
+	].join(' ')
 ];
 try {
 	// Straight to a file: a production dump can be large enough that buffering
