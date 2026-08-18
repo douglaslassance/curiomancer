@@ -4,6 +4,7 @@ import { tuneSkip } from './db/schema';
 import { haversineKm, type NearbyPlace } from './nearby';
 import { tasteGraphCte } from './taste-graph';
 import type { TuneBreakdown } from '$lib/tune-breakdown';
+import { displayDescription } from '$lib/place-description';
 
 /**
  * Tune ranking knobs. Surfaced live in the admin-only "why this showed" panel
@@ -184,7 +185,7 @@ export async function getScoredTuneQueue(
 				category: r.category,
 				city: r.city,
 				neighborhood: r.neighborhood,
-				description: r.description,
+				description: displayDescription(r),
 				latitude: r.latitude,
 				longitude: r.longitude,
 				source: r.source,

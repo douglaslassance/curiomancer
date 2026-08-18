@@ -1,4 +1,5 @@
 import { error } from '@sveltejs/kit';
+import { displayDescription } from '$lib/place-description';
 import { and, asc, count, eq, isNotNull, sql } from 'drizzle-orm';
 import { db } from './db';
 import { place, placeRelation, type Place, type PlaceRelationKind } from './db/schema';
@@ -95,5 +96,10 @@ export async function getPlaceContext(
 		relation = mine?.kind ?? null;
 	}
 
-	return { place: row, likeCount: likeRow.likeCount, relation };
+	// Strip the "Name, City" placeholder older Apple-saved rows carry, the same
+	// way the v1 API does, so no client has to learn the rule (see
+	// $lib/place-description).
+	const placeRow: Place = { ...row, description: displayDescription(row) };
+
+	return { place: placeRow, likeCount: likeRow.likeCount, relation };
 }

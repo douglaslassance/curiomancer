@@ -36,6 +36,8 @@ import { haversineKm } from './nearby';
 import { AGREEMENT_EXPR, MATCH_THRESHOLD, SIGNIFICANCE_FLOOR, matchScoreExpr } from './similarity';
 import { tasteGraphCte } from './taste-graph';
 import type { MatchBreakdown, SharedOpinion } from '$lib/match-breakdown';
+import { displayDescription } from '$lib/place-description';
+import type { RecommendationBreakdown, RecommendingTwin } from '$lib/recommendation-breakdown';
 
 /**
  * Where to look for candidate places: an exact city match (what /places and
@@ -438,7 +440,7 @@ export async function getRecommendedPlaces(
 		category: r.category,
 		city: r.city,
 		neighborhood: r.neighborhood,
-		description: r.description,
+		description: displayDescription(r),
 		latitude: r.latitude,
 		longitude: r.longitude,
 		source: r.source,
@@ -510,7 +512,7 @@ export async function getPopularPlaces(
 		category: r.category,
 		city: r.city,
 		neighborhood: r.neighborhood,
-		description: r.description,
+		description: displayDescription(r),
 		latitude: r.latitude,
 		longitude: r.longitude,
 		source: r.source,
@@ -634,5 +636,75 @@ export async function getMatchBreakdown(
 		threshold: MATCH_THRESHOLD,
 		significanceFloor: SIGNIFICANCE_FLOOR,
 		shared
+	};
+}
+
+/**
+ * Admin-only anatomy of one place's recommendation score, for the map popup.
+ *
+ * Null unless the place is genuinely one of the viewer's recommendations, which
+ * is the only case the panel is for. A place the viewer already rated, or that
+ * no twin liked, or that fell under the bar, has no recommendation to explain,
+ * and a panel saying so is just noise on a card.
+ *
+ * Recomputes the exact terms getRecommendedPlaces ranks on, for a single place
+ * instead of a category's worth, and additionally names the twins behind them.
+ * That naming is why this is admin-only: /api/places/[id] deliberately returns
+ * an anonymous like count, because named social proof let people reverse
+ * engineer whose taste sat behind a recommendation and game their own likes.
+ */
+export async function getRecommendationBreakdown(
+	userId: string,
+	placeId: string
+): Promise<RecommendationBreakdown | null> {
+	const rows = await db.execute<{
+		user_id: string;
+		name: string;
+		score: number;
+		kind: 'liked' | 'disliked';
+	}>(sql`
+		WITH ${tasteGraphCte(sql`${userId}`, null)}
+		SELECT t.user_id, u.name, t.score, l.kind
+		FROM twins t
+		JOIN "place_relation" l ON l.user_id = t.user_id AND l.place_id = ${placeId}
+		JOIN "user" u ON u.id = t.user_id
+		WHERE l.kind IN ('liked', 'disliked')
+		ORDER BY t.score DESC
+	`);
+
+	const [rated] = await db.execute<{ n: number }>(sql`
+		SELECT COUNT(*)::int AS n FROM "place_relation"
+		WHERE user_id = ${userId} AND place_id = ${placeId}
+	`);
+
+	const twins: RecommendingTwin[] = rows.map((r) => ({
+		userId: r.user_id,
+		name: r.name,
+		score: Number(r.score) || 0,
+		kind: r.kind
+	}));
+	const viewerHasRated = (Number(rated?.n) || 0) > 0;
+
+	const weight = twins.reduce((sum, t) => sum + Math.abs(t.score), 0);
+	const signed = twins.reduce((sum, t) => sum + t.score * (t.kind === 'liked' ? 1 : -1), 0);
+	const agreement = weight > 0 ? signed / weight : null;
+	const likers = twins.filter((t) => t.kind === 'liked');
+	// MAX over likers only: a place nobody liked has no endorser to cap it, which
+	// is the same reason the SQL uses FILTER (WHERE l.kind = 'liked').
+	const bestEndorser = likers.length > 0 ? likers[0] : null;
+	const score = agreement !== null && bestEndorser ? agreement * bestEndorser.score : null;
+
+	// Mirror the query, which excludes places the viewer has any relation with
+	// and applies HAVING > MATCH_THRESHOLD. Anything it would not return is not a
+	// recommendation, so there is nothing here to explain.
+	if (viewerHasRated || score === null || score <= MATCH_THRESHOLD) return null;
+
+	return {
+		score,
+		agreement,
+		bestEndorser,
+		twins,
+		viewerHasRated,
+		threshold: MATCH_THRESHOLD
 	};
 }
