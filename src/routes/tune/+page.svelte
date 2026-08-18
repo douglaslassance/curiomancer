@@ -17,11 +17,10 @@
 	import { relations, type Kind } from '$lib/relations.svelte';
 	import { googleMapsUrl } from '$lib/maps-link';
 	import { ensureMapKit } from '$lib/mapkit-client';
-	import PlaceMiniMap from '$lib/components/place-mini-map.svelte';
 	import TuneBreakdown from '$lib/components/tune-breakdown.svelte';
 	import { RELATION_COLOR } from '$lib/relation-colors';
 	import { mapAppleCategory, CURATED_CATEGORIES, type CuratedCategory } from '$lib/map-category';
-	import { categoryLabel } from '$lib/place-category';
+	import { categoryIcon, categoryLabel } from '$lib/place-category';
 	import type { Component } from 'svelte';
 
 	let { data } = $props();
@@ -111,6 +110,7 @@
 	let mapkitError = $state(false);
 	const current = $derived(queue[index] ?? null);
 	const mapsUrl = $derived(current ? googleMapsUrl(current) : null);
+	const CategoryIcon = $derived(categoryIcon(current ? current.category : 'other'));
 	// Admin-only scoring terms for the card on screen. Only DB places carry one:
 	// a fresh Apple POI is swept in by the client and never went through the
 	// server's ranking, so there is nothing to break down.
@@ -397,85 +397,91 @@
 			{/if}
 		</div>
 
-		<!-- Current place -->
-		<Card.Root>
-			<Card.Content>
-				<!-- Details and map side by side (stacked on narrow screens) so the map
-				     stays a compact companion to the text, not a full-width block. -->
-				<div class="flex flex-col gap-4 sm:flex-row sm:items-start">
-					<div class="min-w-0 flex-1">
-						<div class="flex items-start gap-2">
-							<h2 class="flex-1 text-xl font-semibold tracking-tight">
-								{#if current.placeId}
-									<a href={`/places?place=${current.placeId}`} class="hover:underline"
-										>{current.name}</a
-									>
-								{:else}
-									{current.name}
-								{/if}
-							</h2>
-							<Badge variant="secondary">{categoryLabel(current.category)}</Badge>
-						</div>
-						<p class="text-muted-foreground mt-2 flex items-center gap-1 text-sm">
-							<MapPin class="size-4" />
-							{current.neighborhood ? `${current.neighborhood}, ` : ''}{current.city}
-						</p>
-						{#if current.description}
-							<p class="text-muted-foreground mt-3 text-sm leading-relaxed">
-								{current.description}
-							</p>
-						{/if}
-						{#if mapsUrl}
-							<a
-								href={mapsUrl}
-								target="_blank"
-								rel="noopener noreferrer"
-								class="text-muted-foreground hover:text-foreground mt-3 inline-flex items-center gap-1 text-sm underline"
-							>
-								Open in Google Maps
-								<ExternalLink class="size-3.5" />
-							</a>
-						{/if}
+		{#snippet media()}
+			<!-- Spans the card's full height, like a twin card's portrait: the details
+			     and the rating buttons both sit in the column beside it. Card.Root
+			     already clips to its rounded corners, so this needs no rounding of its
+			     own. The photo when we have one, otherwise the category placeholder;
+			     this used to be a live mini map, a whole MapKit instance per card. -->
+			<div class="h-52 w-full shrink-0 sm:h-auto sm:w-64">
+				{#if typeof currentPhoto === 'string'}
+					<img
+						src={currentPhoto}
+						alt={current.name}
+						class="h-full w-full object-cover"
+						loading="lazy"
+						onerror={() => (photoCache[current.key] = null)}
+					/>
+				{:else}
+					<div class="bg-muted flex h-full w-full items-center justify-center" aria-hidden="true">
+						<CategoryIcon class="text-muted-foreground size-12 opacity-30" />
 					</div>
+				{/if}
+			</div>
+		{/snippet}
 
-					{#if typeof currentPhoto === 'string' || (current.latitude !== null && current.longitude !== null)}
-						<div class="h-52 w-full sm:order-first sm:h-56 sm:w-72 sm:shrink-0">
-							{#if typeof currentPhoto === 'string'}
-								<!-- Photo when we found one; the map stays the fallback. If the
-								     image fails to load (dead link, blocked hotlink), drop back
-								     to the map for this card. -->
-								<img
-									src={currentPhoto}
-									alt={current.name}
-									class="h-full w-full rounded-xl border object-cover"
-									loading="lazy"
-									onerror={() => (photoCache[current.key] = null)}
-								/>
-							{:else if current.latitude !== null && current.longitude !== null}
-								<PlaceMiniMap
-									latitude={current.latitude}
-									longitude={current.longitude}
-									name={current.name}
-									category={current.category}
-								/>
+		<!-- Current place -->
+		<!-- py-0 so the media reaches the card's top edge, matching every other card
+		     in the app. Card.Content below re-adds padding for the buttons. -->
+		<Card.Root class="gap-0 py-0">
+			<div class="flex flex-col sm:flex-row sm:items-stretch">
+				{@render media()}
+				<div class="min-w-0 flex-1 p-4">
+					<div class="flex items-start gap-2">
+						<h2 class="flex-1 text-xl font-semibold tracking-tight">
+							{#if current.placeId}
+								<a href={`/places?place=${current.placeId}`} class="hover:underline"
+									>{current.name}</a
+								>
+							{:else}
+								{current.name}
 							{/if}
-						</div>
+						</h2>
+						<Badge variant="secondary" class="gap-1">
+							<CategoryIcon class="size-3" />
+							{categoryLabel(current.category)}
+						</Badge>
+					</div>
+					<p class="text-muted-foreground mt-2 flex items-center gap-1 text-sm">
+						<MapPin class="size-4" />
+						{current.neighborhood ? `${current.neighborhood}, ` : ''}{current.city}
+					</p>
+					{#if current.description}
+						<p class="text-muted-foreground mt-3 text-sm leading-relaxed">
+							{current.description}
+						</p>
 					{/if}
+					{#if mapsUrl}
+						<a
+							href={mapsUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="text-muted-foreground hover:text-foreground mt-3 inline-flex items-center gap-1 text-sm underline"
+						>
+							Open in Google Maps
+							<ExternalLink class="size-3.5" />
+						</a>
+					{/if}
+					<!-- Rating is the card's purpose, so it lives in the card. Skip is a
+					     way out of the card, so it sits below it. -->
+					<div class="mt-4 grid grid-cols-2 gap-2">
+						{#each RATINGS as r (r.kind)}
+							{@const Icon = r.icon}
+							<Button
+								variant="outline"
+								class="h-12 justify-start gap-2"
+								onclick={() => rate(r.kind)}
+							>
+								<Icon class="size-4" style="color: {RELATION_COLOR[r.kind]}" />
+								{r.label}
+							</Button>
+						{/each}
+					</div>
 				</div>
-
-				<!-- Ratings: 2x2 grid, then skip. -->
-				<div class="mt-6 grid grid-cols-2 gap-2">
-					{#each RATINGS as r (r.kind)}
-						{@const Icon = r.icon}
-						<Button variant="outline" class="h-12 justify-start gap-2" onclick={() => rate(r.kind)}>
-							<Icon class="size-4" style="color: {RELATION_COLOR[r.kind]}" />
-							{r.label}
-						</Button>
-					{/each}
-				</div>
-				<Button variant="outline" class="mt-3 h-12 w-full" onclick={skip}>Skip</Button>
-			</Card.Content>
+			</div>
 		</Card.Root>
+
+		<Button variant="outline" class="mt-3 h-12 w-full" onclick={skip}>Skip</Button>
 
 		{#if data.isAdmin}
 			{#if currentTune}
@@ -484,7 +490,7 @@
 				<div class="text-muted-foreground mt-4 rounded-xl border border-dashed p-4 text-sm">
 					<p class="text-foreground flex items-center gap-2 font-medium">
 						<Shield class="text-muted-foreground size-4" />
-						Tune analysis
+						Analysis
 					</p>
 					<p class="mt-1">
 						This card is a fresh Apple POI swept in by the browser, so it never went through the
