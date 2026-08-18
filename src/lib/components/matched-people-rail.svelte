@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { MatchedPerson } from '$lib/server/matching';
-	import AvatarMatch from './avatar-match.svelte';
+	import TwinCard from './twin-card.svelte';
 	import { Users } from '@lucide/svelte';
 
 	let { people }: { people: MatchedPerson[] } = $props();
@@ -20,18 +20,18 @@
 			<p class="mt-2">No matches yet. Like 5 places to start finding your taste-twins.</p>
 		</div>
 	{:else}
-		<div class="flex gap-3 overflow-x-auto pb-2">
+		<!-- A grid, not a horizontal scroller: TwinCard is a wide card (avatar left,
+		     detail right), which cannot live in a 12rem rail, and matching the
+		     profile's twins grid is the point of sharing the component. -->
+		<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 			{#each people as person (person.id)}
-				<a
-					href={`/users/${person.id}`}
-					class="bg-card hover:border-foreground/30 flex w-48 shrink-0 flex-col gap-2 rounded-xl border p-4 transition-colors"
-				>
-					<AvatarMatch name={person.name} image={person.image} score={person.score} size={52} />
-					<div class="text-sm font-medium">{person.name}</div>
-					<div class="text-muted-foreground text-xs">
-						{person.sharedCount} shared like{person.sharedCount === 1 ? '' : 's'}
-					</div>
-				</a>
+				<TwinCard
+					id={person.id}
+					name={person.name}
+					image={person.image}
+					score={person.score}
+					sharedCount={person.sharedCount}
+				/>
 			{/each}
 		</div>
 	{/if}

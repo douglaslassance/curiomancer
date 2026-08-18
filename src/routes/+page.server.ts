@@ -11,10 +11,10 @@ export const load: PageServerLoad = async ({ locals, request }) => {
 	// banner is hidden there (see the home page); mobile users are nudged to Tune.
 	const isMobile = isMobileUserAgent(request.headers.get('user-agent'));
 
+	// One shape either way. buildHome already returns `location: null` (plus the
+	// empty maps its callers read) when there is no location, and a second early
+	// return here just made a third union member missing those keys, which the
+	// page then could not narrow.
 	const home = await buildHome(locals.user.id);
-	if (!home.location) {
-		return { signedIn: true as const, location: null };
-	}
-
 	return { signedIn: true as const, isMobile, ...home };
 };

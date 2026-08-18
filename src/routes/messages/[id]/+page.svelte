@@ -2,7 +2,7 @@
 	import { onDestroy, tick } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
-	import AvatarMatch from '$lib/components/avatar-match.svelte';
+	import UserPortrait from '$lib/components/user-portrait.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -136,7 +136,7 @@
 <div class="flex h-full flex-col">
 	<header class="mb-4 flex shrink-0 items-center gap-3">
 		<a href={`/users/${other.id}`} aria-label={`${other.name}'s profile`}>
-			<AvatarMatch name={other.name} image={other.image} score={data.score} size={40} />
+			<UserPortrait name={other.name} image={other.image} size={40} />
 		</a>
 		<h1 class="flex-1 text-xl font-semibold tracking-tight">
 			<a href={`/users/${other.id}`} class="hover:underline">{other.name}</a>

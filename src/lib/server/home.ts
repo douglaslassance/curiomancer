@@ -11,11 +11,13 @@ import {
 	type MatchedPerson,
 	type RecommendedPlace
 } from './matching';
-import { MATCH_THRESHOLD } from './similarity';
+import { getCachedPlacePhotos } from './place-photo';
 
 /** The home surface, or `{ location: null }` when the viewer has no location. */
 export type Home =
-	| { location: null }
+	/** `photos` is present in both members so the page can narrow on `location`
+	 *  without the property vanishing from the union. */
+	| { location: null; photos: Record<string, string> }
 	| {
 			location: CurrentLocation;
 			weather: Weather | null;
@@ -24,6 +26,8 @@ export type Home =
 			drink: RecommendedPlace[];
 			shop: RecommendedPlace[];
 			visit: RecommendedPlace[];
+			/** Apple Place ID -> photo URL, for rail places we have already resolved. */
+			photos: Record<string, string>;
 			/** Any rail carries a genuine taste-twin recommendation (vs popular fill). */
 			hasTwinRecs: boolean;
 			myLikeCount: number;
@@ -42,7 +46,7 @@ export type Home =
  */
 export async function buildHome(userId: string): Promise<Home> {
 	const loc = await getUserLocation(userId);
-	if (!loc) return { location: null };
+	if (!loc) return { location: null, photos: {} };
 
 	const myLikeCount = (
 		await db
@@ -69,9 +73,7 @@ export async function buildHome(userId: string): Promise<Home> {
 		// list and /twins use). Skipped entirely until the viewer has rated
 		// something, since with no ratings there's nothing to match on.
 		myLikeCount > 0
-			? getMatchedPeopleInCity(userId, loc.city).then((people) =>
-					people.filter((p) => p.isTwin)
-				)
+			? getMatchedPeopleInCity(userId, loc.city).then((people) => people.filter((p) => p.isTwin))
 			: Promise.resolve([] as MatchedPerson[]),
 		getRecommendedPlaces(userId, scope, 'eat'),
 		getRecommendedPlaces(userId, scope, 'drink'),
@@ -98,5 +100,22 @@ export async function buildHome(userId: string): Promise<Home> {
 
 	await logRecommendationImpressions(userId, [...eat, ...drink, ...shop, ...visit]);
 
-	return { location: loc, weather, matchedPeople, eat, drink, shop, visit, hasTwinRecs, myLikeCount };
+	// Cache only, so four rails cost one query and no network. Places we have not
+	// resolved yet fall back to their map thumbnail.
+	const photos = await getCachedPlacePhotos(
+		[...eat, ...drink, ...shop, ...visit].map((p) => p.externalId)
+	);
+
+	return {
+		location: loc,
+		weather,
+		matchedPeople,
+		eat,
+		drink,
+		shop,
+		visit,
+		photos,
+		hasTwinRecs,
+		myLikeCount
+	};
 }

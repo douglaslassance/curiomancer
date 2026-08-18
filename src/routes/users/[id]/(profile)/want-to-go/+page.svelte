@@ -7,6 +7,7 @@
 <ProfileRelationPlaces
 	viewer={data.viewer}
 	likedPlaces={data.likedPlaces}
+	photos={data.photos}
 	profileName={data.profile.name}
 	kind="want_to_go"
 	selfEmptyMessage="Nothing marked want-to-go yet."

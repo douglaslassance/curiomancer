@@ -1,7 +1,5 @@
 <script lang="ts">
-	import { Badge } from '$lib/components/ui/badge';
-	import RelationToggle from '$lib/components/relation-toggle.svelte';
-	import { categoryLabel } from '$lib/place-category';
+	import PlaceCard from '$lib/components/place-card.svelte';
 	import type { Place, PlaceRelationKind } from '$lib/server/db/schema';
 
 	type TaggedPlace = Place & { kind: PlaceRelationKind };
@@ -9,6 +7,7 @@
 	let {
 		viewer,
 		likedPlaces,
+		photos = {},
 		profileName,
 		kind,
 		selfEmptyMessage,
@@ -16,6 +15,8 @@
 	}: {
 		viewer: { isSelf: boolean; sharedPlaces: TaggedPlace[] } | null;
 		likedPlaces: TaggedPlace[];
+		/** Apple Place ID -> photo URL, for the places we have already resolved. */
+		photos?: Record<string, string>;
 		profileName: string;
 		kind: PlaceRelationKind;
 		selfEmptyMessage: string;
@@ -33,20 +34,7 @@
 </script>
 
 {#snippet placeCard(p: Place)}
-	<article
-		class="bg-card hover:border-foreground/30 flex flex-col gap-3 rounded-xl border p-4 transition-colors"
-	>
-		<div class="min-w-0">
-			<a href={`/places?place=${p.id}`} class="text-sm font-medium hover:underline">{p.name}</a>
-			<div class="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-				<Badge variant="secondary">{categoryLabel(p.category)}</Badge>
-				<span>{p.neighborhood ? `${p.neighborhood}, ` : ''}{p.city}</span>
-			</div>
-		</div>
-		<div class="flex justify-end">
-			<RelationToggle placeId={p.id} />
-		</div>
-	</article>
+	<PlaceCard place={p} photo={p.externalId ? photos[p.externalId] : undefined} />
 {/snippet}
 
 {#if !viewer}

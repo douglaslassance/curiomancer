@@ -1,5 +1,5 @@
 <script lang="ts">
-	import AvatarMatch from '$lib/components/avatar-match.svelte';
+	import TwinCard from '$lib/components/twin-card.svelte';
 
 	let { data } = $props();
 	const profile = $derived(data.profile);
@@ -16,15 +16,13 @@
 {:else}
 	<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 		{#each data.twins as t (t.id)}
-			<a
-				href={`/users/${t.id}`}
-				class="bg-card hover:border-foreground/30 flex items-center gap-3 rounded-xl border p-4 transition-colors"
-			>
-				<AvatarMatch name={t.name} image={t.image} score={t.score} size={44} />
-				<div class="min-w-0 flex-1">
-					<div class="truncate text-sm font-medium">{t.name}</div>
-				</div>
-			</a>
+			<TwinCard
+				id={t.id}
+				name={t.name}
+				image={t.image}
+				score={t.score}
+				sharedCount={t.sharedCount}
+			/>
 		{/each}
 	</div>
 {/if}

@@ -5,7 +5,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import MatchBreakdown from '$lib/components/match-breakdown.svelte';
-	import AvatarMatch from '$lib/components/avatar-match.svelte';
+	import ScoreBorder from '$lib/components/score-border.svelte';
+	import UserPortrait from '$lib/components/user-portrait.svelte';
 	import { PLAN_NAME } from '$lib/subscription';
 	import {
 		Ban,
@@ -83,75 +84,78 @@
 </script>
 
 <div>
-	<!-- Header: avatar (ringed with the match score), identity, grouped actions -->
-	<header class="mb-8 flex items-start gap-4">
-		<AvatarMatch
-			name={profile.name}
-			image={profile.image}
-			score={data.viewer && !data.viewer.isSelf ? data.viewer.score : null}
-			size={112}
-			showPercent
-		/>
-
-		<div class="min-w-0 flex-1">
-			<h1 class="text-2xl font-semibold tracking-tight">{profile.name}</h1>
-			{#if data.location}
-				<p class="text-muted-foreground mt-1 flex items-center gap-1 text-sm">
-					<MapPin class="size-4" />
-					{data.location.city}{data.location.countryCode ? `, ${data.location.countryCode}` : ''}
-				</p>
-			{/if}
-			<p class="text-muted-foreground mt-1 flex items-center gap-1 text-sm">
-				<ThumbsUp class="size-4" />
-				{likedCount} liked place{likedCount === 1 ? '' : 's'}
-			</p>
+	<!-- Header: portrait, identity, grouped actions. The portrait runs flush to
+	     the card's left edge and fills its height, the same way a twin card and a
+	     place thumbnail do, so the padding belongs to the text rather than
+	     wrapping the image too. The match score frames the whole header instead
+	     of ringing the portrait, which is why the portrait carries no score. -->
+	<header class="relative mb-8 flex min-h-40 items-stretch rounded-xl border">
+		<ScoreBorder score={data.viewer && !data.viewer.isSelf ? data.viewer.score : null} />
+		<div class="w-40 shrink-0">
+			<UserPortrait name={profile.name} image={profile.image} radius="rounded-l-xl" fill />
 		</div>
 
-		<!-- Actions: Settings/Sign out on your own profile, Message/Block on someone else's. -->
-		{#if data.viewer}
-			<div class="flex shrink-0 flex-col items-stretch gap-2">
-				{#if data.viewer?.isSelf}
-					<Button size="sm" variant="secondary" href="/settings">
-						<Settings class="size-4" />
-						Settings
-					</Button>
-					<form method="post" action="/sign-out" use:enhance class="contents">
-						<Button type="submit" size="sm" variant="outline">
-							<LogOut class="size-4" />
-							Sign out
+		<div class="flex min-w-0 flex-1 items-start gap-4 p-5">
+			<div class="min-w-0 flex-1">
+				<h1 class="text-2xl font-semibold tracking-tight">{profile.name}</h1>
+				{#if data.location}
+					<p class="text-muted-foreground mt-1 flex items-center gap-1 text-sm">
+						<MapPin class="size-4" />
+						{data.location.city}{data.location.countryCode ? `, ${data.location.countryCode}` : ''}
+					</p>
+				{/if}
+				<p class="text-muted-foreground mt-1 flex items-center gap-1 text-sm">
+					<ThumbsUp class="size-4" />
+					{likedCount} liked place{likedCount === 1 ? '' : 's'}
+				</p>
+			</div>
+
+			<!-- Actions: Settings/Sign out on your own profile, Message/Block on someone else's. -->
+			{#if data.viewer}
+				<div class="flex shrink-0 flex-col items-stretch gap-2">
+					{#if data.viewer?.isSelf}
+						<Button size="sm" variant="secondary" href="/settings">
+							<Settings class="size-4" />
+							Settings
 						</Button>
-					</form>
-				{:else if data.viewer && !data.viewer.isSelf}
-					<!-- You can only reach this profile if you're a (non-incognito) twin,
+						<form method="post" action="/sign-out" use:enhance class="contents">
+							<Button type="submit" size="sm" variant="outline">
+								<LogOut class="size-4" />
+								Sign out
+							</Button>
+						</form>
+					{:else if data.viewer && !data.viewer.isSelf}
+						<!-- You can only reach this profile if you're a (non-incognito) twin,
 					     so the Message button always applies; it only gates on whether
 					     the viewer subscribes. -->
-					{@const canMessage = data.viewer.isSubscriber}
-					<Button
-						size="sm"
-						variant="default"
-						href={canMessage ? `/messages/${profile.id}` : '/subscribe'}
-						title={canMessage ? undefined : `Get ${PLAN_NAME} to message people`}
-					>
-						<MessageCircle class="size-4" />
-						Message
-					</Button>
-					<Button
-						size="sm"
-						variant="outline"
-						class="text-muted-foreground hover:text-destructive"
-						onclick={blockThisUser}
-						disabled={blockBusy}
-					>
-						{#if blockBusy}
-							<Loader2 class="size-4 animate-spin" />
-						{:else}
-							<Ban class="size-4" />
-						{/if}
-						Block
-					</Button>
-				{/if}
-			</div>
-		{/if}
+						{@const canMessage = data.viewer.isSubscriber}
+						<Button
+							size="sm"
+							variant="default"
+							href={canMessage ? `/messages/${profile.id}` : '/subscribe'}
+							title={canMessage ? undefined : `Get ${PLAN_NAME} to message people`}
+						>
+							<MessageCircle class="size-4" />
+							Message
+						</Button>
+						<Button
+							size="sm"
+							variant="outline"
+							class="text-muted-foreground hover:text-destructive"
+							onclick={blockThisUser}
+							disabled={blockBusy}
+						>
+							{#if blockBusy}
+								<Loader2 class="size-4 animate-spin" />
+							{:else}
+								<Ban class="size-4" />
+							{/if}
+							Block
+						</Button>
+					{/if}
+				</div>
+			{/if}
+		</div>
 	</header>
 
 	<Tabs.Root value={active} onValueChange={(v) => goto(v)} class="mb-8">

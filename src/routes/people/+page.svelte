@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { Slider } from '$lib/components/ui/slider';
 	import { Input } from '$lib/components/ui/input';
-	import AvatarMatch from '$lib/components/avatar-match.svelte';
+	import TwinCard from '$lib/components/twin-card.svelte';
 	import { Search, Users } from '@lucide/svelte';
 	import {
 		formatRadiusKm,
@@ -76,7 +76,8 @@
 		<div>
 			<div class="mb-2 flex items-baseline justify-between">
 				<label for="radius" class="text-sm font-medium">Radius</label>
-				<span class="text-muted-foreground tabular-nums text-sm">{formatRadiusKm(localRadius)}</span>
+				<span class="text-muted-foreground tabular-nums text-sm">{formatRadiusKm(localRadius)}</span
+				>
 			</div>
 			<Slider
 				type="single"
@@ -94,7 +95,9 @@
 	{#if data.people.length === 0}
 		<div class="text-muted-foreground rounded-xl border border-dashed py-12 text-center text-sm">
 			<Users class="mx-auto size-6 opacity-60" />
-			<p class="mt-2">No taste-twins within {formatRadiusKm(data.radiusKm)}. Try widening the radius.</p>
+			<p class="mt-2">
+				No taste-twins within {formatRadiusKm(data.radiusKm)}. Try widening the radius.
+			</p>
 		</div>
 	{:else if visible.length === 0}
 		<div class="text-muted-foreground rounded-xl border border-dashed py-12 text-center text-sm">
@@ -109,18 +112,15 @@
 		</p>
 		<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 			{#each visible as person (person.id)}
-				<a
-					href={`/users/${person.id}`}
-					class="bg-card hover:border-foreground/30 flex items-center gap-3 rounded-xl border p-4 transition-colors"
-				>
-					<AvatarMatch name={person.name} image={person.image} score={person.score} size={44} />
-					<div class="min-w-0 flex-1">
-						<div class="truncate text-sm font-medium">{person.name}</div>
-						<div class="text-muted-foreground text-xs">
-							{person.city} · {Math.round(person.distanceKm)} km away
-						</div>
-					</div>
-				</a>
+				<TwinCard
+					id={person.id}
+					name={person.name}
+					image={person.image}
+					score={person.score}
+					sharedCount={person.sharedCount}
+					city={person.city}
+					distanceKm={person.distanceKm}
+				/>
 			{/each}
 		</div>
 	{/if}

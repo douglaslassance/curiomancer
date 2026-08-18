@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import * as Avatar from '$lib/components/ui/avatar';
+	import UserPortrait from '$lib/components/user-portrait.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { MessageCircle, Search } from '@lucide/svelte';
 
@@ -64,14 +64,7 @@
 								? 'bg-accent'
 								: ''}"
 						>
-							<Avatar.Root class="size-9">
-								{#if c.otherUser.image}
-									<Avatar.Image src={c.otherUser.image} alt={c.otherUser.name} />
-								{/if}
-								<Avatar.Fallback class="text-xs font-medium">
-									{c.otherUser.name.slice(0, 1).toUpperCase()}
-								</Avatar.Fallback>
-							</Avatar.Root>
+							<UserPortrait name={c.otherUser.name} image={c.otherUser.image} size={36} />
 							<div class="min-w-0 flex-1">
 								<div class="truncate text-sm font-medium">{c.otherUser.name}</div>
 								<div class="text-muted-foreground truncate text-xs">

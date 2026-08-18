@@ -12,6 +12,8 @@ import {
 import { isBlocked } from '$lib/server/blocks';
 import { areTwins, getMatchBreakdown, getPairScore } from '$lib/server/matching';
 import { isAdmin } from '$lib/server/admin';
+import { displayDescription } from '$lib/place-description';
+import { getCachedPlacePhotos } from '$lib/server/place-photo';
 import { isSubscriber } from '$lib/server/subscriptions';
 import type { LayoutServerLoad } from './$types';
 
@@ -146,7 +148,7 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 					category: r.category,
 					city: r.city,
 					neighborhood: r.neighborhood,
-					description: r.description,
+					description: displayDescription(r),
 					latitude: r.latitude,
 					longitude: r.longitude,
 					source: r.source,
@@ -166,5 +168,12 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 	const match =
 		locals.user && isAdmin(locals.user) ? await getMatchBreakdown(locals.user.id, params.id) : null;
 
-	return { profile, location, likedPlaces, likedCount, viewer, match };
+	// Cache-only, so a long grid costs one query and no network. Places we have
+	// not resolved yet simply render without an image.
+	const photos = await getCachedPlacePhotos([
+		...likedPlaces.map((p) => p.externalId),
+		...(viewer && !viewer.isSelf ? viewer.sharedPlaces.map((p) => p.externalId) : [])
+	]);
+
+	return { profile, location, likedPlaces, likedCount, viewer, match, photos };
 };

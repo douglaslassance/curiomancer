@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { enhance, applyAction } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
-	import * as Avatar from '$lib/components/ui/avatar';
+	import UserPortrait from '$lib/components/user-portrait.svelte';
 	import * as Card from '$lib/components/ui/card';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Badge } from '$lib/components/ui/badge';
@@ -266,14 +266,9 @@
 					onclick={() => avatarInput?.click()}
 					aria-label={data.profile.image ? 'Change photo' : 'Upload photo'}
 				>
-					<Avatar.Root class="size-14">
-						{#if data.profile.image}
-							<Avatar.Image src={data.profile.image} alt={data.profile.name} />
-						{/if}
-						<Avatar.Fallback class="text-base font-medium">{initials}</Avatar.Fallback>
-					</Avatar.Root>
+					<UserPortrait name={data.profile.name} image={data.profile.image} size={56} />
 					<span
-						class="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100 {avatarBusy
+						class="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100 {avatarBusy
 							? 'opacity-100'
 							: ''}"
 					>
@@ -631,14 +626,12 @@
 							{#each data.blockedUsers as blocked (blocked.id)}
 								<div class="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
 									<div class="flex min-w-0 items-center gap-2">
-										<Avatar.Root class="size-6">
-											{#if blocked.image}
-												<Avatar.Image src={blocked.image} alt={blocked.name} />
-											{/if}
-											<Avatar.Fallback class="text-[10px] font-medium">
-												{blocked.name.slice(0, 1).toUpperCase()}
-											</Avatar.Fallback>
-										</Avatar.Root>
+										<UserPortrait
+											name={blocked.name}
+											image={blocked.image}
+											size={24}
+											radius="rounded"
+										/>
 										<span class="truncate text-sm">{blocked.name}</span>
 									</div>
 									<form method="post" action="?/unblockUser" use:enhance>

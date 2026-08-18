@@ -373,24 +373,28 @@
 		<CategoryRail
 			title={`${railPrefix} Eat`}
 			places={data.eat}
+			photos={data.photos}
 			empty={`Nowhere to eat in ${data.location.city} yet.`}
 		/>
 
 		<CategoryRail
 			title={`${railPrefix} Drink`}
 			places={data.drink}
+			photos={data.photos}
 			empty={`Nowhere to drink in ${data.location.city} yet.`}
 		/>
 
 		<CategoryRail
 			title={`${railPrefix} Shop`}
 			places={data.shop}
+			photos={data.photos}
 			empty={`Nowhere to shop in ${data.location.city} yet.`}
 		/>
 
 		<CategoryRail
 			title={`${railPrefix} Experience`}
 			places={data.visit}
+			photos={data.photos}
 			empty={`Nowhere to visit in ${data.location.city} yet.`}
 		/>
 	{:else}

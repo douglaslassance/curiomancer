@@ -20,7 +20,7 @@
  * today only `avatars/`) and store our own URL, so a venue changing, 404ing, or
  * blocking hotlinks can't break the photo. Deferred while user volume is low.
  */
-import { eq, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { db } from './db';
 import { place, placePhoto } from './db/schema';
 import { fetchApplePlaceUrls } from './maps-search';
@@ -97,6 +97,33 @@ export async function resolvePlacePhoto(applePlaceId: string): Promise<ResolvedP
 }
 
 export type PlaceMedia = { url: string | null; website: string | null };
+
+/**
+ * Photo URLs for many places at once, cache only. Never resolves.
+ *
+ * The lazy per-place path (getOrResolvePlacePhoto) is right for one card on
+ * screen, but a grid of twenty would fire twenty requests and, for anything
+ * uncached, twenty live fetches to venue websites. This answers from
+ * `place_photo` in a single query, so a list renders instantly and simply shows
+ * no image where we have not resolved one yet. Cards that do get opened warm
+ * the cache through the lazy path, so coverage grows on its own.
+ *
+ * Keyed by Apple Place ID. Places without one, or without a cached photo, are
+ * absent from the result rather than present as null.
+ */
+export async function getCachedPlacePhotos(
+	externalIds: (string | null)[]
+): Promise<Record<string, string>> {
+	const ids = [...new Set(externalIds.filter((id): id is string => !!id))];
+	if (ids.length === 0) return {};
+	const rows = await db
+		.select({ externalId: placePhoto.externalId, url: placePhoto.url })
+		.from(placePhoto)
+		.where(inArray(placePhoto.externalId, ids));
+	const out: Record<string, string> = {};
+	for (const r of rows) if (r.url) out[r.externalId] = r.url;
+	return out;
+}
 
 /**
  * Cache-first media lookup for an Apple Place ID. Returns the cached result if

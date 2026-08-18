@@ -7,6 +7,7 @@
 <ProfileRelationPlaces
 	viewer={data.viewer}
 	likedPlaces={data.likedPlaces}
+	photos={data.photos}
 	profileName={data.profile.name}
 	kind="liked"
 	selfEmptyMessage="No likes yet."
