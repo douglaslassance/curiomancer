@@ -8,13 +8,20 @@ import type { Kind } from './relations.svelte';
  */
 export const RELATION_COLOR: Record<Kind, string> = {
 	liked: '#ec4899', // pink-500
-	want_to_go: '#236d4d', // Curiomancer green (brand --primary, oklch(0.48 0.09 161))
-	seen: '#3b82f6', // blue-500
+	want_to_go: '#3b82f6', // blue-500
+	seen: '#6b7280', // gray-500
 	disliked: '#ef4444' // red-500
 };
 
 /** A place the viewer hasn't rated yet: neutral pin (discovery, Tune queue). */
 export const RELATION_NEUTRAL = '#9ca3af'; // gray-400
 
-/** Surfaced because a taste-twin likes it and the viewer hasn't rated it. */
-export const RELATION_RECOMMENDED = '#6b7280'; // mid grey (gray-500)
+/**
+ * Surfaced because a taste-twin likes it and the viewer hasn't rated it.
+ *
+ * The brand green, because a recommendation is the one thing on the map the
+ * product is actually for. It used to be a mid grey, which read as "nothing in
+ * particular" next to four saturated rating colors. Green was free because
+ * want-to-go moved to blue and been-there took the grey it vacated.
+ */
+export const RELATION_RECOMMENDED = '#236d4d'; // Curiomancer green (brand --primary)

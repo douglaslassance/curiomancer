@@ -2,6 +2,8 @@
 	import { Bookmark, Eye, ThumbsDown, ThumbsUp } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { relations, type Kind } from '$lib/relations.svelte';
+	import { RELATION_COLOR } from '$lib/relation-colors';
+	import type { Component } from 'svelte';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
 
@@ -12,6 +14,29 @@
 		placeId: string;
 		size?: 'sm' | 'default';
 	} = $props();
+
+	/**
+	 * One entry per rating, so the four buttons stay identical apart from their
+	 * kind. Each carries the same colour the rest of the site uses for that
+	 * rating (map pins, filter chips, the Tune buttons), from the one palette in
+	 * $lib/relation-colors.
+	 */
+	const OPTIONS: { kind: Kind; icon: Component; on: string; off: string }[] = [
+		{ kind: 'liked', icon: ThumbsUp, on: 'Unlike', off: 'Like' },
+		{
+			kind: 'want_to_go',
+			icon: Bookmark,
+			on: 'Remove from wishlist',
+			off: "Want to go, haven't been but interested"
+		},
+		{
+			kind: 'seen',
+			icon: Eye,
+			on: 'Unmark been there',
+			off: 'Been there, you know it but no strong opinion'
+		},
+		{ kind: 'disliked', icon: ThumbsDown, on: 'Remove dislike', off: 'Dislike' }
+	];
 
 	const current = $derived(relations.kindOf(placeId));
 	const signedIn = $derived(!!page.data.user);
@@ -52,44 +77,21 @@
 </script>
 
 <div class="inline-flex items-center gap-1">
-	<Button
-		variant={current === 'liked' ? 'default' : 'outline'}
-		{size}
-		aria-pressed={current === 'liked'}
-		aria-label={current === 'liked' ? 'Unlike' : 'Like'}
-		onclick={(e: Event) => press('liked', e)}
-	>
-		<ThumbsUp class="size-4" />
-	</Button>
-	<Button
-		variant={current === 'want_to_go' ? 'default' : 'outline'}
-		{size}
-		aria-pressed={current === 'want_to_go'}
-		aria-label={current === 'want_to_go'
-			? 'Remove from wishlist'
-			: "Want to go, haven't been but interested"}
-		onclick={(e: Event) => press('want_to_go', e)}
-	>
-		<Bookmark class="size-4" />
-	</Button>
-	<Button
-		variant={current === 'seen' ? 'default' : 'outline'}
-		{size}
-		aria-pressed={current === 'seen'}
-		aria-label={current === 'seen'
-			? 'Unmark been there'
-			: 'Been there, you know it but no strong opinion'}
-		onclick={(e: Event) => press('seen', e)}
-	>
-		<Eye class="size-4" />
-	</Button>
-	<Button
-		variant={current === 'disliked' ? 'default' : 'outline'}
-		{size}
-		aria-pressed={current === 'disliked'}
-		aria-label={current === 'disliked' ? 'Remove dislike' : 'Dislike'}
-		onclick={(e: Event) => press('disliked', e)}
-	>
-		<ThumbsDown class="size-4" />
-	</Button>
+	{#each OPTIONS as o (o.kind)}
+		{@const active = current === o.kind}
+		{@const color = RELATION_COLOR[o.kind]}
+		<Button
+			variant="outline"
+			{size}
+			aria-pressed={active}
+			aria-label={active ? o.on : o.off}
+			onclick={(e: Event) => press(o.kind, e)}
+			style={active ? `background-color:${color};border-color:${color};color:#fff` : undefined}
+		>
+			<!-- Selected fills with the rating's colour and turns the icon white;
+			     unselected leaves the button neutral and colours only the icon, so a
+			     row of four reads as four distinct ratings either way. -->
+			<o.icon class="size-4" style={active ? undefined : `color:${color}`} />
+		</Button>
+	{/each}
 </div>

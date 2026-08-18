@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
-	import { Shield, ThumbsDown, ThumbsUp } from '@lucide/svelte';
+	import { Shield, Sigma, ThumbsDown, ThumbsUp } from '@lucide/svelte';
 	import { categoryLabel } from '$lib/place-category';
 	import type { MatchBreakdown } from '$lib/match-breakdown';
 
@@ -143,7 +143,7 @@
 		     now sits on a profile any signed-in user can reach. -->
 		<Card.Title class="flex items-center gap-2">
 			<Shield class="text-muted-foreground size-4" />
-			Match analysis
+			Analysis
 		</Card.Title>
 		<Card.Description>
 			{#if match.isSelf}
@@ -269,6 +269,7 @@
 				<div
 					class="text-muted-foreground bg-muted/40 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border px-3 py-2 font-mono text-xs"
 				>
+					<Sigma class="size-3.5 shrink-0" />
 					<span class="whitespace-nowrap">
 						{signed(net)} ÷ {fmt(reach, 1)} = {match.cosine === null ? '-' : fmt(match.cosine, 3)}
 						raw affinity

@@ -8,8 +8,17 @@
 	import CategoryFilter from './category-filter.svelte';
 	import { mapAppleCategory, mapCategoryVocabulary, placeCategoryFor } from '$lib/map-category';
 	import { buildPoiFilter } from '$lib/map-poi-filter';
-	import { Bookmark, Eye, Sparkles, ThumbsDown, ThumbsUp } from '@lucide/svelte';
+	import {
+		Bookmark,
+		Eye,
+		Loader2 as Spinner,
+		LocateFixed,
+		Sparkles,
+		ThumbsDown,
+		ThumbsUp
+	} from '@lucide/svelte';
 	import { RELATION_COLOR, RELATION_NEUTRAL, RELATION_RECOMMENDED } from '$lib/relation-colors';
+	import { updateLocation, type LocationUpdateError } from '$lib/location-update';
 	import { theme } from '$lib/theme.svelte';
 	import type { Component } from 'svelte';
 
@@ -234,22 +243,53 @@
 	/** A far-zoom pin: just a colored dot with a white outline (an SVG data URI).
 	 *  Vector, so a single scale stays crisp on retina - passing it as the 2x/3x
 	 *  entry too would make MapKit render it at half size. */
+	/**
+	 * Centre the map on the viewer, the web counterpart of the iOS map's
+	 * "sync device location" control.
+	 *
+	 * Takes a browser fix, persists it (so Home and Places follow, exactly like
+	 * the iOS button), then flies the camera there. Persisting is what makes this
+	 * more than a camera move: the whole app is scoped to your saved location, so
+	 * recentring the view without updating it would leave the map somewhere your
+	 * recommendations are not.
+	 */
+	let centering = $state(false);
+	let centerError = $state<string | null>(null);
+
+	async function centerOnMe() {
+		if (centering) return;
+		centering = true;
+		centerError = null;
+		try {
+			await updateLocation();
+			// updateLocation invalidates the load, so `center` arrives updated on
+			// the next tick; read the browser fix straight from the same call site
+			// instead of waiting for a round trip.
+			const position = await new Promise<GeolocationPosition>((resolve, reject) =>
+				navigator.geolocation.getCurrentPosition(resolve, reject, {
+					enableHighAccuracy: false,
+					timeout: 20_000,
+					maximumAge: 60_000
+				})
+			);
+			if (mapRef && window.mapkit) {
+				mapRef.setRegionAnimated(
+					new window.mapkit.CoordinateRegion(
+						new window.mapkit.Coordinate(position.coords.latitude, position.coords.longitude),
+						new window.mapkit.CoordinateSpan(0.05, 0.05)
+					)
+				);
+			}
+		} catch (err) {
+			centerError = (err as LocationUpdateError)?.message ?? 'Could not get your location.';
+		} finally {
+			centering = false;
+		}
+	}
+
 	function dotDataUri(color: string): string {
 		const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"><circle cx="9" cy="9" r="6" fill="${color}" stroke="white" stroke-width="2.5"/></svg>`;
 		return 'data:image/svg+xml,' + encodeURIComponent(svg);
-	}
-
-	/**
-	 * How strongly this place is recommended, as the label under the pin name.
-	 * The recommendation score shares a scale with the twin score (it is capped
-	 * by the score of the strongest twin who liked the place), so it reads as a
-	 * match percentage without needing its own legend. Returns an empty string
-	 * rather than undefined, because MapKit keeps rendering a subtitle it has
-	 * already been given, so clearing the text is the only way to take one away.
-	 */
-	function recSubtitle(id: string): string {
-		const score = recommendedScores[id] ?? 0;
-		return isRecommended(id) ? `${Math.round(score * 100)}% match` : '';
 	}
 
 	/**
@@ -268,11 +308,10 @@
 			ann = new window.mapkit.MarkerAnnotation(coord, {
 				color,
 				glyphImage: { 1: glyph, 2: glyph, 3: glyph },
-				// Show the place name; MapKit hides it adaptively when crowded.
+				// Just the name; the score is drawn into the glyph instead.
 				title: p.name,
 				titleVisibility: window.mapkit.FeatureVisibility.Adaptive,
-				subtitle: recSubtitle(p.id),
-				subtitleVisibility: window.mapkit.FeatureVisibility.Adaptive,
+				subtitleVisibility: window.mapkit.FeatureVisibility.Hidden,
 				callout: { calloutShouldAppearForAnnotation: () => false }
 			});
 		} else {
@@ -691,9 +730,6 @@
 				if (wantDetailed) {
 					existing.color = desiredColor;
 					existing.__curioColor = desiredColor;
-					// Rating a place drops it out of the recommendations, so the
-					// score label has to go with the colour change.
-					existing.subtitle = recSubtitle(p.id);
 				} else {
 					mapRef.removeAnnotation(existing);
 					placeAnnotations.delete(p.id);
@@ -811,6 +847,34 @@
 
 	{#if status === 'ready' && showSearch}
 		<MapSearch {focus} onSelect={selectSearchHit} onClearPreview={clearPreviewMarker} />
+	{/if}
+
+	{#if status === 'ready'}
+		<!-- Centre-on-me, mirroring the iOS map control. Right edge so it never
+		     collides with the filter stack on the left, and lifted clear of
+		     Apple's attribution at the bottom. -->
+		<div class="absolute right-4 bottom-[66px] z-10 flex flex-col items-end gap-1.5">
+			{#if centerError}
+				<p
+					class="bg-background/90 max-w-56 rounded-lg border px-2 py-1 text-xs shadow-sm backdrop-blur-sm"
+				>
+					{centerError}
+				</p>
+			{/if}
+			<button
+				type="button"
+				onclick={centerOnMe}
+				disabled={centering}
+				aria-label="Centre the map on my location"
+				class="bg-background/90 flex size-10 items-center justify-center rounded-full border shadow-sm backdrop-blur-sm transition-opacity disabled:opacity-60"
+			>
+				{#if centering}
+					<Spinner class="size-4 animate-spin" />
+				{:else}
+					<LocateFixed class="size-4" />
+				{/if}
+			</button>
+		</div>
 	{/if}
 
 	{#if status === 'ready' && (showFilters || showCategoryFilter)}

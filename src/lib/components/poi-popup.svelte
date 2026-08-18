@@ -2,8 +2,18 @@
 	import { invalidateAll } from '$app/navigation';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { Bookmark, Eye, Globe, Loader2, MapPin, Navigation, ThumbsDown, ThumbsUp, X } from '@lucide/svelte';
-	import { categoryLabel } from '$lib/place-category';
+	import {
+		Bookmark,
+		Eye,
+		Globe,
+		Loader2,
+		MapPin,
+		Navigation,
+		ThumbsDown,
+		ThumbsUp,
+		X
+	} from '@lucide/svelte';
+	import { categoryIcon, categoryLabel } from '$lib/place-category';
 	import type { PlaceCategory } from '$lib/map-category';
 	import type { Component } from 'svelte';
 
@@ -39,6 +49,8 @@
 		onSaved: (placeId: string) => void;
 	} = $props();
 
+	const CategoryIcon = $derived(categoryIcon(poi.category));
+
 	type Kind = 'liked' | 'want_to_go' | 'seen' | 'disliked';
 	const RATINGS: { kind: Kind; label: string; icon: Component }[] = [
 		{ kind: 'liked', label: 'Like', icon: ThumbsUp },
@@ -68,7 +80,8 @@
 					kind
 				})
 			});
-			if (!res.ok) throw new Error((await res.text().catch(() => '')) || `Server returned ${res.status}`);
+			if (!res.ok)
+				throw new Error((await res.text().catch(() => '')) || `Server returned ${res.status}`);
 			const { placeId } = (await res.json().catch(() => ({}))) as { placeId?: string };
 			// Reload first, so the place exists in `places` by the time the map
 			// goes looking for it.
@@ -94,7 +107,10 @@
 		<div class="flex items-center gap-2">
 			<h3 class="flex-1 text-sm font-semibold">{poi.name}</h3>
 			{#if poi.category !== 'other'}
-				<Badge variant="secondary">{categoryLabel(poi.category)}</Badge>
+				<Badge variant="secondary" class="gap-1">
+					<CategoryIcon class="size-3" />
+					{categoryLabel(poi.category)}
+				</Badge>
 			{/if}
 			<Button
 				variant="ghost"
