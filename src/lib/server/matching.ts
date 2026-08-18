@@ -95,9 +95,6 @@ export async function logRecommendationImpressions(
 		.onConflictDoNothing();
 }
 
-/** How many top twins to draw place/event recommendations from. */
-const TWIN_LIMIT = 20;
-
 /**
  * Signed-similarity score between two specific users, using the exact same
  * formula as the people list (getPeopleNearby). Keeping one definition means
@@ -346,14 +343,31 @@ export async function getSharedTwins(
 
 /**
  * Top N places within `scope` (a city or a lat/lng radius) of `category`
- * that the user's top-K taste twins liked, scored by sum of similarity
- * weight, excluding places the user already has a relation with (liked,
- * disliked, or want-to-go - we don't re-recommend places you've already
- * taken a position on).
+ * that the viewer's taste twins liked, excluding places the viewer already
+ * has a relation with (liked, disliked, or want-to-go, since we don't
+ * re-recommend places you've already taken a position on).
  *
- * A twin's negative score subtracts from recommendation weight, so a place
- * loved by someone who agrees with you AND hated by someone else with the
- * same taste profile lands lower than a place loved by both. Good.
+ * The score is the strongest twin who likes the place, discounted by how much
+ * the viewer's other twins disagree:
+ *
+ *     score = (SUM(w * vote) / SUM(|w|)) * MAX(w over twins who liked it)
+ *
+ * where `w` is a twin's similarity score, `vote` is +1 for a like and -1 for a
+ * dislike. The left factor is weighted agreement across every twin who rated
+ * the place, so a dislike from someone you match closely with bites hard. The
+ * right factor caps the result at a real person's twin score, which is what
+ * stops a crowd of marginal twins outranking your best match. The previous
+ * `SUM(score)` did exactly that. An average is worse still, since it drags the
+ * score toward the mean, so each twin who *agrees* lowers it.
+ *
+ * Two consequences worth knowing. Corroboration is deliberately worth nothing,
+ * so five twins liking a place ranks the same as one twin of equal strength.
+ * And the score shares a scale with the twin score (it is bounded by one), so
+ * it clears the same MATCH_THRESHOLD and reads on the same badge.
+ *
+ * Every twin counts, not a top-K slice. Capping the set would silently drop
+ * the dislikes of weaker twins, which are exactly the evidence the agreement
+ * term exists to weigh.
  */
 export async function getRecommendedPlaces(
 	userId: string,
@@ -361,6 +375,15 @@ export async function getRecommendedPlaces(
 	category: 'eat' | 'drink' | 'shop' | 'visit',
 	limit = 8
 ): Promise<RecommendedPlace[]> {
+	// Spliced twice below: Postgres can't reference an output alias from HAVING,
+	// and the two copies must not be allowed to drift.
+	const recScore = sql`
+		(
+			(SUM(t.score * CASE WHEN l.kind = 'liked' THEN 1 ELSE -1 END)
+				/ NULLIF(SUM(ABS(t.score)), 0))
+			* (MAX(t.score) FILTER (WHERE l.kind = 'liked'))
+		)
+	`;
 	const rows = await db.execute<{
 		id: string;
 		name: string;
@@ -376,7 +399,7 @@ export async function getRecommendedPlaces(
 		score: number;
 		twin_count: number;
 	}>(sql`
-		WITH ${tasteGraphCte(sql`${userId}`, TWIN_LIMIT)},
+		WITH ${tasteGraphCte(sql`${userId}`, null)},
 		all_my_relations AS (
 			SELECT place_id FROM "place_relation" WHERE user_id = ${userId}
 		)
@@ -392,16 +415,19 @@ export async function getRecommendedPlaces(
 			p.source,
 			p.external_id,
 			p.created_at,
-			SUM(t.score)::float AS score,
-			COUNT(DISTINCT t.user_id)::int AS twin_count
+			${recScore}::float AS score,
+			(COUNT(DISTINCT t.user_id) FILTER (WHERE l.kind = 'liked'))::int AS twin_count
 		FROM "place_relation" l
 		JOIN twins t ON t.user_id = l.user_id
 		JOIN place p ON p.id = l.place_id
 		WHERE ${placeScopeClause(scope)}
 		  AND p.category = ${category}
-		  AND l.kind = 'liked'
+		  AND l.kind IN ('liked', 'disliked')
 		  AND p.id NOT IN (SELECT place_id FROM all_my_relations)
 		GROUP BY p.id
+		-- Same bar as twinship. A place nobody liked has a NULL MAX, so it drops
+		-- out here rather than needing its own guard.
+		HAVING ${recScore} > ${MATCH_THRESHOLD}
 		ORDER BY score DESC, twin_count DESC
 		LIMIT ${limit}
 	`);

@@ -3,7 +3,6 @@
 	import { Users } from '@lucide/svelte';
 
 	let { data } = $props();
-	const t = $derived(data.tune);
 	const m = $derived(data.matching);
 </script>
 
@@ -23,19 +22,20 @@
 				twins appear: the people list, the profile "match %", and who can reach you.
 			</p>
 			<p class="text-muted-foreground">
-				Twins power your <strong>recommendations</strong>: places your top
-				<strong class="tabular-nums">{t.TWIN_LIMIT}</strong> twins liked that you haven't rated yet,
-				weighted by how strong each twin is. No twins above the bar means no recommendations, so
-				home nudges you to Tune instead.
+				Twins power your <strong>recommendations</strong>. A place you haven't rated scores as high
+				as the strongest twin who likes it, pulled down by any twins who don't, and it has to clear
+				the same <strong class="tabular-nums">{m.MATCH_THRESHOLD}</strong> bar to show. Every twin counts,
+				so nothing hinges on placing 19th or 21st, and five twins liking a place ranks it no higher than
+				one twin of equal strength. No twins above the bar means no recommendations, so home nudges you
+				to Tune instead.
 			</p>
 			<p class="text-muted-foreground">
-				Twins also gate access: viewing someone's profile and starting a chat are both twins-only, so
-				a stranger can't browse or message you.
+				Twins also gate access: viewing someone's profile and starting a chat are both twins-only,
+				so a stranger can't browse or message you.
 			</p>
 			<p class="text-muted-foreground">
-				<strong>Incognito</strong> users are the exception to visibility: they never surface as
-				anyone's twin and their profile stays private, but their likes still count toward other
-				people's recommendations.
+				<strong>Incognito</strong> users are the exception to visibility: they never surface as anyone's
+				twin and their profile stays private, but their likes still count toward other people's recommendations.
 			</p>
 		</Card.Content>
 	</Card.Root>

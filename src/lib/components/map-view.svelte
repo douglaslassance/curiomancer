@@ -240,6 +240,19 @@
 	}
 
 	/**
+	 * How strongly this place is recommended, as the label under the pin name.
+	 * The recommendation score shares a scale with the twin score (it is capped
+	 * by the score of the strongest twin who liked the place), so it reads as a
+	 * match percentage without needing its own legend. Returns an empty string
+	 * rather than undefined, because MapKit keeps rendering a subtitle it has
+	 * already been given, so clearing the text is the only way to take one away.
+	 */
+	function recSubtitle(id: string): string {
+		const score = recommendedScores[id] ?? 0;
+		return isRecommended(id) ? `${Math.round(score * 100)}% match` : '';
+	}
+
+	/**
 	 * Two levels of detail, as distinct MapKit annotation types (a MarkerAnnotation
 	 * is always a teardrop, so "far" can't just be a stripped-down marker):
 	 *  - close: MarkerAnnotation with the category glyph + adaptive name label
@@ -258,7 +271,8 @@
 				// Show the place name; MapKit hides it adaptively when crowded.
 				title: p.name,
 				titleVisibility: window.mapkit.FeatureVisibility.Adaptive,
-				subtitleVisibility: window.mapkit.FeatureVisibility.Hidden,
+				subtitle: recSubtitle(p.id),
+				subtitleVisibility: window.mapkit.FeatureVisibility.Adaptive,
 				callout: { calloutShouldAppearForAnnotation: () => false }
 			});
 		} else {
@@ -677,6 +691,9 @@
 				if (wantDetailed) {
 					existing.color = desiredColor;
 					existing.__curioColor = desiredColor;
+					// Rating a place drops it out of the recommendations, so the
+					// score label has to go with the colour change.
+					existing.subtitle = recSubtitle(p.id);
 				} else {
 					mapRef.removeAnnotation(existing);
 					placeAnnotations.delete(p.id);

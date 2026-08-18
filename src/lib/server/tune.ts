@@ -35,7 +35,8 @@ export const MATCH_WEIGHT = 1.0;
  *  stronger "you'll recognize/like it" signal than raw popularity. */
 export const POPULARITY_WEIGHT = 0.5;
 
-/** How many top twins the taste signal draws from (mirrors getRecommendedPlaces). */
+/** How many top twins the Tune taste signal draws from. Place recommendations
+ *  deliberately use every twin instead, so this is local to Tune. */
 export const TWIN_LIMIT = 20;
 
 /**
