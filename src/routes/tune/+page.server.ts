@@ -3,7 +3,9 @@ import { db } from '$lib/server/db';
 import { userLocation, type PlaceRelationKind } from '$lib/server/db/schema';
 import { getRelationMap } from '$lib/server/likes';
 import { type NearbyPlace } from '$lib/server/nearby';
-import { getSkippedExternalIds, getTuneQueue, NEGATIVE_AT_KM } from '$lib/server/tune';
+import { getScoredTuneQueue, getSkippedExternalIds, NEGATIVE_AT_KM } from '$lib/server/tune';
+import { isAdmin } from '$lib/server/admin';
+import type { TuneBreakdown } from '$lib/tune-breakdown';
 import type { PageServerLoad } from './$types';
 
 // Quick-rate flow: hand the client the places worth rating near the viewer
@@ -23,7 +25,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 		likedIds: [] as string[],
 		dislikedIds: [] as string[],
 		seenIds: [] as string[],
-		wantToGoIds: [] as string[]
+		wantToGoIds: [] as string[],
+		// Admin-only "why this showed" terms, keyed by place id. Empty for
+		// everyone else, so the scoring internals never reach a normal session.
+		tuneBreakdowns: {} as Record<string, TuneBreakdown>,
+		isAdmin: false
 	};
 
 	if (!locals.user) return { ...empty, signedIn: false as const };
@@ -41,11 +47,16 @@ export const load: PageServerLoad = async ({ locals }) => {
 	if (!loc) return { ...empty, signedIn: true as const };
 
 	// One relation lookup instead of four getPlaceIdsByKind round trips.
-	const [allNearby, relations, skippedExternalIds] = await Promise.all([
-		getTuneQueue(locals.user.id, loc.latitude, loc.longitude),
+	const [scored, relations, skippedExternalIds] = await Promise.all([
+		getScoredTuneQueue(locals.user.id, loc.latitude, loc.longitude),
 		getRelationMap(locals.user.id),
 		getSkippedExternalIds(locals.user.id)
 	]);
+	const allNearby = scored.map((s) => s.place);
+
+	const viewerIsAdmin = isAdmin(locals.user as { role?: string });
+	const tuneBreakdowns: Record<string, TuneBreakdown> = {};
+	if (viewerIsAdmin) for (const s of scored) tuneBreakdowns[s.place.id] = s.breakdown;
 	const idsOf = (kind: PlaceRelationKind) =>
 		Object.keys(relations).filter((id) => relations[id] === kind);
 
@@ -69,6 +80,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		dislikedIds: idsOf('disliked'),
 		seenIds: idsOf('seen'),
 		wantToGoIds: idsOf('want_to_go'),
+		tuneBreakdowns,
+		isAdmin: viewerIsAdmin,
 		signedIn: true as const
 	};
 };

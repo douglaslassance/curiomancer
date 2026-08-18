@@ -3,11 +3,13 @@ import { db } from './db';
 import { tuneSkip } from './db/schema';
 import { haversineKm, type NearbyPlace } from './nearby';
 import { tasteGraphCte } from './taste-graph';
+import type { TuneBreakdown } from '$lib/tune-breakdown';
 
 /**
- * Tune ranking knobs. These are documented + shown live in the admin Algorithm
- * page (/admin/codex), which imports them, so keep the names and the doc
- * comments meaningful. All tunable; calibrate against real data over time.
+ * Tune ranking knobs. Surfaced live in the admin-only "why this showed" panel
+ * under each Tune card, which reads them off the breakdown, so keep the names
+ * and the doc comments meaningful. All tunable; calibrate against real data
+ * over time.
  *
  * The score for a candidate place is:
  *
@@ -72,7 +74,14 @@ type TuneRow = {
 	created_at: Date;
 	distance_km: number;
 	taste_score: number;
+	twin_count: number;
 	like_count: number;
+};
+
+/** A queued place plus the terms that put it there, for the admin panel. */
+export type ScoredTunePlace = {
+	place: NearbyPlace;
+	breakdown: TuneBreakdown;
 };
 
 /**
@@ -90,16 +99,19 @@ type TuneRow = {
  * filters those and needs the full set to dedupe its Apple POI sweep); filtering
  * preserves the ranking, so the unrated queue stays in order.
  */
-export async function getTuneQueue(
+export async function getScoredTuneQueue(
 	userId: string,
 	lat: number,
 	lng: number
-): Promise<NearbyPlace[]> {
+): Promise<ScoredTunePlace[]> {
 	const distance = haversineKm(lat, lng, 'p.latitude', 'p.longitude');
 	const rows = await db.execute<TuneRow>(sql`
 		WITH ${tasteGraphCte(sql`${userId}`, TWIN_LIMIT)},
 		taste AS (
-			SELECT l.place_id, SUM(t.score)::float AS taste_score
+			SELECT
+				l.place_id,
+				SUM(t.score)::float AS taste_score,
+				COUNT(DISTINCT t.user_id)::int AS twin_count
 			FROM "place_relation" l
 			JOIN twins t ON t.user_id = l.user_id
 			WHERE l.kind = 'liked'
@@ -115,6 +127,7 @@ export async function getTuneQueue(
 			p.*,
 			${distance} AS distance_km,
 			COALESCE(tp.taste_score, 0) AS taste_score,
+			COALESCE(tp.twin_count, 0) AS twin_count,
 			COALESCE(pop.like_count, 0) AS like_count
 		FROM place p
 		LEFT JOIN taste tp ON tp.place_id = p.id
@@ -143,9 +156,13 @@ export async function getTuneQueue(
 	// (not Math.max(...spread)) so a large nearby set can't blow the call stack.
 	let maxTaste = 0;
 	let maxLogPop = 0;
+	// Kept alongside maxLogPop purely so the admin panel can say "the busiest
+	// place nearby has N likes" instead of quoting a log.
+	let maxLikeCount = 0;
 	for (const { r } of candidates) {
 		maxTaste = Math.max(maxTaste, Number(r.taste_score) || 0);
 		maxLogPop = Math.max(maxLogPop, Math.log1p(Number(r.like_count) || 0));
+		maxLikeCount = Math.max(maxLikeCount, Number(r.like_count) || 0);
 	}
 
 	const scored = candidates
@@ -153,15 +170,14 @@ export async function getTuneQueue(
 			// Signed: positive within NEGATIVE_AT_KM, negative beyond (not clamped).
 			const proximity = 1 - distanceKm / NEGATIVE_AT_KM;
 			const match = maxTaste > 0 ? (Number(r.taste_score) || 0) / maxTaste : 0;
-			const popularity =
-				maxLogPop > 0 ? Math.log1p(Number(r.like_count) || 0) / maxLogPop : 0;
+			const popularity = maxLogPop > 0 ? Math.log1p(Number(r.like_count) || 0) / maxLogPop : 0;
 			const score = proximity + MATCH_WEIGHT * match + POPULARITY_WEIGHT * popularity;
-			return { r, distanceKm, score };
+			return { r, distanceKm, proximity, match, popularity, score };
 		})
 		// Below zero = not worth rating (too far to overcome its signal). An empty
-		// queue is fine - the client then shows "come back later".
+		// queue is fine, the client then shows "come back later".
 		.filter(({ score }) => score > 0)
-		.map(({ r, distanceKm, score }) => {
+		.map(({ r, distanceKm, proximity, match, popularity, score }) => {
 			const place: NearbyPlace = {
 				id: r.id,
 				name: r.name,
@@ -176,10 +192,50 @@ export async function getTuneQueue(
 				createdAt: new Date(r.created_at),
 				distanceKm
 			};
-			return { place, score };
+			const breakdown: TuneBreakdown = {
+				score,
+				proximity,
+				match,
+				popularity,
+				matchContribution: MATCH_WEIGHT * match,
+				popularityContribution: POPULARITY_WEIGHT * popularity,
+				distanceKm,
+				tasteScore: Number(r.taste_score) || 0,
+				twinCount: Number(r.twin_count) || 0,
+				likeCount: Number(r.like_count) || 0,
+				maxTasteScore: maxTaste,
+				maxLikeCount,
+				// Filled in after the sort, once the final order is known.
+				rank: 0,
+				candidateCount: 0,
+				gatheredCount: candidates.length,
+				negativeAtKm: NEGATIVE_AT_KM,
+				maxDistanceKm: MAX_DISTANCE_KM,
+				matchWeight: MATCH_WEIGHT,
+				popularityWeight: POPULARITY_WEIGHT
+			};
+			return { place, breakdown };
 		});
 
-	scored.sort((a, b) => b.score - a.score);
+	scored.sort((a, b) => b.breakdown.score - a.breakdown.score);
+	scored.forEach((s, i) => {
+		s.breakdown.rank = i + 1;
+		s.breakdown.candidateCount = scored.length;
+	});
+	return scored;
+}
+
+/**
+ * The queue as the clients consume it, places only. Wraps
+ * `getScoredTuneQueue` so the ranking has exactly one definition and the admin
+ * panel can't drift from what the queue actually did.
+ */
+export async function getTuneQueue(
+	userId: string,
+	lat: number,
+	lng: number
+): Promise<NearbyPlace[]> {
+	const scored = await getScoredTuneQueue(userId, lat, lng);
 	return scored.map((s) => s.place);
 }
 

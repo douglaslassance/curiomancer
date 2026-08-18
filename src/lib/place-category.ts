@@ -25,8 +25,8 @@ export function categoryLabel(category: PlaceCategory): string {
 /**
  * The glyph for a category, matching the one its map pin carries (see
  * map-glyphs.ts, which draws the same shapes as raw path data because a pin is
- * an image, not a component). Kept here beside the labels so the filter chips
- * and the Codex can't drift on which icon means what.
+ * an image, not a component). Kept here beside the labels so every surface
+ * showing a category can't drift on which icon means what.
  */
 const ICONS: Record<PlaceCategory, Component> = {
 	eat: UtensilsCrossed,

@@ -17,6 +17,7 @@
 	import { googleMapsUrl } from '$lib/maps-link';
 	import { ensureMapKit } from '$lib/mapkit-client';
 	import PlaceMiniMap from '$lib/components/place-mini-map.svelte';
+	import TuneBreakdown from '$lib/components/tune-breakdown.svelte';
 	import { RELATION_COLOR } from '$lib/relation-colors';
 	import { mapAppleCategory, CURATED_CATEGORIES, type CuratedCategory } from '$lib/map-category';
 	import { categoryLabel } from '$lib/place-category';
@@ -110,6 +111,12 @@
 	let mapkitError = $state(false);
 	const current = $derived(queue[index] ?? null);
 	const mapsUrl = $derived(current ? googleMapsUrl(current) : null);
+	// Admin-only scoring terms for the card on screen. Only DB places carry one:
+	// a fresh Apple POI is swept in by the client and never went through the
+	// server's ranking, so there is nothing to break down.
+	const currentTune = $derived(
+		current?.placeId ? (data.tuneBreakdowns[current.placeId] ?? null) : null
+	);
 
 	// Place photos: resolved lazily per card (the venue website's preview image,
 	// via the Apple Place ID), cached by queue key and prefetched a couple ahead
@@ -469,6 +476,21 @@
 				<Button variant="outline" class="mt-3 h-12 w-full" onclick={skip}>Skip</Button>
 			</Card.Content>
 		</Card.Root>
+
+		{#if data.isAdmin}
+			{#if currentTune}
+				<TuneBreakdown tune={currentTune} name={current.name} />
+			{:else}
+				<div class="text-muted-foreground mt-4 rounded-xl border border-dashed p-4 text-sm">
+					<p class="text-foreground font-medium">Tune analysis</p>
+					<p class="mt-1">
+						This card is a fresh Apple POI swept in by the browser, so it never went through the
+						server's ranking and has no score to break down. Rate it and it enters the queue like
+						any other place.
+					</p>
+				</div>
+			{/if}
+		{/if}
 	{:else if loadingMore || (!exhausted && !mapkitError)}
 		<div class="text-muted-foreground rounded-xl border border-dashed py-12 text-center text-sm">
 			<Loader2 class="mx-auto size-5 animate-spin" />

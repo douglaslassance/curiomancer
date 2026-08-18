@@ -4,7 +4,6 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import {
 		BarChart3,
-		BookOpen,
 		ClipboardList,
 		KeyRound,
 		Mail,
@@ -16,12 +15,11 @@
 
 	const tabs = [
 		{ href: '/admin', label: 'Overview', icon: BarChart3 },
+		{ href: '/admin/metrics', label: 'Growth', icon: TrendingUp },
 		{ href: '/admin/users', label: 'Users', icon: Users },
 		{ href: '/admin/invites', label: 'Invites', icon: Mail },
 		{ href: '/admin/waitlist', label: 'Waitlist', icon: ClipboardList },
-		{ href: '/admin/tokens', label: 'Tokens', icon: KeyRound },
-		{ href: '/admin/metrics', label: 'Growth', icon: TrendingUp },
-		{ href: '/admin/codex', label: 'Codex', icon: BookOpen }
+		{ href: '/admin/tokens', label: 'Tokens', icon: KeyRound }
 	];
 
 	// Match the deepest tab whose href prefixes the current path so nested
