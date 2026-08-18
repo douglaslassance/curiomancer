@@ -66,8 +66,15 @@ export const actions: Actions = {
 			});
 		}
 
-		// The first user is always the platform admin.
-		await db.update(user).set({ role: 'admin' }).where(eq(user.email, email));
+		// The first user is always the platform admin, and is trusted as verified.
+		// Reaching this route means the database had zero users, which proves
+		// control of the deployment itself. That is a stronger claim than owning
+		// an inbox, so a verification round trip adds no security here, and it
+		// adds a one-way door: a fresh deploy usually has no email delivery
+		// configured yet, so the link goes nowhere, and this route will not reopen
+		// (the invariant is "no users, ever"). That leaves an admin who can never
+		// sign in, recoverable only by editing this row on the server by hand.
+		await db.update(user).set({ role: 'admin', emailVerified: true }).where(eq(user.email, email));
 
 		throw redirect(302, '/');
 	}

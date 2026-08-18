@@ -4,7 +4,9 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { env } from '$env/dynamic/private';
 import { getRequestEvent } from '$app/server';
+import { count } from 'drizzle-orm';
 import { db } from '$lib/server/db';
+import { user as userTable } from '$lib/server/db/schema';
 import {
 	sendChangeEmailVerificationEmail,
 	sendPasswordResetEmail,
@@ -51,6 +53,15 @@ export const auth = betterAuth({
 		sendOnSignIn: true,
 		autoSignInAfterVerification: true,
 		sendVerificationEmail: async ({ user, url }) => {
+			// /setup marks the very first account verified on creation (see the
+			// note there), so the "please verify" mail it would otherwise trigger
+			// is both redundant and contradictory. Being the only row in `user` is
+			// exactly what identifies that account: setup is the sole way to sign
+			// up without an invite, and an invite requires an existing inviter, so
+			// no other signup can ever be the first user.
+			const [{ value: userCount }] = await db.select({ value: count() }).from(userTable);
+			if (userCount === 1) return;
+
 			// A verification link for an already-verified user means they're
 			// confirming a NEW address for an email change: better-auth invokes this
 			// with the new email as `user.email` (see user.changeEmail below). An
