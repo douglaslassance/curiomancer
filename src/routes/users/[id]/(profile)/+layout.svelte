@@ -4,6 +4,7 @@
 	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button';
 	import * as Tabs from '$lib/components/ui/tabs';
+	import MatchBreakdown from '$lib/components/match-breakdown.svelte';
 	import AvatarMatch from '$lib/components/avatar-match.svelte';
 	import { PLAN_NAME } from '$lib/subscription';
 	import {
@@ -166,4 +167,10 @@
 	</Tabs.Root>
 
 	{@render children()}
+
+	{#if data.match}
+		<div class="mt-8">
+			<MatchBreakdown match={data.match} name={data.profile.name} />
+		</div>
+	{/if}
 </div>

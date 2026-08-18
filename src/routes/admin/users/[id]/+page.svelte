@@ -2,7 +2,6 @@
 	import { enhance } from '$app/forms';
 	import AvatarMatch from '$lib/components/avatar-match.svelte';
 	import LocationBubbleMap from '$lib/components/location-bubble-map.svelte';
-	import MatchBreakdown from '$lib/components/match-breakdown.svelte';
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -24,7 +23,7 @@
 	const u = $derived(data.user);
 	// Viewing your own profile: you can be granted nothing and can't demote
 	// yourself, which is what keeps at least one admin in place.
-	const isSelf = $derived(data.match.isSelf);
+	const isSelf = $derived(data.isSelf);
 
 	const dateFmt = new Intl.DateTimeFormat('en-US', {
 		year: 'numeric',
@@ -59,13 +58,7 @@
 			<div class="flex items-start gap-4">
 				<!-- Same ringed avatar the public profile uses, so the match reads
 				     identically in both places. -->
-				<AvatarMatch
-					name={u.name}
-					image={u.image}
-					score={data.match.isSelf ? null : data.match.score}
-					size={72}
-					showPercent
-				/>
+				<AvatarMatch name={u.name} image={u.image} score={data.matchScore} size={72} showPercent />
 				<div class="min-w-0 flex-1">
 					<Card.Title class="flex items-center gap-2">
 						{u.name}
@@ -332,6 +325,4 @@
 			{/if}
 		</Card.Content>
 	</Card.Root>
-
-	<MatchBreakdown match={data.match} name={u.name} />
 </div>

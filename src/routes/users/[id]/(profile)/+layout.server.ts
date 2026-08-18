@@ -10,7 +10,7 @@ import {
 	type PlaceRelationKind
 } from '$lib/server/db/schema';
 import { isBlocked } from '$lib/server/blocks';
-import { areTwins, getPairScore } from '$lib/server/matching';
+import { areTwins, getMatchBreakdown, getPairScore } from '$lib/server/matching';
 import { isAdmin } from '$lib/server/admin';
 import { isSubscriber } from '$lib/server/subscriptions';
 import type { LayoutServerLoad } from './$types';
@@ -160,5 +160,11 @@ export const load: LayoutServerLoad = async ({ params, locals }) => {
 		}
 	}
 
-	return { profile, location, likedPlaces, likedCount, viewer };
+	// Admin-only anatomy of the match, the sibling of the Tune queue's panel.
+	// Computed only for admins, so the scoring internals never reach a normal
+	// session, and null is what the layout keys the panel off.
+	const match =
+		locals.user && isAdmin(locals.user) ? await getMatchBreakdown(locals.user.id, params.id) : null;
+
+	return { profile, location, likedPlaces, likedCount, viewer, match };
 };

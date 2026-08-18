@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
-	import { ThumbsDown, ThumbsUp } from '@lucide/svelte';
+	import { Shield, ThumbsDown, ThumbsUp } from '@lucide/svelte';
 	import { categoryLabel } from '$lib/place-category';
 	import type { MatchBreakdown } from '$lib/match-breakdown';
 
@@ -139,7 +139,12 @@
 
 <Card.Root>
 	<Card.Header>
-		<Card.Title>Match analysis</Card.Title>
+		<!-- The same Shield the nav and the user admin badge use, since this panel
+		     now sits on a profile any signed-in user can reach. -->
+		<Card.Title class="flex items-center gap-2">
+			<Shield class="text-muted-foreground size-4" />
+			Match analysis
+		</Card.Title>
 		<Card.Description>
 			{#if match.isSelf}
 				There is no pair to score on your own account.

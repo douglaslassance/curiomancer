@@ -1,12 +1,12 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { eq, sql } from 'drizzle-orm';
 import { dev } from '$app/environment';
+import { getPairScore } from '$lib/server/matching';
 import { db } from '$lib/server/db';
 import { user as userTable } from '$lib/server/db/schema';
 import { auth } from '$lib/server/auth';
 import { isAdmin } from '$lib/server/admin';
 import { grantSubscription, revokeSubscription } from '$lib/server/subscriptions';
-import { getMatchBreakdown } from '$lib/server/matching';
 import type { Actions, PageServerLoad } from './$types';
 
 export type AdminUserDetail = {
@@ -126,11 +126,19 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		subscriptionStatus: row.subscription_status ?? 'free'
 	};
 
+	// The match anatomy lives on the public profile now. This page still needs
+	// two facts from the pair: whether it is you (you cannot demote yourself,
+	// which is what keeps at least one admin standing) and the score for the
+	// avatar ring.
+	const isSelf = locals.user!.id === params.id;
+	const pair = isSelf ? null : await getPairScore(locals.user!.id, params.id);
+
 	// Impersonation is a real auth-bypass, so it only renders (and runs) in dev.
 	return {
+		isSelf,
+		matchScore: pair?.score ?? null,
 		user,
 		ratingLocations,
-		match: await getMatchBreakdown(locals.user!.id, params.id),
 		canImpersonate: dev
 	};
 };
