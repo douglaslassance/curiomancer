@@ -1,7 +1,6 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import { eq, sql } from 'drizzle-orm';
 import { dev } from '$app/environment';
-import { getPairScore } from '$lib/server/matching';
 import { db } from '$lib/server/db';
 import { user as userTable } from '$lib/server/db/schema';
 import { auth } from '$lib/server/auth';
@@ -83,24 +82,20 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 
 	if (!row) throw error(404, 'User not found.');
 
-	// Bubbles, not pins: coordinates are rounded to a tenth of a degree (~11km)
-	// so a metro area collapses into a handful of circles that answer "where has
-	// this person rated" rather than "which venue is this".
-	const ratingLocations = await db.execute<{
-		latitude: number;
-		longitude: number;
+	// Grouped by city rather than plotted: "which cities does this person rate in"
+	// is the question a moderator actually has, and a ranked list answers it at a
+	// glance where a bubble map made you estimate circle areas. Every city is
+	// returned, not a top-N, so the tail is never silently dropped.
+	const ratingCities = await db.execute<{
+		city: string;
 		count: number;
 	}>(sql`
-		SELECT
-			round(p.latitude::numeric, 1)::double precision AS latitude,
-			round(p.longitude::numeric, 1)::double precision AS longitude,
-			COUNT(*)::int AS count
+		SELECT p.city AS city, COUNT(*)::int AS count
 		FROM place_relation pr
 		JOIN place p ON p.id = pr.place_id
 		WHERE pr.user_id = ${params.id}
-			AND p.latitude IS NOT NULL
-			AND p.longitude IS NOT NULL
-		GROUP BY 1, 2
+		GROUP BY p.city
+		ORDER BY count DESC, p.city ASC
 	`);
 
 	const user: AdminUserDetail = {
@@ -126,19 +121,16 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		subscriptionStatus: row.subscription_status ?? 'free'
 	};
 
-	// The match anatomy lives on the public profile now. This page still needs
-	// two facts from the pair: whether it is you (you cannot demote yourself,
-	// which is what keeps at least one admin standing) and the score for the
-	// avatar ring.
+	// You cannot demote yourself, which is what keeps at least one admin standing.
+	// That is the only thing this page needs from the pair now: the score and its
+	// anatomy both live on the public profile.
 	const isSelf = locals.user!.id === params.id;
-	const pair = isSelf ? null : await getPairScore(locals.user!.id, params.id);
 
 	// Impersonation is a real auth-bypass, so it only renders (and runs) in dev.
 	return {
 		isSelf,
-		matchScore: pair?.score ?? null,
 		user,
-		ratingLocations,
+		ratingCities,
 		canImpersonate: dev
 	};
 };

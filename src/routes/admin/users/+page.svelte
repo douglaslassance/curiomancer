@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import UserPortrait from '$lib/components/user-portrait.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Input } from '$lib/components/ui/input';
 	import { Check, Gift, Search, ThumbsUp } from '@lucide/svelte';
@@ -12,11 +13,6 @@
 		month: 'short',
 		day: 'numeric'
 	});
-
-	/** Same clamp the avatar ring uses: negative similarity reads as 0%. */
-	function matchPct(score: number | null) {
-		return score === null ? null : Math.max(0, Math.min(100, Math.round(score * 100)));
-	}
 
 	let query = $state('');
 	const filteredUsers = $derived.by(() => {
@@ -45,6 +41,7 @@
 		<table class="w-full text-sm">
 			<thead class="border-b">
 				<tr class="text-muted-foreground text-left text-xs uppercase tracking-wide">
+					<th class="w-11 p-0"><span class="sr-only">Photo</span></th>
 					<th class="px-4 py-3 font-medium">Name</th>
 					<th class="px-4 py-3 font-medium">Email</th>
 					<th class="px-4 py-3 font-medium">Joined</th>
@@ -52,7 +49,6 @@
 					<th class="px-4 py-3 text-right font-medium">
 						<ThumbsUp class="ml-auto size-3.5" />
 					</th>
-					<th class="px-4 py-3 text-right font-medium">Match</th>
 					<th class="px-4 py-3 text-right font-medium">Subscription</th>
 				</tr>
 			</thead>
@@ -62,11 +58,20 @@
 						class="hover:bg-accent/40 cursor-pointer border-b last:border-b-0"
 						onclick={() => goto(`/admin/users/${u.id}`)}
 					>
+						<!-- Its own zero-padding column, so the portrait sits flush to the row
+						     edge AND the Name header still lines up over the names. A concrete
+						     44px sets the row height: an h-full child of a td needs the h-px
+						     trick to resolve its percentage, which collapsed to nothing here. -->
+						<td class="w-11 p-0">
+							<UserPortrait name={u.name} image={u.image} size={44} radius="rounded-none" />
+						</td>
 						<td class="px-4 py-3">
-							<span class="font-medium">{u.name}</span>
-							{#if u.role === 'admin'}
-								<Badge class="ml-1">Admin</Badge>
-							{/if}
+							<div class="flex items-center gap-2">
+								<span class="font-medium">{u.name}</span>
+								{#if u.role === 'admin'}
+									<Badge>Admin</Badge>
+								{/if}
+							</div>
 						</td>
 						<td class="text-muted-foreground px-4 py-3 text-xs">{u.email}</td>
 						<td class="text-muted-foreground px-4 py-3 text-xs tabular-nums">
@@ -74,15 +79,6 @@
 						</td>
 						<td class="text-muted-foreground px-4 py-3 text-xs">{u.city ?? '-'}</td>
 						<td class="px-4 py-3 text-right tabular-nums">{u.likes}</td>
-						<td class="px-4 py-3 text-right tabular-nums">
-							{#if matchPct(u.matchScore) === null}
-								<span class="text-muted-foreground text-xs">-</span>
-							{:else}
-								<span title="{u.sharedCount} shared {u.sharedCount === 1 ? 'place' : 'places'}">
-									{matchPct(u.matchScore)}%
-								</span>
-							{/if}
-						</td>
 						<td class="px-4 py-3 text-right">
 							{#if u.subscriptionStatus === 'active'}
 								<Badge variant="secondary" class="gap-1">

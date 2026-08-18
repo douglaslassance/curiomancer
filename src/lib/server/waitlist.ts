@@ -39,33 +39,25 @@ export async function joinWaitlist(emailRaw: unknown, cityRaw: unknown): Promise
 	return { ok: true, email };
 }
 
-export type WaitlistLocation = { latitude: number; longitude: number; count: number };
-
-export type WaitlistStats = { total: number; locations: WaitlistLocation[] };
+export type WaitlistStats = { total: number; cities: { city: string; count: number }[] };
 
 /**
- * Total waitlist size plus a bubble-map dataset: coordinates rounded to ~1km
- * (3 decimal places) and grouped, so nearby geocodes of the same city collapse
- * into one bubble instead of a cluster of overlapping ones.
+ * Total waitlist size plus signups grouped by city, ranked. Answers "where is
+ * demand coming from" without asking anyone to compare circles on a map.
  */
 export async function getWaitlistStats(): Promise<WaitlistStats> {
-	// `numeric` comes back from postgres.js as a string, so round through it
-	// for precision and cast back to `double precision` for a real JS number.
-	const roundedLat = sql<number>`round(${waitlist.latitude}::numeric, 3)::double precision`;
-	const roundedLng = sql<number>`round(${waitlist.longitude}::numeric, 3)::double precision`;
-
-	const [[{ count: total }], locations] = await Promise.all([
+	// By city, matching the user stats. Waitlist rows carry no country code, only
+	// the city someone typed, so there is nothing coarser to roll up to.
+	const [[{ count: total }], cities] = await Promise.all([
 		db.select({ count: sql<number>`count(*)::int` }).from(waitlist),
 		db
-			.select({
-				latitude: roundedLat,
-				longitude: roundedLng,
-				count: sql<number>`count(*)::int`
-			})
+			// The where-clause below rules out null/empty, which drizzle cannot infer.
+			.select({ city: sql<string>`${waitlist.city}`, count: sql<number>`count(*)::int` })
 			.from(waitlist)
-			.where(sql`${waitlist.latitude} is not null and ${waitlist.longitude} is not null`)
-			.groupBy(roundedLat, roundedLng)
+			.where(sql`${waitlist.city} is not null and ${waitlist.city} <> ''`)
+			.groupBy(waitlist.city)
+			.orderBy(sql`count(*) desc, ${waitlist.city} asc`)
 	]);
 
-	return { total, locations };
+	return { total, cities };
 }

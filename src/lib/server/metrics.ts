@@ -271,31 +271,30 @@ export async function snapshotActiveUsers(): Promise<{
 	};
 }
 
-export type UserLocationPoint = { latitude: number; longitude: number; count: number };
-export type UserLocationStats = { total: number; locations: UserLocationPoint[] };
+export type UserLocationStats = {
+	total: number;
+	cities: { city: string; countryCode: string | null; count: number }[];
+};
 
 /**
- * Total user count plus a bubble-map dataset of `user_location` rows:
- * coordinates rounded to ~1km (3 decimal places) and grouped, so nearby users
- * in the same city collapse into one bubble instead of a cluster of
- * overlapping ones. `total` counts every user, not just those with a
- * location, matching the headline count shown elsewhere in the admin panel.
+ * Total user count plus users grouped by city, ranked most-populous first.
  */
 export async function getUserLocationStats(): Promise<UserLocationStats> {
-	const roundedLat = sql<number>`round(${userLocation.latitude}::numeric, 3)::double precision`;
-	const roundedLng = sql<number>`round(${userLocation.longitude}::numeric, 3)::double precision`;
-
-	const [[{ count: total }], locations] = await Promise.all([
+	// Grouped by city rather than plotted: "where are our users" is answered
+	// faster by a ranked list than by comparing circle areas on a world map. The
+	// country code rides along in the label, since user_location carries one.
+	const [[{ count: total }], cities] = await Promise.all([
 		db.select({ count: sql<number>`count(*)::int` }).from(user),
 		db
 			.select({
-				latitude: roundedLat,
-				longitude: roundedLng,
+				city: userLocation.city,
+				countryCode: userLocation.countryCode,
 				count: sql<number>`count(*)::int`
 			})
 			.from(userLocation)
-			.groupBy(roundedLat, roundedLng)
+			.groupBy(userLocation.city, userLocation.countryCode)
+			.orderBy(sql`count(*) desc, ${userLocation.city} asc`)
 	]);
 
-	return { total, locations };
+	return { total, cities };
 }

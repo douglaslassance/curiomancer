@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Bookmark, Eye, ThumbsDown, ThumbsUp } from '@lucide/svelte';
 	import * as Card from '$lib/components/ui/card';
-	import LocationBubbleMap from '$lib/components/location-bubble-map.svelte';
+	import RankBars from '$lib/components/rank-bars.svelte';
 
 	let { data } = $props();
 	const s = $derived(data.stats);
@@ -52,10 +52,14 @@
 				{s.admins} admin{s.admins === 1 ? '' : 's'}
 			</p>
 		</div>
-		<div class="h-48 sm:flex-1">
-			<LocationBubbleMap
-				locations={data.userLocationStats.locations}
-				tooltipLabel={(n) => `${n} ${n === 1 ? 'user' : 'users'}`}
+		<div class="min-w-0 sm:flex-1">
+			<RankBars
+				items={data.userLocationStats.cities.map((c) => ({
+					label: c.countryCode ? `${c.city}, ${c.countryCode}` : c.city,
+					count: c.count
+				}))}
+				max={6}
+				empty="No user locations yet."
 			/>
 		</div>
 	</div>
@@ -68,10 +72,11 @@
 				{data.waitlistStats.total === 1 ? 'person' : 'people'} on the waitlist
 			</p>
 		</div>
-		<div class="h-48 sm:flex-1">
-			<LocationBubbleMap
-				locations={data.waitlistStats.locations}
-				tooltipLabel={(n) => `${n} ${n === 1 ? 'person' : 'people'} on the waitlist`}
+		<div class="min-w-0 sm:flex-1">
+			<RankBars
+				items={data.waitlistStats.cities.map((c) => ({ label: c.city, count: c.count }))}
+				max={6}
+				empty="No waitlist cities yet."
 			/>
 		</div>
 	</div>

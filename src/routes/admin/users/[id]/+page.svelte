@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import AvatarMatch from '$lib/components/avatar-match.svelte';
-	import LocationBubbleMap from '$lib/components/location-bubble-map.svelte';
+	import UserPortrait from '$lib/components/user-portrait.svelte';
+	import RankBars from '$lib/components/rank-bars.svelte';
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -42,10 +42,9 @@
 		{ label: 'Been there', value: u.seen }
 	]);
 
-	const totalRatings = $derived(u.likes + u.dislikes + u.wantToGo + u.seen);
 	// Ratings on places we never got coordinates for (old manual entries) can't
 	// be plotted, so say how many made it onto the map.
-	const mappedRatings = $derived(data.ratingLocations.reduce((sum, l) => sum + l.count, 0));
+	const cityRatings = $derived(data.ratingCities.reduce((sum, c) => sum + c.count, 0));
 </script>
 
 <svelte:head>
@@ -53,12 +52,17 @@
 </svelte:head>
 
 <div class="space-y-6">
-	<Card.Root>
-		<Card.Header>
-			<div class="flex items-start gap-4">
-				<!-- Same ringed avatar the public profile uses, so the match reads
-				     identically in both places. -->
-				<AvatarMatch name={u.name} image={u.image} score={data.matchScore} size={72} showPercent />
+	<!-- py-0 so the portrait reaches both the top and bottom edges: Card.Root
+	     ships py-4, and horizontal padding comes from Card.Header, which this
+	     header replaces with its own flush row. This card holds nothing but the
+	     header, so the portrait spans its full height and rounds both left
+	     corners. -->
+	<Card.Root class="py-0">
+		<div class="flex min-h-32 items-stretch">
+			<div class="w-32 shrink-0">
+				<UserPortrait name={u.name} image={u.image} radius="rounded-l-xl" fill />
+			</div>
+			<div class="flex min-w-0 flex-1 items-start gap-4 px-6 pt-4">
 				<div class="min-w-0 flex-1">
 					<Card.Title class="flex items-center gap-2">
 						{u.name}
@@ -66,15 +70,23 @@
 							<Badge>Admin</Badge>
 						{/if}
 					</Card.Title>
-					<Card.Description class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-						<span class="flex items-center gap-1"><Mail class="size-3" />{u.email}</span>
-						{#if u.city}
-							<span class="flex items-center gap-1">
-								<MapPin class="size-3" />
-								{u.city}{u.countryCode ? `, ${u.countryCode}` : ''}
-							</span>
-						{/if}
-						<span>Joined {dateFmt.format(u.createdAt)}</span>
+					<!-- Two rows rather than one wrapping line. The email is long enough to
+					     crowd everything else onto the card edge, and it is the field most
+					     likely to need the full width, so it gets its own line. -->
+					<Card.Description class="mt-1 flex flex-col gap-1 text-xs">
+						<span class="flex min-w-0 items-center gap-1">
+							<Mail class="size-3 shrink-0" />
+							<span class="truncate">{u.email}</span>
+						</span>
+						<span class="flex flex-wrap items-center gap-x-3 gap-y-1">
+							{#if u.city}
+								<span class="flex items-center gap-1">
+									<MapPin class="size-3 shrink-0" />
+									{u.city}{u.countryCode ? `, ${u.countryCode}` : ''}
+								</span>
+							{/if}
+							<span>Joined {dateFmt.format(u.createdAt)}</span>
+						</span>
 					</Card.Description>
 				</div>
 				<Button href={`/users/${u.id}`} size="sm" variant="outline">
@@ -82,8 +94,13 @@
 					<ExternalLink class="size-3.5" />
 				</Button>
 			</div>
-		</Card.Header>
+		</div>
+	</Card.Root>
 
+	<!-- Everything below is its own card. A portrait running flush to the edges
+	     needs the card to end where it ends, otherwise the header has no outline
+	     of its own and the image reads as floating above unrelated content. -->
+	<Card.Root>
 		<Card.Content class="space-y-4">
 			<!-- Taste stats -->
 			<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -302,27 +319,17 @@
 		<Card.Header>
 			<Card.Title>Where they rate</Card.Title>
 			<Card.Description>
-				{#if mappedRatings === totalRatings}
-					{mappedRatings}
-					{mappedRatings === 1 ? 'rating' : 'ratings'}, grouped by area. Bigger circles mean more
-					ratings.
-				{:else}
-					{mappedRatings} of {totalRatings} ratings have coordinates, grouped by area. Bigger circles
-					mean more ratings.
-				{/if}
+				{cityRatings}
+				{cityRatings === 1 ? 'rating' : 'ratings'} across {data.ratingCities.length}
+				{data.ratingCities.length === 1 ? 'city' : 'cities'}, most rated first.
 			</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			{#if data.ratingLocations.length > 0}
-				<div class="h-72">
-					<LocationBubbleMap
-						locations={data.ratingLocations}
-						tooltipLabel={(n) => `${n} ${n === 1 ? 'rating' : 'ratings'}`}
-					/>
-				</div>
-			{:else}
-				<p class="text-muted-foreground text-sm">No rated places to map yet.</p>
-			{/if}
+			<RankBars
+				items={data.ratingCities.map((c) => ({ label: c.city, count: c.count }))}
+				max={10}
+				empty="No rated places yet."
+			/>
 		</Card.Content>
 	</Card.Root>
 </div>
