@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Shield } from '@lucide/svelte';
 	import type { TuneBreakdown } from '$lib/tune-breakdown';
 
 	/**
@@ -89,7 +90,9 @@
 			);
 		}
 		if (tune.twinCount === 0 && tune.likeCount === 0) {
-			parts.push('nothing but proximity is carrying it, so it would drop out from any further away');
+			parts.push(
+				'nothing but proximity is carrying it, so it would drop out from any further away'
+			);
 		}
 		if (tune.match === 1 && tune.maxTasteScore > 0) {
 			parts.push('it holds the strongest taste signal of anything gathered this round');
@@ -100,8 +103,13 @@
 
 <Card.Root class="mt-4">
 	<Card.Header>
-		<Card.Title>Tune analysis</Card.Title>
-		<Card.Description>Why this card, and why here in the queue. Admin only.</Card.Description>
+		<!-- The same Shield the nav and the user admin badge use, since this panel
+		     sits on a page every signed-in user sees. -->
+		<Card.Title class="flex items-center gap-2">
+			<Shield class="text-muted-foreground size-4" />
+			Tune analysis
+		</Card.Title>
+		<Card.Description>Why this card, and why here in the queue.</Card.Description>
 	</Card.Header>
 
 	<Card.Content class="min-w-0 space-y-5">

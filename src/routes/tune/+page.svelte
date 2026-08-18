@@ -10,6 +10,7 @@
 		Eye,
 		Loader2,
 		MapPin,
+		Shield,
 		ThumbsDown,
 		ThumbsUp
 	} from '@lucide/svelte';
@@ -29,8 +30,7 @@
 	// university, a hospital) is rate-able on the map but never queued here -
 	// the server filters it out, and isCurated keeps the client honest too.
 	type Cat = CuratedCategory;
-	const isCurated = (c: string): c is Cat =>
-		(CURATED_CATEGORIES as readonly string[]).includes(c);
+	const isCurated = (c: string): c is Cat => (CURATED_CATEGORIES as readonly string[]).includes(c);
 	type RateItem = {
 		key: string;
 		name: string;
@@ -482,7 +482,10 @@
 				<TuneBreakdown tune={currentTune} name={current.name} />
 			{:else}
 				<div class="text-muted-foreground mt-4 rounded-xl border border-dashed p-4 text-sm">
-					<p class="text-foreground font-medium">Tune analysis</p>
+					<p class="text-foreground flex items-center gap-2 font-medium">
+						<Shield class="text-muted-foreground size-4" />
+						Tune analysis
+					</p>
 					<p class="mt-1">
 						This card is a fresh Apple POI swept in by the browser, so it never went through the
 						server's ranking and has no score to break down. Rate it and it enters the queue like
