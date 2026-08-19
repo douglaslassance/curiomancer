@@ -84,18 +84,14 @@
 </script>
 
 <div>
-	<!-- Header: portrait, identity, grouped actions. The portrait runs flush to
-	     the card's left edge and fills its height, the same way a twin card and a
-	     place thumbnail do, so the padding belongs to the text rather than
-	     wrapping the image too. The match score frames the whole header instead
-	     of ringing the portrait, which is why the portrait carries no score. -->
-	<header class="relative mb-8 flex min-h-40 items-stretch rounded-xl border">
+	<!-- Header: portrait, identity, grouped actions. The match score frames the
+	     whole header rather than ringing the portrait, which is why the portrait
+	     carries no score of its own. -->
+	<header class="relative mb-8 flex items-start gap-5 rounded-xl border p-5">
 		<ScoreBorder score={data.viewer && !data.viewer.isSelf ? data.viewer.score : null} />
-		<div class="w-40 shrink-0">
-			<UserPortrait name={profile.name} image={profile.image} radius="rounded-l-xl" fill />
-		</div>
+		<UserPortrait name={profile.name} image={profile.image} size={104} />
 
-		<div class="flex min-w-0 flex-1 items-start gap-4 p-5">
+		<div class="flex min-w-0 flex-1 items-start gap-4">
 			<div class="min-w-0 flex-1">
 				<h1 class="text-2xl font-semibold tracking-tight">{profile.name}</h1>
 				{#if data.location}

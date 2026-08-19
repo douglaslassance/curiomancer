@@ -41,7 +41,6 @@
 		<table class="w-full text-sm">
 			<thead class="border-b">
 				<tr class="text-muted-foreground text-left text-xs uppercase tracking-wide">
-					<th class="w-11 p-0"><span class="sr-only">Photo</span></th>
 					<th class="px-4 py-3 font-medium">Name</th>
 					<th class="px-4 py-3 font-medium">Email</th>
 					<th class="px-4 py-3 font-medium">Joined</th>
@@ -58,15 +57,9 @@
 						class="hover:bg-accent/40 cursor-pointer border-b last:border-b-0"
 						onclick={() => goto(`/admin/users/${u.id}`)}
 					>
-						<!-- Its own zero-padding column, so the portrait sits flush to the row
-						     edge AND the Name header still lines up over the names. A concrete
-						     44px sets the row height: an h-full child of a td needs the h-px
-						     trick to resolve its percentage, which collapsed to nothing here. -->
-						<td class="w-11 p-0">
-							<UserPortrait name={u.name} image={u.image} size={44} radius="rounded-none" />
-						</td>
 						<td class="px-4 py-3">
 							<div class="flex items-center gap-2">
+								<UserPortrait name={u.name} image={u.image} size={28} />
 								<span class="font-medium">{u.name}</span>
 								{#if u.role === 'admin'}
 									<Badge>Admin</Badge>
@@ -97,7 +90,7 @@
 					</tr>
 				{:else}
 					<tr>
-						<td colspan="7" class="text-muted-foreground py-8 text-center">
+						<td colspan="6" class="text-muted-foreground py-8 text-center">
 							{data.users.length === 0 ? 'No users.' : 'No users match your search.'}
 						</td>
 					</tr>

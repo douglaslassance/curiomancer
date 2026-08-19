@@ -52,17 +52,10 @@
 </svelte:head>
 
 <div class="space-y-6">
-	<!-- py-0 so the portrait reaches both the top and bottom edges: Card.Root
-	     ships py-4, and horizontal padding comes from Card.Header, which this
-	     header replaces with its own flush row. This card holds nothing but the
-	     header, so the portrait spans its full height and rounds both left
-	     corners. -->
-	<Card.Root class="py-0">
-		<div class="flex min-h-32 items-stretch">
-			<div class="w-32 shrink-0">
-				<UserPortrait name={u.name} image={u.image} radius="rounded-l-xl" fill />
-			</div>
-			<div class="flex min-w-0 flex-1 items-start gap-4 px-6 pt-4">
+	<Card.Root>
+		<div class="flex items-start gap-4 px-6">
+			<UserPortrait name={u.name} image={u.image} size={72} />
+			<div class="flex min-w-0 flex-1 items-start gap-4">
 				<div class="min-w-0 flex-1">
 					<Card.Title class="flex items-center gap-2">
 						{u.name}

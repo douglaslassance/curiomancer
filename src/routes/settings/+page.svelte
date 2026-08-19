@@ -238,15 +238,6 @@
 		}
 	}
 
-	const initials = $derived(
-		data.profile.name
-			.split(/\s+/)
-			.filter(Boolean)
-			.slice(0, 2)
-			.map((s: string) => s[0]?.toUpperCase() ?? '')
-			.join('') || '?'
-	);
-
 	const incognito = $derived(form?.incognito ?? data.profile.incognito);
 	let incognitoForm: HTMLFormElement | undefined;
 </script>
@@ -268,7 +259,7 @@
 				>
 					<UserPortrait name={data.profile.name} image={data.profile.image} size={56} />
 					<span
-						class="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100 {avatarBusy
+						class="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 text-white opacity-0 transition-opacity group-hover:opacity-100 {avatarBusy
 							? 'opacity-100'
 							: ''}"
 					>
@@ -626,12 +617,6 @@
 							{#each data.blockedUsers as blocked (blocked.id)}
 								<div class="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
 									<div class="flex min-w-0 items-center gap-2">
-										<UserPortrait
-											name={blocked.name}
-											image={blocked.image}
-											size={24}
-											radius="rounded"
-										/>
 										<span class="truncate text-sm">{blocked.name}</span>
 									</div>
 									<form method="post" action="?/unblockUser" use:enhance>
